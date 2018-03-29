@@ -1,4 +1,6 @@
-export const SectionType = {
+"use strict";
+
+const SectionType = {
 	/**
 	 * The modules are assumed to exist already in the loading environment.
 	 */
@@ -16,23 +18,11 @@ export const SectionType = {
 	Preload: "preload",
 
 	/**
-	 * Content information for another bundle is written.
-	 * Requires UI5 version 1.74.0 which adds runtime support for the 'bundles' and 'bundlesUI5'
-	 * ui5loader configuration.
-	 */
-	BundleInfo: "bundleInfo",
-
-	/**
-	 * For each module, a require call will be created.
+	 * For each module, a jQuery.sap.require call will be created.
 	 * Usually used as the last section in a merged module to enforce loading and
 	 * execution of some specific module or modules.
 	 */
-	Require: "require",
-
-	/**
-	 * Dependency cache information that lists modules and their dependencies
-	 * of all types: JS, declarative views/fragments.
-	 * Only the dependencies of the modules are stored as 'depCache' configuration.
-	 */
-	DepCache: "depCache"
+	Require: "require"
 };
+
+module.exports.SectionType = SectionType;

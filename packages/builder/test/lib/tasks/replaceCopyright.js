@@ -1,13 +1,16 @@
-import test from "ava";
-import replaceCopyright from "../../../lib/tasks/replaceCopyright.js";
-import {createAdapter, createResource} from "@ui5/fs/resourceFactory";
-import DuplexCollection from "@ui5/fs/DuplexCollection";
+const {test} = require("ava");
 
-test("integration: replace copyright", async (t) => {
-	const reader = createAdapter({
+const ui5Builder = require("../../../");
+const tasks = ui5Builder.builder.tasks;
+const ui5Fs = require("@ui5/fs");
+const resourceFactory = ui5Fs.resourceFactory;
+const DuplexCollection = ui5Fs.DuplexCollection;
+
+test("test.js: replace ${copyright}", (t) => {
+	const reader = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
-	const writer = createAdapter({
+	const writer = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
 	const workspace = new DuplexCollection({reader, writer});
@@ -31,36 +34,38 @@ console.log('HelloWorld');`;
  */
 console.log('HelloWorld');`;
 
-	const resource = createResource({
+	const resource = resourceFactory.createResource({
 		path: "/test.js",
 		string: content
 	});
 
-	await workspace.write(resource);
-
-	await replaceCopyright({
-		workspace,
-		options: {
-			copyright: copyright,
-			pattern: "/**/*.js"
-		}
+	return workspace.write(resource).then(() => {
+		return tasks.replaceCopyright({
+			workspace,
+			options: {
+				copyright: copyright,
+				pattern: "/**/*.js"
+			}
+		}).then(() => {
+			return writer.byPath("/test.js").then((resource) => {
+				if (!resource) {
+					t.fail("Could not find /test.js in target");
+				} else {
+					return resource.getString();
+				}
+			});
+		}).then((result) => {
+			return t.deepEqual(result, expected);
+		});
 	});
-
-	const transformedResource = await writer.byPath("/test.js");
-
-	if (!transformedResource) {
-		t.fail("Could not find /test.js in target");
-	} else {
-		t.deepEqual(await transformedResource.getString(), expected);
-	}
 });
 
 
-test("test.xml: replace @copyright@", async (t) => {
-	const reader = createAdapter({
+test("test.xml: replace @copyright@", (t) => {
+	const reader = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
-	const writer = createAdapter({
+	const writer = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
 	const workspace = new DuplexCollection({reader, writer});
@@ -81,24 +86,28 @@ test("test.xml: replace @copyright@", async (t) => {
  -->
 <xml></xml>`;
 
-	const resource = createResource({
+	const resource = resourceFactory.createResource({
 		path: "/test.xml",
 		string: content
 	});
 
-	await reader.write(resource);
-	await replaceCopyright({
-		workspace,
-		options: {
-			pattern: "/**/*.xml",
-			copyright: copyright
-		}
+	return reader.write(resource).then(() => {
+		return tasks.replaceCopyright({
+			workspace,
+			options: {
+				pattern: "/**/*.xml",
+				copyright: copyright
+			}
+		}).then(() => {
+			return writer.byPath("/test.xml").then((resource) => {
+				if (!resource) {
+					t.fail("Could not find /test.xml in target");
+				} else {
+					return resource.getString();
+				}
+			});
+		}).then((result) => {
+			return t.deepEqual(result, expected);
+		});
 	});
-	const transformedResource = await writer.byPath("/test.xml");
-
-	if (!transformedResource) {
-		t.fail("Could not find /test.xml in target");
-	} else {
-		t.deepEqual(await transformedResource.getString(), expected);
-	}
 });
