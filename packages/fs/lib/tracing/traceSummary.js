@@ -1,8 +1,5 @@
-import {getLogger} from "@ui5/logger";
-const log = getLogger("resources:tracing:total");
-
-import prettyHrtime from "pretty-hrtime";
-const hasOwnProperty = Object.prototype.hasOwnProperty;
+const log = require("@ui5/logger").getLogger("resources:tracing:total");
+const prettyHrtime = require("pretty-hrtime");
 let timeoutId;
 let active = false;
 let tracesRunning = 0;
@@ -26,33 +23,30 @@ function reset() {
 
 function report() {
 	let report = "";
-	const time = prettyHrtime(traceData.timeDiff);
-	const colCount = Object.keys(traceData.collections).length;
+	let time = prettyHrtime(traceData.timeDiff);
+	let colCount = Object.keys(traceData.collections).length;
 
 	report += "==========================\n[=> TRACE SUMMARY:\n";
 	report += `  ${time} elapsed time \n`;
 	report += `  ${traceData.traceCalls} trace calls \n`;
 	if (traceData.globCalls) {
-		report += `  ${traceData.globCalls} glob executions\n`;
+		report += `  ${traceData.globCalls} GLOB executions\n`;
 	}
 	if (traceData.pathCalls) {
 		report += `  ${traceData.pathCalls} path stats\n`;
 	}
 	report += `  ${colCount} rl-collections involed:\n`;
 
-	for (const coll in traceData.collections) {
-		if (hasOwnProperty.call(traceData.collections, coll)) {
+	for (let coll in traceData.collections) {
+		if (traceData.collections.hasOwnProperty(coll)) {
 			report += `      ${traceData.collections[coll].calls}x ${coll}\n`;
 		}
 	}
 	report += "======================]";
-	log.silly(report);
+	log.verbose(report);
 }
 
 function someTraceStarted() {
-	if (!log.isLevelEnabled("silly")) {
-		return;
-	}
 	if (!traceData) {
 		init();
 	}
@@ -65,27 +59,19 @@ function someTraceStarted() {
 }
 
 function someTraceEnded() {
-	return new Promise(function(resolve, reject) {
-		if (!active) {
-			resolve();
-			return;
-		}
-		tracesRunning--;
-		if (tracesRunning > 0) {
-			resolve();
-			return;
-		}
+	tracesRunning--;
+	if (tracesRunning > 0) {
+		return;
+	}
 
-		if (timeoutId) {
-			clearTimeout(timeoutId);
-		}
-		traceData.timeDiff = process.hrtime(traceData.startTime);
-		timeoutId = setTimeout(function() {
-			report();
-			reset();
-			resolve();
-		}, 2000);
-	});
+	if (timeoutId) {
+		clearTimeout(timeoutId);
+	}
+	traceData.timeDiff = process.hrtime(traceData.startTime);
+	timeoutId = setTimeout(function() {
+		report();
+		reset();
+	}, 2000);
 }
 
 function pathCall() {
@@ -106,7 +92,7 @@ function collection(name) {
 	if (!active) {
 		return;
 	}
-	const collection = traceData.collections[name];
+	let collection = traceData.collections[name];
 	if (collection) {
 		traceData.collections[name].calls++;
 	} else {
@@ -116,7 +102,8 @@ function collection(name) {
 	}
 }
 
-export default {
+
+module.exports = {
 	pathCall: pathCall,
 	globCall: globCall,
 	collection: collection,
