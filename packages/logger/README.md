@@ -1,26 +1,20 @@
-![UI5 icon](https://raw.githubusercontent.com/UI5/cli/main/docs/images/UI5_logo_wide.png)
+![UI5 logo](https://github.com/SAP/ui5-tooling/blob/master/docs/images/UI5_logo_wide.png)
 
-# @ui5/logger
-> Providing logging functionality for all UI5 CLI modules and extensions.  
-> Features log levels and rendering of a progress bar.  
-> Part of [UI5 CLI](https://github.com/UI5/cli)
+# ui5-logger
+> Internal logging module  
+> Part of the [UI5 Build and Development Tooling](https://github.com/SAP/ui5-tooling)
  
-[![REUSE status](https://api.reuse.software/badge/github.com/SAP/ui5-logger)](https://api.reuse.software/info/github.com/SAP/ui5-logger)
-[![npm Package Version](https://badge.fury.io/js/%40ui5%2Flogger.svg)](https://www.npmjs.com/package/@ui5/logger)
-[![Coverage Status](https://coveralls.io/repos/github/SAP/ui5-logger/badge.svg)](https://coveralls.io/github/SAP/ui5-logger)
+**This is a Pre-Alpha release!**  
+**The UI5 Build and Development Tooling described here is not intended for productive use yet. Breaking changes are to be expected.**
 
-## Documentation
-General UI5 CLI documentation can be found here: [ui5.github.io/cli](https://ui5.github.io/cli/)
-
-The UI5 Logger API Reference can be found here: [`@ui5/logger`](https://ui5.github.io/cli/stable/api/module-@ui5_logger.html)
+## Logger
+Used for logging purposes across the UI5 Build and Development Tooling and plugins. Features log-levels and progress logging. Basically a wrapper of [npmlog](https://github.com/npm/npmlog).
 
 ## Contributing
-Please check our [Contribution Guidelines](https://github.com/UI5/cli/blob/main/CONTRIBUTING.md).
+Please check our [Contribution Guidelines](https://github.com/SAP/ui5-tooling/CONTRIBUTING.md).
 
 ## Support
-Please follow our [Contribution Guidelines](https://github.com/UI5/cli/blob/main/CONTRIBUTING.md#report-an-issue) on how to report an issue.
+Please follow our [Contribution Guidelines](https://github.com/SAP/ui5-tooling/CONTRIBUTING.md#report-an-issue) on how to report an issue.
 
-Please report issues in the main [UI5 CLI](https://github.com/UI5/cli) repository.
-
-## Release History
-See [CHANGELOG.md](CHANGELOG.md).
+## License
+This project is licensed under the Apache Software License, Version 2.0 except as noted otherwise in the [LICENSE](/LICENSE.txt) file.
