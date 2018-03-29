@@ -1,27 +1,17 @@
 /**
  * Takes a bundle definition and resolves it against the given pool.
  */
+"use strict";
 
-import topologicalSort from "../graph/topologicalSort.js";
-import {getRendererName} from "../UI5ClientConstants.js";
-import ResourceFilterList from "../resources/ResourceFilterList.js";
-import {SectionType} from "./BundleDefinition.js";
-import ResolvedBundleDefinition from "./ResolvedBundleDefinition.js";
-import {getLogger} from "@ui5/logger";
-const log = getLogger("lbt:bundle:Resolver");
+const topologicalSort = require("../graph/topologicalSort");
+const UI5ClientConstants = require("../UI5ClientConstants");
+const ResourceFilterList = require("../resources/ResourceFilterList");
 
-let dependencyTracker;
+const {SectionType} = require("./BundleDefinition");
+const ResolvedBundleDefinition = require("./ResolvedBundleDefinition");
+const log = require("@ui5/logger").getLogger("Resolver");
 
-const DEFAULT_FILE_TYPES = [
-	".js",
-	".control.xml", // XMLComposite
-	".fragment.html",
-	".fragment.json",
-	".fragment.xml",
-	".view.html",
-	".view.json",
-	".view.xml"
-];
+var dependencyTracker;
 
 /**
  * Resolve a bundle definition.
@@ -30,7 +20,6 @@ const DEFAULT_FILE_TYPES = [
  * - follow dependencies, if option 'resolve' is configured for a section
  *
  * TODO ModuleResolver changes the order of the configured modules even if resolve isn't true
- *
  * @private
  */
 class BundleResolver {
@@ -41,37 +30,24 @@ class BundleResolver {
 	// NODE-TODO private final Map<ModuleName, AbstractModuleDefinition> moduleDefinitions;
 
 	/**
-	 * @param {ModuleDefinition} bundle Bundle definition to resolve
-	 			List of default file types to which a prefix pattern shall be expanded.
+	 * @param {ModuleDefinition} bundle
+	 * @param {Map<string,string>} vars
 	 * @returns {Promise<ResolvedBundleDefinition>}
 	 */
-	resolve(bundle) {
-		const fileTypes = bundle.defaultFileTypes || DEFAULT_FILE_TYPES;
+	resolve(bundle /* NODE-TODO, vars */) {
 		let visitedResources = Object.create(null);
 		let selectedResources = Object.create(null);
 		let selectedResourcesSequence = [];
 		const pool = this.pool;
-		/**
-		 * Names of modules that are required in some way but could not be found
-		 * in the resource pool.
-		 */
-		const missingModules = Object.create(null);
-		/**
-		 * Names of modules that are included in non-decomposable bundles.
-		 * If they occur in the missingModules, then this is not an error.
-		 */
-		const includedModules = new Set();
 
 		/**
 		 * @param {JSModuleSectionDefinition} section
 		 * @returns {Collection<ModuleName>}
 		 */
 		function collectModulesForSection(section) {
+			let filters;
 			let prevLength;
 			let newKeys;
-
-			// NODE-TODO resolvePlaceholders(section.getFilters());
-			const filters = new ResourceFilterList( section.filters, fileTypes );
 
 			function isAccepted(resourceName, required) {
 				let match = required;
@@ -80,30 +56,8 @@ class BundleResolver {
 				return match;
 			}
 
-			function checkForDecomposableBundle(resource) {
-				const isBundle =
-					resource?.info?.subModules.length > 0 &&
-					!/(?:^|\/)library.js$/.test(resource.info.name);
-
-				if (!isBundle) {
-					return {
-						resource,
-						isBundle,
-						decomposable: false
-					};
-				}
-
-				return Promise.all(
-					resource.info.subModules.map((sub) => pool.findResource(sub).catch(() => false))
-				).then((modules) => {
-					// it might look more natural to expect 'all' embedded modules to exist in the pool,
-					// but expecting only 'some' module to exist is a more conservative approach
-					return {
-						resource,
-						isBundle,
-						decomposable: modules.some(($) => ($))
-					};
-				});
+			function isMultiModule(moduleInfo) {
+				return moduleInfo && moduleInfo.subModules.length > 0 && !/(?:^|\/)library.js$/.test(moduleInfo.name);
 			}
 
 			function checkAndAddResource(resourceName, depth, msg) {
@@ -120,64 +74,50 @@ class BundleResolver {
 					// remember that we have seen this module already
 					visitedResources[resourceName] = resourceName;
 
-					done = pool.findResourceWithInfo(resourceName)
-						.catch( (err) => {
-							// if the caller provided an error message, log it
-							if ( msg ) {
-								missingModules[resourceName] ??= [];
-								missingModules[resourceName].push(msg);
-							}
-							// return undefined
-						})
-						.then( (resource) => checkForDecomposableBundle(resource) )
-						.then( ({resource, isBundle, decomposable}) => {
-							const dependencyInfo = resource && resource.info;
-							let promises = [];
+					done = pool.findResourceWithInfo(resourceName).then( function(resource) {
+						let dependencyInfo = resource && resource.info;
+						let promises = [];
 
-							if ( isBundle && !decomposable ) {
-								resource.info.subModules.forEach(
-									(included) => {
-										includedModules.add(included);
+						if ( isMultiModule(dependencyInfo) ) {
+							// multi modules are not added, only their pieces (sub modules)
+							promises = dependencyInfo.subModules.map( (included) => {
+								return checkAndAddResource(included, depth + 1,
+									"**** error: missing submodule " + included + ", included by " + resourceName);
+							});
+						} else if ( resource != null ) {
+							// trace.trace("    checking dependencies of " + resource.name );
+							selectedResources[resourceName] = resourceName;
+							selectedResourcesSequence.push(resourceName);
+
+							// trace.info("    collecting %s", resource.name);
+
+							// add dependencies, if 'resolve' is configured
+							if ( section.resolve && dependencyInfo ) {
+								promises = dependencyInfo.dependencies.map( function(required) {
+									// ignore conditional dependencies if not configured
+									if ( !section.resolveConditional
+											&& dependencyInfo.isConditionalDependency(required) ) {
+										return;
 									}
-								);
-							}
 
-							if ( decomposable ) {
-								// bundles are not added, only their embedded modules
-								promises = dependencyInfo.subModules.map( (included) => {
-									return checkAndAddResource(included, depth + 1,
-										`**** error: missing submodule ${included}, included by ${resourceName}`);
+									return checkAndAddResource( required, depth + 1,
+										"**** error: missing module " + required + ", required by " + resourceName);
 								});
-							} else if ( resource != null ) {
-								// trace.trace("    checking dependencies of " + resource.name );
-								selectedResources[resourceName] = resourceName;
-								selectedResourcesSequence.push(resourceName);
-
-								// trace.info("    collecting %s", resource.name);
-
-								// add dependencies, if 'resolve' is configured
-								if ( section.resolve && dependencyInfo ) {
-									promises = dependencyInfo.dependencies.map( function(required) {
-										// ignore conditional dependencies if not configured
-										if ( !section.resolveConditional &&
-												dependencyInfo.isConditionalDependency(required) ) {
-											return;
-										}
-
-										return checkAndAddResource(required, depth + 1,
-											`**** error: missing module ${required}, required by ${resourceName}`);
-									});
-								}
-
-								// add renderer, if 'renderer' is configured and if it exists
-								if ( section.renderer ) {
-									const rendererModuleName = getRendererName( resourceName );
-									promises.push( checkAndAddResource( rendererModuleName, depth + 1) );
-								}
 							}
 
-							return Promise.all( promises.filter( ($) => $ ) );
-						});
+							// add renderer, if 'renderer' is configured and if it exists
+							if ( section.renderer ) {
+								const rendererModuleName = UI5ClientConstants.getRendererName( resourceName );
+								promises.push( checkAndAddResource( rendererModuleName, depth + 1) );
+							}
+						}
+
+						return Promise.all( promises.filter( ($) => $ ) );
+					}, function(err) {
+						if ( msg ) {
+							log.error(msg);
+						}
+					}); // what todo after resource has been visited?
 
 					if ( dependencyTracker != null ) {
 						dependencyTracker.endVisitDependency(resourceName);
@@ -194,11 +134,13 @@ class BundleResolver {
 				return done;
 			}
 
+			filters = new ResourceFilterList( section.filters ); // resolvePlaceholders(section.getFilters());
+
 			let oldSelectedResources;
 			let oldIgnoredResources;
 			let oldSelectedResourcesSequence;
 
-			if ( [SectionType.Require, SectionType.DepCache].includes(section.mode) ) {
+			if ( section.mode == SectionType.Require ) {
 				oldSelectedResources = selectedResources;
 				oldIgnoredResources = visitedResources;
 				oldSelectedResourcesSequence = selectedResourcesSequence;
@@ -249,12 +191,12 @@ class BundleResolver {
 			*/
 
 			// scan all known resources
-			const promises = pool.resources.map( function(resource) {
+			let promises = pool.resources.map( function(resource) {
 				return checkAndAddResource(resource.name, 0);
 			});
 
 			return Promise.all(promises).then( function() {
-				if ( [SectionType.Require, SectionType.DepCache].includes(section.mode) ) {
+				if ( section.mode == SectionType.Require ) {
 					newKeys = selectedResourcesSequence;
 					selectedResources = oldSelectedResources;
 					visitedResources = oldIgnoredResources;
@@ -300,33 +242,31 @@ class BundleResolver {
 
 		// NODE-TODO placeholderValues = vars;
 
-		log.verbose(`  Resolving bundle definition ${bundle.name}`);
+		log.verbose("  resolving bundle definition %s", bundle.name);
 
-		const resolved = new ResolvedBundleDefinition(bundle /* , vars*/);
+		let resolved = new ResolvedBundleDefinition(bundle /* , vars*/);
 
 		let previous = Promise.resolve(true);
 
 		bundle.sections.forEach(function(section, index) {
 			previous = previous.then( function() {
-				log.verbose(
-					`    Resolving section${section.name ? " '" + section.name + "'" : ""} of type ${section.mode}`);
+				log.verbose("    resolving section%s of type %s",
+					section.name ? " '" + section.name + "'" : "", section.mode);
 
 				// NODE-TODO long t0=System.nanoTime();
-				const resolvedSection = resolved.sections[index];
+				let resolvedSection = resolved.sections[index];
 
 				return collectModulesForSection(section).
 					then( (modules) => {
-						if ( section.mode == SectionType.Raw && section.sort !== false ) {
+						if ( section.mode == SectionType.Raw && section.sort ) {
 							// sort the modules in topological order
 							return topologicalSort(pool, modules).then( (modules) => {
-								log.silly(`      Resolved modules (sorted): ${modules}`);
+								log.verbose("      resolved modules (sorted): %s", modules);
 								return modules;
 							});
 						}
-						if ( section.mode === SectionType.BundleInfo ) {
-							modules.sort();
-						}
-						log.silly(`      Resolved modules: ${modules}`);
+
+						log.verbose("      resolved modules: %s", modules);
 						return modules;
 					}).then( function(modules) {
 						resolvedSection.modules = modules;
@@ -345,18 +285,7 @@ class BundleResolver {
 		// NODE-TODO if ( PerfMeasurement.ACTIVE ) PerfMeasurement.stop(PerfKeys.RESOLVE_MODULE);
 
 		return previous.then( function() {
-			// ignore missing modules that have been found in non-decomposable bundles
-			includedModules.forEach((included) => delete missingModules[included]);
-
-			// report the remaining missing modules
-			Object.keys(missingModules).sort().forEach((missing) => {
-				const messages = missingModules[missing];
-				messages.sort().forEach((msg) => {
-					log.error(msg);
-				});
-			});
-
-			log.verbose("  Resolving bundle done");
+			log.verbose("  resolving bundle done");
 
 			return resolved;
 		});
@@ -364,5 +293,5 @@ class BundleResolver {
 }
 
 
-export default BundleResolver;
+module.exports = BundleResolver;
 
