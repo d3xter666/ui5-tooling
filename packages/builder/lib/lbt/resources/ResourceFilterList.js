@@ -1,80 +1,42 @@
+"use strict";
 
-import {getLogger} from "@ui5/logger";
-const log = getLogger("lbt:resources:ResourceFilterList");
+const log = require("@ui5/logger").getLogger("ResourceFilterList");
 
-const FILTER_PREFIXES = /^[-!+]/;
-
-function makeFileTypePattern(fileTypes) {
-	if ( fileTypes == null ) {
-		return undefined;
-	}
-	return "(?:" + fileTypes.map((type) => {
-		if ( !type.startsWith(".") ) {
-			type = "." + type;
-		}
-		return type.replace(/[*+?.()|^$\\]/g, "\\$&");
-	}).join("|") + ")";
-}
-
-function makeMatcher(globPattern, fileTypesPattern) {
-	const result = {
+function makeMatcher(globPattern) {
+	let result = {
 		pattern: globPattern,
 		include: true
 	};
 
 	// cut off leading '!', '-' or '+'
-	if ( FILTER_PREFIXES.test(globPattern) ) {
+	if ( /^[-!+]/.test(globPattern) ) {
 		result.include = globPattern[0] === "+";
 		globPattern = globPattern.slice(1);
 	}
 
-	// normalize some convenience shortcuts
-	// - a lonely 'any sub-path' pattern implies the 'any file' pattern:
-	//      "**/" --> "**/*"
-	// - a trailing 'any sub-path' pattern also implies the 'any file' pattern:
-	//      ".../foo/**/" --> "../foo/**/*"
-	// - any other trailing slash matches any files in any sub-folder:
-	//      ".../foo/" --> ".../foo/**/*"
-	if ( globPattern.endsWith("/") ) {
-		if ( globPattern === "**/" || globPattern.endsWith("/**/") ) {
-			globPattern = globPattern + "*";
-		} else {
-			globPattern = globPattern + "**/*";
-		}
-	}
-
 	// check for wildcards
-	if ( /\*/.test(globPattern) ) {
-		// Transform the globPattern into a regular expression pattern by converting
-		// the "all sub-directories" pattern "/**/" and the "any file name" pattern "*"
-		// to their respective regexp counterparts and escape all other regexp special
-		// characters.
-		let regexp = globPattern.replace(/^\*\*\/|\/\*\*\/|\*|[[\]{}()+?.\\^$|]/g, (match) => {
+	if ( /\*|\/$/.test(globPattern) ) {
+		if ( !/\/\*\*\/$/.test(globPattern) ) {
+			globPattern = globPattern.replace(/\/$/, "/**/");
+		}
+
+		let regexp = globPattern.replace(/\*\*\/|\*|[[\]{}()+?.\\^$|]/g, function(match) {
 			switch (match) {
 			case "**/": return "(?:[^/]+/)*";
-			case "/**/": return "/(?:[^/]+/)*";
 			case "*": return "[^/]*";
 			default: return "\\" + match;
 			}
 		});
 
-		// if the pattern ended with an asterisk and if a default file type pattern is defined,
-		// add that pattern. This limits the matches to the specified set of file types
-		if ( fileTypesPattern != null && regexp.endsWith("[^/]*") ) {
-			regexp = regexp + fileTypesPattern;
-		}
-
-		result.regexp = new RegExp("^" + regexp + "$");
+		log.verbose("%s -> %s,%s", result.pattern, "^" + regexp, result.include ? "include" : "exclude" );
+		result.regexp = new RegExp("^" + regexp);
 		result.calcMatch = result.include ? function(candidate, matchSoFar) {
 			return matchSoFar || this.regexp.test(candidate);
 		} : function(candidate, matchSoFar) {
 			return matchSoFar && !this.regexp.test(candidate);
 		};
-
-		log.verbose(`  ${result.pattern} --> ${result.include ? "include" : "exclude"}: /${result.regexp.source}/`);
 	} else {
 		result.value = globPattern;
-		log.verbose(`  ${result.pattern} --> ${result.include ? "include" : "exclude"}: "${globPattern}"`);
 		result.calcMatch = result.include ? function(candidate, matchSoFar) {
 			return matchSoFar || candidate === this.value;
 		} : function(candidate, matchSoFar) {
@@ -94,20 +56,19 @@ function makeMatcher(globPattern, fileTypesPattern) {
  * @author Frank Weigel
  * @since 1.16.2
  * @private
+ * TODO Share with plugins, esp. coldWater, lightening, ...
  */
-export default class ResourceFilterList {
-	constructor(filters, fileTypes) {
+class ResourceFilterList {
+	constructor(filters) {
 		this.matchers = [];
 		this.matchByDefault = true;
-		this.fileTypes = makeFileTypePattern(fileTypes);
-		log.verbose(`Filetypes: ${fileTypes}`);
 		this.addFilters(filters);
 	}
 
 	addFilters(filters) {
 		if ( Array.isArray(filters) ) {
 			filters.forEach( (filter) => {
-				const matcher = makeMatcher(filter, this.fileTypes);
+				var matcher = makeMatcher(filter);
 				this.matchers.push( matcher );
 				this.matchByDefault = this.matchByDefault && !matcher.include;
 			});
@@ -116,6 +77,59 @@ export default class ResourceFilterList {
 		}
 		return this;
 	}
+
+	/* NODE-TODO
+	public ResourceFilterList addIncludes(String[] includes){
+		if ( includes != null ) {
+			for(String include : includes) {
+				add(include, false);
+			}
+		}
+		return this;
+	}
+
+	public ResourceFilterList addExcludes(String[] excludes) {
+		if ( excludes != null ) {
+			for(String exclude : excludes) {
+				add(exclude, true);
+			}
+		}
+		return this;
+	}
+
+	/**
+	 * old style resource pattern (from old Optimizer)
+	 * @param excludePattern
+	 * @deprecated Use the more flexible add or addFilters instead.
+	 *
+	public void addExcludePattern(Pattern excludePattern) {
+		isExclude.set(patterns.size(), true);
+		patterns.add(excludePattern);
+	}
+
+	public ResourceFilterList add(String patternList, boolean exclude) {
+		for(String pattern : patternList.trim().split("\\s*,\\s*")) {
+			if ( !pattern.isEmpty() ) {
+				isExclude.set(patterns.size(), exclude);
+				patterns.add(ModuleNamePattern.createRegEx(pattern, ignoreCase));
+				hasInclude = hasInclude || !exclude;
+			}
+		}
+		return this;
+	}
+
+	public ResourceFilterList add(String patternList) {
+		for(String pattern : patternList.trim().split("\\s*,\\s*")) {
+			if ( !pattern.isEmpty() ) {
+				boolean exclude = pattern.startsWith("!") || pattern.startsWith("-");
+				isExclude.set(patterns.size(), exclude);
+				patterns.add(ModuleNamePattern.createRegEx(exclude || pattern.startsWith("+")
+					? pattern.substring(1) : pattern, ignoreCase));
+				hasInclude = hasInclude || !exclude;
+			}
+		}
+		return this;
+	} */
 
 	matches(candidate, initialMatch) {
 		return this.matchers.reduce(
@@ -127,58 +141,14 @@ export default class ResourceFilterList {
 	toString() {
 		return this.matchers.map((matcher) => matcher.pattern).join(",");
 	}
+}
 
-	/**
-	 * Each filter entry can be a comma separated list of simple filters. Each simple filter
-	 * can be a pattern in resource name pattern syntax: A double asterisk '&0x2a;&0x2a;/' denotes an arbitrary
-	 * number of resource name segments (folders) incl. a trailing slash, whereas a simple asterisk '*'
-	 * denotes an arbitrary number of resource name characters, but not the segment separator '/'.
-	 * A dot is interpreted as a dot, all other special regular expression characters keep their
-	 * special meaning. This is a mixture of ANT-style path patterns and regular expressions.
-	 *
-	 * Excludes can be denoted by a leading '-' or '!', includes optionally by a leading '+'.
-	 * Order of filters is significant, a later exclusion overrides an earlier inclusion
-	 * and vice versa.
-	 *
-	 * Example:
-	 * <pre>
-	 *	 !sap/ui/core/
-	*	 +sap/ui/core/utils/
-	* </pre>
-	* excludes everything from sap/ui/core, but includes everything from the subpackage sap/ui/core/utils/.
-	*
-	* Note that the filter operates on the full name of each resource. If a resource name
-	* <code>prefix</code> is configured for a resource set, the filter will be applied
-	* to the combination of prefix and local file path and not only to the local file path.
-	*
-	* @param {string} filterStr comma separated list of simple filters
-	* @returns {ResourceFilterList}
-	*/
-	static fromString(filterStr) {
-		const result = new ResourceFilterList();
-		if ( filterStr != null ) {
-			result.addFilters( filterStr.trim().split(/\s*,\s*/).filter(Boolean) );
-		}
-		return result;
+ResourceFilterList.fromString = function(filterStr) {
+	let result = new ResourceFilterList();
+	if ( filterStr != null ) {
+		result.addFilters( filterStr.trim().split(/\s*,\s*/) );
 	}
-}
+	return result;
+};
 
-export function negateFilters(patterns) {
-	return patterns.map((pattern) => {
-		let include = true;
-
-		// cut off leading '!', '-' or '+'
-		if (FILTER_PREFIXES.test(pattern)) {
-			include = pattern[0] === "+";
-			pattern = pattern.slice(1);
-		}
-
-		if (include) {
-			// include => exclude
-			return "!" + pattern;
-		} else {
-			// exclude => include
-			return "+" + pattern;
-		}
-	});
-}
+module.exports = ResourceFilterList;
