@@ -1,29 +1,13 @@
-function toPosix(inputPath) {
-	return inputPath.replace(/\\/g, "/");
-}
-
 /**
- * @public
- * @module @ui5/fs/fsInterface
- */
-
-/**
- * Wraps readers to access them through a [Node.js fs]{@link https://nodejs.org/api/fs.html} styled interface.
+ * Wraps readers to access them like a node fs-interface.
  *
- * @public
- * @function default
- * @static
- * @param {@ui5/fs/AbstractReader} reader Resource Reader or Collection
- *
- * @returns {object} Object with [Node.js fs]{@link https://nodejs.org/api/fs.html} styled functions
- * [<code>readFile</code>]{@link https://nodejs.org/api/fs.html#fs_fs_readfile_path_options_callback},
- * [<code>stat</code>]{@link https://nodejs.org/api/fs.html#fs_fs_stat_path_options_callback},
- * [<code>readdir</code>]{@link https://nodejs.org/api/fs.html#fs_fs_readdir_path_options_callback} and
- * [<code>mkdir</code>]{@link https://nodejs.org/api/fs.html#fs_fs_mkdir_path_options_callback}
+ * @module resources/fsInterface
+ * @param {AbstractReader} reader Resource Reader or Collection
+ * @returns {Object} Object with wrapped fs functions
  */
-function fsInterface(reader) {
+const fsInterface = (reader) => {
 	return {
-		readFile(fsPath, options, callback) {
+		readFile(path, options, callback) {
 			if (typeof options === "function") {
 				callback = options;
 				options = undefined;
@@ -31,12 +15,11 @@ function fsInterface(reader) {
 			if (typeof options === "string") {
 				options = {encoding: options};
 			}
-			const posixPath = toPosix(fsPath);
-			reader.byPath(posixPath, {
+			reader.byPath(path, {
 				nodir: false
 			}).then(function(resource) {
 				if (!resource) {
-					const error = new Error(`ENOENT: no such file or directory, open '${fsPath}'`);
+					const error = new Error();
 					error.code = "ENOENT"; // "File or directory does not exist"
 					callback(error);
 					return;
@@ -55,13 +38,12 @@ function fsInterface(reader) {
 				});
 			}).catch(callback);
 		},
-		stat(fsPath, callback) {
-			const posixPath = toPosix(fsPath);
-			reader.byPath(posixPath, {
+		stat(path, callback) {
+			reader.byPath(path, {
 				nodir: false
 			}).then(function(resource) {
 				if (!resource) {
-					const error = new Error(`ENOENT: no such file or directory, stat '${fsPath}'`);
+					const error = new Error();
 					error.code = "ENOENT"; // "File or directory does not exist"
 					callback(error);
 				} else {
@@ -69,24 +51,21 @@ function fsInterface(reader) {
 				}
 			}).catch(callback);
 		},
-		readdir(fsPath, callback) {
-			let posixPath = toPosix(fsPath);
-			if (!posixPath.match(/\/$/)) {
+		readdir(path, callback) {
+			if (!path.match(/\/$/)) {
 				// Add trailing slash if not present
-				posixPath += "/";
+				path += "/";
 			}
-			reader.byGlob(posixPath + "*", {
+			reader.byGlob(path + "*", {
 				nodir: false
 			}).then((resources) => {
 				const files = resources.map((resource) => {
-					return resource.getName();
+					return resource._name;
 				});
 				callback(null, files);
 			}).catch(callback);
-		},
-		mkdir(fsPath, callback) {
-			setTimeout(callback, 0);
 		}
 	};
-}
-export default fsInterface;
+};
+
+module.exports = fsInterface;
