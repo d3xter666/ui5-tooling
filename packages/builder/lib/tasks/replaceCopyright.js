@@ -1,9 +1,4 @@
-import stringReplacer from "../processors/stringReplacer.js";
-
-/**
- * @public
- * @module @ui5/builder/tasks/replaceCopyright
- */
+const stringReplacer = require("../processors/stringReplacer");
 
 /**
  * Task to to replace the copyright.
@@ -18,26 +13,23 @@ import stringReplacer from "../processors/stringReplacer.js";
  * it will be replaced with the current year.
  * If no copyright string is given, no replacement is being done.
  *
- * @public
- * @function default
- * @static
- *
- * @param {object} parameters Parameters
- * @param {@ui5/fs/DuplexCollection} parameters.workspace DuplexCollection to read and write files
- * @param {object} parameters.options Options
+ * @module builder/tasks/replaceCopyright
+ * @param {Object} parameters Parameters
+ * @param {DuplexCollection} parameters.workspace DuplexCollection to read and write files
+ * @param {Object} parameters.options Options
  * @param {string} parameters.options.copyright Replacement copyright
  * @param {string} parameters.options.pattern Pattern to locate the files to be processed
  * @returns {Promise<undefined>} Promise resolving with <code>undefined</code> once data has been written
  */
-export default function({workspace, options: {copyright, pattern}}) {
-	if (!copyright) {
+module.exports = function({workspace, options}) {
+	if (!options.copyright) {
 		return Promise.resolve();
 	}
 
 	// Replace optional placeholder ${currentYear} with the current year
-	copyright = copyright.replace(/(?:\$\{currentYear\})/, new Date().getFullYear());
+	const copyright = options.copyright.replace(/(?:\$\{currentYear\})/, new Date().getFullYear());
 
-	return workspace.byGlob(pattern)
+	return workspace.byGlob(options.pattern)
 		.then((processedResources) => {
 			return stringReplacer({
 				resources: processedResources,
@@ -52,4 +44,4 @@ export default function({workspace, options: {copyright, pattern}}) {
 				return workspace.write(resource);
 			}));
 		});
-}
+};
