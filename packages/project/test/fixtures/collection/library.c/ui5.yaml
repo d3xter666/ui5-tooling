@@ -1,5 +1,5 @@
 ---
-specVersion: "2.3"
+specVersion: "0.1"
 type: library
 metadata:
   name: library.c
