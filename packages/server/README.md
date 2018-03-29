@@ -1,25 +1,39 @@
-![UI5 icon](https://raw.githubusercontent.com/UI5/cli/main/docs/images/UI5_logo_wide.png)
+![UI5 logo](https://github.com/SAP/ui5-tooling/blob/master/docs/images/UI5_logo_wide.png)
 
-# @ui5/server
+# ui5-server
 > Modules for running a UI5 development server  
-> Part of the [UI5 CLI](https://github.com/UI5/cli)
+> Part of the [UI5 Build and Development Tooling](https://github.com/SAP/ui5-tooling)
 
-[![REUSE status](https://api.reuse.software/badge/github.com/SAP/ui5-server)](https://api.reuse.software/info/github.com/SAP/ui5-server)
-[![npm Package Version](https://badge.fury.io/js/%40ui5%2Fserver.svg)](https://www.npmjs.com/package/@ui5/server)
-[![Coverage Status](https://coveralls.io/repos/github/SAP/ui5-server/badge.svg)](https://coveralls.io/github/SAP/ui5-server)
+**This is a Pre-Alpha release!**  
+**The UI5 Build and Development Tooling described here is not intended for productive use yet. Breaking changes are to be expected.**
 
-## Documentation
-UI5 Server documentation can be found here: [ui5.github.io/cli](https://ui5.github.io/cli/stable/pages/Server/)
+## Server
+The UI5 Build and Development Tooling comes along with a web server component to serve a project.
 
-The UI5 Server API Reference can be found here: [`@ui5/server`](https://ui5.github.io/cli/stable/api/module-@ui5_server.html)
+### Middlewares
+
+The development server has already a set of middlewares which supports the developer with the following features:
+
+* Translation files with `.properties` extension are properly encoded with **ISO-8859-1**
+* Changes on files with `.less` extension triggers a theme build and delivers the compiled CSS files
+* Version Info is created automatically (`/resources/sap-ui-version.json`)
+* * List project files with URL (needed exclusively by the OpenUI5 testsuite): `/discovery/app_pages`, `/discovery/all_libs`, `/discovery/all_tests`
+
+## Certificates for HTTPS or HTTP/2
+
+`ui5 serve` will automatically use an SSL certificate for HTTPS and HTTP/2 servers.
+
+Upon startup it checks if a certificate exists within the path provided.
+If there is none, a new certificate is created and used.
+
+
+**Hint:** If Chrome unintentionally redirects a HTTP-URL to HTTPS, you need to delete the HSTS mapping in [chrome://net-internals/#hsts](chrome://net-internals/#hsts) by entering the domain name (e.g. localhost) and pressing "delete".
 
 ## Contributing
-Please check our [Contribution Guidelines](https://github.com/UI5/cli/blob/main/CONTRIBUTING.md).
+Please check our [Contribution Guidelines](https://github.com/SAP/ui5-tooling/CONTRIBUTING.md).
 
 ## Support
-Please follow our [Contribution Guidelines](https://github.com/UI5/cli/blob/main/CONTRIBUTING.md#report-an-issue) on how to report an issue.
+Please follow our [Contribution Guidelines](https://github.com/SAP/ui5-tooling/CONTRIBUTING.md#report-an-issue) on how to report an issue.
 
-Please report issues in the main [UI5 CLI](https://github.com/UI5/cli) repository.
-
-## Release History
-See [CHANGELOG.md](CHANGELOG.md).
+## License
+This project is licensed under the Apache Software License, Version 2.0 except as noted otherwise in the [LICENSE](/LICENSE.txt) file.
