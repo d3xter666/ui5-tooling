@@ -1,39 +1,45 @@
-import test from "ava";
-import replaceVersion from "../../../lib/tasks/replaceVersion.js";
-import {createAdapter, createResource} from "@ui5/fs/resourceFactory";
-import DuplexCollection from "@ui5/fs/DuplexCollection";
+const {test} = require("ava");
 
-test("integration: replace version", async (t) => {
-	const reader = createAdapter({
+const ui5Builder = require("../../../");
+const tasks = ui5Builder.builder.tasks;
+const ui5Fs = require("@ui5/fs");
+const resourceFactory = ui5Fs.resourceFactory;
+const DuplexCollection = ui5Fs.DuplexCollection;
+
+test("test.js: replace ${version}", (t) => {
+	const reader = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
-	const writer = createAdapter({
+	const writer = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
 
-	const content = "console.log('${version} equals ${project.version}');";
-	const expected = "console.log('1.337.0 equals 1.337.0');";
+	const content = "console.log('${version}');";
+	const expected = "console.log('1.337.0');";
 
-	const resource = createResource({
+	const resource = resourceFactory.createResource({
 		path: "/test.js",
 		string: content
 	});
 
 	const workspace = new DuplexCollection({reader, writer});
-	await reader.write(resource);
-	await replaceVersion({
-		workspace,
-		options: {
-			pattern: "/test.js",
-			version: "1.337.0"
-		}
+	return reader.write(resource).then(() => {
+		return tasks.replaceVersion({
+			workspace,
+			options: {
+				pattern: "/test.js",
+				version: "1.337.0"
+			}
+		}).then(() => {
+			return writer.byPath("/test.js").then((resource) => {
+				if (!resource) {
+					t.fail("Could not find /test.js in target");
+				} else {
+					return resource.getBuffer();
+				}
+			});
+		}).then((buffer) => {
+			return t.deepEqual(buffer.toString(), expected);
+		});
 	});
-
-	const transformedResource = await writer.byPath("/test.js");
-	if (!transformedResource) {
-		t.fail("Could not find /test.js in target");
-	} else {
-		const buffer = await transformedResource.getBuffer();
-		t.deepEqual(buffer.toString(), expected);
-	}
 });

@@ -1,6 +1,6 @@
+"use strict";
 
-import {getLogger} from "@ui5/logger";
-const log = getLogger("lbt:graph:topologicalSort");
+const log = require("@ui5/logger").getLogger("topologicalSort");
 
 /**
  * Represents a module and its dependencies in a dependency graph.
@@ -30,31 +30,30 @@ class GraphNode {
 /**
  * Creates a dependency graph from the given moduleNames.
  * Ignores modules not in the pool
- *
  * @param {ResourcePool} pool
  * @param {string[]} moduleNames
  * @param {boolean} indegreeOnly
- * @returns {Promise<object>}
+ * @returns {object}
  * @private
  */
 function createDependencyGraph(pool, moduleNames, indegreeOnly) {
-	const graph = Object.create(null);
+	var graph = Object.create(null);
 
-	const promises = moduleNames.map( (moduleName) => {
+	var promises = moduleNames.map( (moduleName) => {
 		return pool.getModuleInfo(moduleName).
 			then( (module) => {
-				let node = graph[moduleName];
+				var node = graph[moduleName];
 				if ( node == null ) {
 					node = new GraphNode(moduleName, indegreeOnly);
 					graph[moduleName] = node;
 				}
-				const p = module.dependencies.map( function(dep) {
+				var p = module.dependencies.map( function(dep) {
 					if ( module.isConditionalDependency(dep) ) {
 						return;
 					}
 					return pool.getModuleInfo(dep).then( (depModule) => {
 						if ( moduleNames.indexOf(dep) >= 0 ) {
-							let depNode = graph[dep];
+							var depNode = graph[dep];
 							if ( depNode == null ) {
 								depNode = new GraphNode(dep, indegreeOnly);
 								graph[dep] = depNode;
@@ -70,7 +69,7 @@ function createDependencyGraph(pool, moduleNames, indegreeOnly) {
 				});
 				return Promise.all(p);
 			}, (err) => {
-				log.error(`Module ${moduleName} not found in pool`);
+				log.error("module %s not found in pool", moduleName);
 			});
 	});
 
@@ -90,36 +89,36 @@ function topologicalSort(pool, moduleNames) {
 	return createDependencyGraph(pool, moduleNames, false).
 		then(function(graph) {
 		// now do a topological sort.
-			const sequence = [];
-			let i;
-			let j;
-			let l = moduleNames.length;
+			var sequence = [];
+			var i;
+			var j;
+			var l = moduleNames.length;
 			moduleNames = moduleNames.slice(); // clone
 
 			do {
-				// invariant: the first 'l' items in moduleNames are still to be processed
+			// invariant: the first 'l' items in moduleNames are still to be processed
 
-				// first loop over all remaining modules and emit those that don't have any more dependencies
+			// first loop over all remaining modules and emit those that don't have any more dependencies
 				for (i = 0, j = 0; i < l; i++ ) {
-					const moduleName = moduleNames[i];
-					const node = graph[moduleName];
+					var moduleName = moduleNames[i];
+					var node = graph[moduleName];
 
 					// modules that don't have any unsatisfied dependencies can be emitted
 					if ( node == null || node.outgoing.length === 0 ) {
-						// console.log("emitting %s", moduleName, node);
+					// console.log("emitting %s", moduleName, node);
 
-						// add module to sequence
+					// add module to sequence
 						sequence.push(moduleName);
 
 						// remove outgoing dependency to current module from all modules that depend on it
 						if ( node != null ) {
 							node.incoming.forEach( function(dependent) {
-								const index = dependent.outgoing.indexOf(node);
+								var index = dependent.outgoing.indexOf(node);
 								if ( index >= 0 ) {
 									dependent.outgoing.splice(index, 1);
 								// console.log("removing outgoing %s in %s", node.name, dependent.name);
 								} else {
-									log.error(`**** Could not find node ${node.name} in ${dependent.name}`);
+									log.error("**** could not find node %s in %s", node.name, dependent.name);
 								}
 							});
 						}
@@ -177,7 +176,7 @@ function topologicalSort(pool, moduleNames) {
 					Object.keys(graph)
 						.filter((name) => moduleNames.indexOf(name) < l)
 						.map((name) => graph[name].toString()));
-				throw new Error("Failed to resolve cyclic dependencies: " + moduleNames.slice(0, l).join(", ") );
+				throw new Error("failed to resolve cyclic dependencies: " + moduleNames.slice(0, l) );
 				// NODE-TODO use new CycleFinder(graph).toString() for easier to understand output
 			}
 
@@ -186,4 +185,4 @@ function topologicalSort(pool, moduleNames) {
 		});
 }
 
-export default topologicalSort;
+module.exports = topologicalSort;
