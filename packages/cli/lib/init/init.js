@@ -1,13 +1,46 @@
-import path from "node:path";
-import {readFile} from "node:fs/promises";
-import {pathsExist} from "../utils/fsHelper.js";
+const {promisify} = require("util");
+const path = require("path");
+const fs = require("fs");
+const stat = promisify(fs.stat);
+const readFile = promisify(fs.readFile);
+
+/**
+ * Checks if a file or path exists
+ *
+ * @private
+ * @param {string} filePath Path to check
+ * @returns {Promise} Promise resolving with true if the file or path exists
+ */
+async function exists(filePath) {
+	try {
+		await stat(filePath);
+		return true;
+	} catch (err) {
+		// "File or directory does not exist"
+		if (err.code === "ENOENT") {
+			return false;
+		} else {
+			throw err;
+		}
+	}
+}
+
+/**
+ * Checks if a list of paths exists
+ *
+ * @private
+ * @param {Array} paths List of paths to check
+ * @param {string} cwd Current working directory
+ * @returns {Promise} Resolving with an array of booleans for each path
+ */
+const pathsExist = async (paths, cwd) => await Promise.all(paths.map((p) => exists(path.join(cwd, p))));
 
 /**
  * Reads the package.json file and returns its content
  *
  * @private
  * @param {string} filePath Path to package.json
- * @returns {object} Package json content
+ * @returns {Object} Package json content
  */
 async function readPackageJson(filePath) {
 	const content = await readFile(filePath, "utf8");
@@ -40,45 +73,40 @@ function getProjectType(hasWebapp, hasSrc, hasTest) {
 		return "library";
 	} else if (hasTest) {
 		// Only test folder
-		errorReason = "Found 'test' folder but no 'src' folder.\n";
+		errorReason = "Found 'test' folder but no 'src' folder\n";
 	} else {
 		// No folders at all
-		errorReason = "Could not find 'webapp' or 'src' / 'test' folders.\n";
+		errorReason = "Could not find 'webapp' or 'src' / 'test' folders\n";
 	}
-
-	let message = `Could not detect project type: ${errorReason}`;
-	message += "Applications should only have a 'webapp' folder.\n";
-	message += "Libraries should only have an 'src' and (optional) 'test' folder.";
-	message += "\n\n";
-	message += "If you are about to start a new project, please refer to:\n";
-	message += "https://ui5.github.io/cli/v4/pages/GettingStarted/#starting-a-new-project";
-	throw new Error(message);
+	if (errorReason) {
+		let message = `Could not detect project type: ${errorReason}`;
+		message += "Applications should only have a 'webapp' folder.\n";
+		message += "Libraries should only have a 'src' and (optional) 'test' folder.";
+		throw new Error(message);
+	}
 }
-
-/**
- * @module @ui5/cli/init
- */
 
 /**
  * Initiates the projects <b>ui5.yaml</b> configuration file.
  *
  * Checks the package.json and tries to determine the project type. If the <b>ui5.yaml</b> file does not exist,
  * it is created with the basic project configuration.
- *
- * @function default
- * @static
+ * @module init/init
  * @param {string} cwd Current working directory
  * @returns {Promise} Promise resolving with the project configuration object
  */
 async function init({cwd = "./"} = {}) {
 	const projectConfig = {
-		specVersion: "4.0",
+		specVersion: "0.1",
 		metadata: {}
 	};
-	let pkg;
 
 	try {
-		pkg = await readPackageJson(path.join(cwd, "package.json"));
+		const pkg = await readPackageJson(path.join(cwd, "package.json"));
+		if (!pkg.name) {
+			throw new Error("Initialization not possible: Missing 'name' in package.json");
+		}
+		projectConfig.metadata.name = pkg.name;
 	} catch (err) {
 		if (err.code === "ENOENT") {
 			throw new Error("Initialization not possible: Missing package.json file");
@@ -87,16 +115,10 @@ async function init({cwd = "./"} = {}) {
 		}
 	}
 
-	if (pkg && pkg.name) {
-		projectConfig.metadata.name = pkg.name;
-	} else {
-		throw new Error("Initialization not possible: Missing 'name' in package.json");
-	}
-
 	const [hasWebapp, hasSrc, hasTest] = await pathsExist(["webapp", "src", "test"], cwd);
 	projectConfig.type = getProjectType(hasWebapp, hasSrc, hasTest);
 
 	return projectConfig;
 }
 
-export default init;
+module.exports = init;
