@@ -23,13 +23,14 @@
  * This class can handle multiple concurrent analysis calls, it has no instance state other than the pool
  * (which is readonly).
  */
+"use strict";
 
-import {fromUI5LegacyName} from "../utils/ModuleName.js";
-import SapUiDefine from "../calls/SapUiDefine.js";
-import {parseJS, Syntax} from "../utils/parseUtils.js";
-import {getValue, isMethodCall, getStringValue} from "../utils/ASTUtils.js";
-import {getLogger} from "@ui5/logger";
-const log = getLogger("lbt:analyzer:SmartTemplateAnalyzer");
+const ModuleName = require("../utils/ModuleName");
+const SapUiDefine = require("../calls/SapUiDefine");
+const esprima = require("esprima");
+const {Syntax} = esprima;
+const {getValue, isMethodCall, isString} = require("../utils/ASTUtils");
+const log = require("@ui5/logger").getLogger("SmartTemplateAnalyzer");
 
 // ---------------------------------------------------------------------------------------------------------
 
@@ -38,7 +39,6 @@ const CALL_SAP_UI_DEFINE = ["sap", "ui", "define"];
 
 /**
  * Analyzes the manifest for a Smart Template App (next to its Component.js) to find more dependencies.
- *
  * @private
  */
 class TemplateComponentAnalyzer {
@@ -52,18 +52,13 @@ class TemplateComponentAnalyzer {
 			return info;
 		}
 
-		const manifestName = resource.name.replace(/Component\.js$/, "manifest.json");
+		let manifestName = resource.name.replace(/Component\.js$/, "manifest.json");
+		let manifestResource = await this._pool.findResource(manifestName);
+		let fileContent = await manifestResource.buffer();
 		try {
-			const manifestResource = await this._pool.findResource(manifestName).catch(() => null);
-			if ( manifestResource ) {
-				const fileContent = await manifestResource.buffer();
-				await this._analyzeManifest( JSON.parse(fileContent.toString()), info );
-			} else {
-				log.verbose(`No manifest found for '${resource.name}', skipping analysis`);
-			}
+			await this._analyzeManifest( JSON.parse(fileContent.toString()), info );
 		} catch (err) {
-			log.error(`An error occurred while analyzing template app ${resource.name} (ignored): ${err.message}`);
-			log.verbose(err.stack);
+			log.error("an error occurred while analyzing template app %s (ignored)", resource.name, err);
 		}
 
 		return info;
@@ -79,23 +74,20 @@ class TemplateComponentAnalyzer {
 	 * @private
 	 */
 	async _analyzeManifest( manifest, info ) {
-		const promises = [];
-		const that = this;
-		const st = (manifest && manifest["sap.ui.generic.app"]) || {};
-		function recursePage(page) {
-			if ( page.component && page.component.name ) {
-				const module = fromUI5LegacyName( page.component.name + ".Component" );
-				log.verbose(`Template app: Add dependency to template component ${module}`);
-				info.addDependency(module);
-				promises.push( that._analyzeTemplateComponent(module, page, info) );
-			}
-			recurse(page);
-		}
+		let promises = [];
+		let that = this;
+		let st = (manifest && manifest["sap.ui.generic.app"]) || {};
 		function recurse(ctx) {
-			if ( Array.isArray(ctx.pages) ) {
-				ctx.pages.forEach(recursePage);
-			} else if (typeof ctx.pages === "object") {
-				Object.values(ctx.pages).forEach(recursePage);
+			if ( ctx.pages ) {
+				ctx.pages.forEach((page) => {
+					if ( page.component && page.component.name ) {
+						let module = ModuleName.fromUI5LegacyName( page.component.name + ".Component" );
+						log.verbose("template app: add dependency to template component %s", module);
+						info.addDependency(module);
+						promises.push( that._analyzeTemplateComponent(module, page, info) );
+					}
+					recurse(page);
+				});
 			}
 		}
 		recurse(st);
@@ -105,24 +97,16 @@ class TemplateComponentAnalyzer {
 
 	async _analyzeTemplateComponent(moduleName, pageConfig, appInfo) {
 		// console.log("analyzing template component %s", moduleName);
-		try {
-			const resource = await this._pool.findResource(moduleName);
-			const code = await resource.buffer();
-			const ast = parseJS(code);
-			const defaultTemplateName = this._analyzeAST(moduleName, ast);
-			const templateName = (pageConfig.component && pageConfig.component.settings &&
-									pageConfig.component.settings.templateName) || defaultTemplateName;
-			if ( templateName ) {
-				const templateModuleName = fromUI5LegacyName( templateName, ".view.xml" );
-				log.verbose(`Template app: Add dependency to template view ${templateModuleName}`);
-				appInfo.addDependency(templateModuleName);
-			}
-		} catch (err) {
-			if (this._pool.getIgnoreMissingModules() && err.message.startsWith("resource not found in pool")) {
-				log.verbose(`Ignoring missing module as per ResourcePool configuration: ${err.message}`);
-			} else {
-				throw err;
-			}
+		let resource = await this._pool.findResource(moduleName);
+		let code = await resource.buffer();
+		var ast = esprima.parse(code);
+		var defaultTemplateName = this._analyzeAST(moduleName, ast);
+		var templateName = (pageConfig.component && pageConfig.component.settings &&
+								pageConfig.component.settings.templateName) || defaultTemplateName;
+		if ( templateName ) {
+			var templateModuleName = ModuleName.fromUI5LegacyName( templateName, ".view.xml" );
+			log.verbose("template app: add dependency to template view %s", templateModuleName);
+			appInfo.addDependency(templateModuleName);
 		}
 	}
 
@@ -130,40 +114,29 @@ class TemplateComponentAnalyzer {
 		let templateName = "";
 		if ( ast.body.length > 0 && (isMethodCall(ast.body[0].expression, CALL_SAP_UI_DEFINE) ||
 				isMethodCall(ast.body[0].expression, CALL_DEFINE)) ) {
-			const defineCall = new SapUiDefine(ast.body[0].expression, moduleName);
-			const TA = defineCall.findImportName("sap/suite/ui/generic/template/lib/TemplateAssembler.js");
+			let defineCall = new SapUiDefine(ast.body[0].expression, moduleName);
+			let TA = defineCall.findImportName("sap/suite/ui/generic/template/lib/TemplateAssembler.js");
 			// console.log("local name for TemplateAssembler: %s", TA);
 			if ( TA && defineCall.factory ) {
-				if (defineCall.factory.type === Syntax.ArrowFunctionExpression &&
-					defineCall.factory.expression === true) {
-					if ( this._isTemplateClassDefinition(TA, defineCall.factory.body) ) {
-						templateName =
-							this._analyzeTemplateClassDefinition(defineCall.factory.body.arguments[2]) || templateName;
+				defineCall.factory.body.body.forEach( (stmt) => {
+					if ( stmt.type === Syntax.ReturnStatement
+							&& isMethodCall(stmt.argument, [TA, "getTemplateComponent"])
+							&& stmt.argument.arguments.length > 2
+							&& stmt.argument.arguments[2].type === "ObjectExpression" ) {
+						templateName = this._analyzeTemplateClassDefinition(stmt.argument.arguments[2]) || templateName;
 					}
-				} else {
-					defineCall.factory.body.body.forEach( (stmt) => {
-						if ( stmt.type === Syntax.ReturnStatement &&
-							this._isTemplateClassDefinition(TA, stmt.argument)
-						) {
-							templateName =
-								this._analyzeTemplateClassDefinition(stmt.argument.arguments[2]) || templateName;
-						}
-					});
-				}
+				});
 			}
 		}
 		return templateName;
 	}
 
-	_isTemplateClassDefinition(TA, node) {
-		return isMethodCall(node, [TA, "getTemplateComponent"]) &&
-			node.arguments.length > 2 &&
-			node.arguments[2].type === "ObjectExpression";
-	}
-
 	_analyzeTemplateClassDefinition(clazz) {
-		return getStringValue(getValue(clazz, ["metadata", "properties", "templateName", "defaultValue"]));
+		var defaultValue = getValue(clazz, ["metadata", "properties", "templateName", "defaultValue"]);
+		if ( isString(defaultValue) ) {
+			return defaultValue.value;
+		}
 	}
 }
 
-export default TemplateComponentAnalyzer;
+module.exports = TemplateComponentAnalyzer;
