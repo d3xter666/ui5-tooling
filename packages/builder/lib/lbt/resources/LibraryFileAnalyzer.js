@@ -1,10 +1,11 @@
 /**
- * Used by the ResourcePool to read raw module info as stored in the .library files.
+ * Used by the ResourcePool to read raw module info as stored in the .liubrary files.
  * It does not (yet) analyze dependencies of the library and therefore isn't part of the analyzer package (yet).
  */
-import xml2js from "xml2js";
-import {getLogger} from "@ui5/logger";
-const log = getLogger("lbt:resources:LibraryFileAnalyzer");
+"use strict";
+
+const xml2js = require("xml2js");
+const ModuleInfo = require("./ModuleInfo");
 
 const parser = new xml2js.Parser({
 	// explicitChildren: true,
@@ -19,53 +20,43 @@ function getAttribute(node, attr) {
 	return (node.$ && node.$[attr] && node.$[attr].value) || null;
 }
 
-/*
- * Analyzes the given XML2JS object `rawModule` and creates a rawInfo object from it.
- * @param {object} rawModule XML2JS object, representing a &lt;raw-module&gt; node from a .library file
- * @returns {{name:string,dependencies?:string[],requiresTopLevelScope?:boolean,ignoredGlobals?:string[]}
- */
-function createRawInfo(rawModule) {
-	const name = getAttribute(rawModule, "name");
+function makeModuleInfo(rawModule) {
+	let name = getAttribute(rawModule, "name");
+	let deps = getAttribute(rawModule, "depends");
 	if ( name ) {
-		const rawInfo = {
-			name,
-			rawModule: true,
-			dependencies: []
-		};
-		const deps = getAttribute(rawModule, "depends");
+		let info = new ModuleInfo(name);
 		if ( deps != null ) {
-			rawInfo.dependencies = deps.trim().split(/\s*,\s*/);
+			deps.trim().split(/\s*,\s*/).forEach( (dep) => info.addDependency(dep) );
 		}
-		const requiresTopLevelScope = getAttribute(rawModule, "requiresTopLevelScope");
-		if ( requiresTopLevelScope ) {
-			rawInfo.requiresTopLevelScope = requiresTopLevelScope === "true";
-		}
-		const ignoredGlobals = getAttribute(rawModule, "ignoredGlobals");
+		info.rawModule = true;
+		info.requiresTopLevelScope = getAttribute(rawModule, "requiresTopLevelScope") === "true";
+		let ignoredGlobals = getAttribute(rawModule, "ignoredGlobals");
 		if ( ignoredGlobals ) {
-			rawInfo.ignoredGlobals = ignoredGlobals.trim().split(/\s*,\s*/);
+			info.ignoredGlobals = ignoredGlobals.trim().split(/\s*,\s*/);
 		}
-		return rawInfo;
+		// console.log(info);
+		return info;
 	}
 }
 
-export function getDependencyInfos( name, content ) {
-	const infos = Object.create(null);
+function getDependencyInfos( content ) {
+	let infos = {};
 	parser.parseString(content, (err, result) => {
-		if ( result &&
-				result.library &&
-				Array.isArray(result.library.appData) &&
-				result.library.appData.length >= 1 &&
-				Array.isArray(result.library.appData[0].packaging) ) {
+		// console.log(JSON.stringify(result, null, '\t'));
+		if ( result
+				&& result.library
+				&& Array.isArray(result.library.appData)
+				&& result.library.appData.length >= 1
+				&& Array.isArray(result.library.appData[0].packaging) ) {
 			result.library.appData[0].packaging.forEach( (packaging) => {
-				if ( packaging.$ns &&
-						packaging.$ns.uri === "http://www.sap.com/ui5/buildext/packaging" &&
-						Array.isArray(packaging["module-infos"]) ) {
+				if ( packaging.$ns
+						&& packaging.$ns.uri === "http://www.sap.com/ui5/buildext/packaging"
+						&& Array.isArray(packaging["module-infos"]) ) {
 					packaging["module-infos"].forEach( function(moduleInfos) {
 						moduleInfos["raw-module"] && moduleInfos["raw-module"].forEach( (rawModule) => {
-							const rawInfo = createRawInfo(rawModule);
-							if ( rawInfo ) {
-								log.verbose(name + " rawInfo: " + JSON.stringify(rawInfo));
-								infos[rawInfo.name] = rawInfo;
+							let info = makeModuleInfo(rawModule);
+							if ( info ) {
+								infos[info.name] = info;
 							}
 						});
 					});
@@ -76,3 +67,5 @@ export function getDependencyInfos( name, content ) {
 	// console.log("done", infos);
 	return infos;
 }
+
+module.exports.getDependencyInfos = getDependencyInfos;
