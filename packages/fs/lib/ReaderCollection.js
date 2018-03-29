@@ -1,39 +1,32 @@
-import AbstractReader from "./AbstractReader.js";
+const AbstractReader = require("./AbstractReader");
 
 /**
  * Resource Locator ReaderCollection
  *
- * @public
- * @class
- * @alias @ui5/fs/ReaderCollection
- * @extends @ui5/fs/AbstractReader
+ * @augments AbstractReader
  */
 class ReaderCollection extends AbstractReader {
 	/**
 	 * The constructor.
 	 *
-	 * @param {object} parameters Parameters
+	 * @param {Object} parameters Parameters
+	 * @param {AbstractReader[]} parameters.readers List of resource readers (all tried in parallel)
 	 * @param {string} parameters.name The collection name
-	 * @param {@ui5/fs/AbstractReader[]} [parameters.readers]
-	 *   List of resource readers (all tried in parallel).
-	 *   If none are provided, the collection will never return any results.
 	 */
-	constructor({name, readers}) {
-		super(name);
-
-		// Remove any undefined (empty) readers from array
-		this._readers = readers.filter(($) => $);
+	constructor({readers, name}) {
+		super();
+		this._name = name;
+		this._readers = readers;
 	}
 
 	/**
-	 * Locates resources by glob.
+	 * Locates resources by GLOB.
 	 *
 	 * @private
-	 * @param {string|string[]} pattern glob pattern as string or an array of
-	 *         glob patterns for virtual directory structure
-	 * @param {object} options glob options
-	 * @param {@ui5/fs/tracing.Trace} trace Trace instance
-	 * @returns {Promise<@ui5/fs/Resource[]>} Promise resolving to list of resources
+	 * @param {string} pattern GLOB pattern
+	 * @param {Object} options GLOB options
+	 * @param {Trace} trace Trace instance
+	 * @returns {Promise<Resource[]>} Promise resolving to list of resources
 	 */
 	_byGlob(pattern, options, trace) {
 		return Promise.all(this._readers.map(function(resourceLocator) {
@@ -49,31 +42,31 @@ class ReaderCollection extends AbstractReader {
 	 *
 	 * @private
 	 * @param {string} virPath Virtual path
-	 * @param {object} options Options
-	 * @param {@ui5/fs/tracing.Trace} trace Trace instance
-	 * @returns {Promise<@ui5/fs/Resource|null>}
-	 *   Promise resolving to a single resource or <code>null</code> if no resource is found
+	 * @param {Object} options Options
+	 * @param {Trace} trace Trace instance
+	 * @returns {Promise<Resource[]>} Promise resolving to a list of resources
 	 */
 	_byPath(virPath, options, trace) {
-		const that = this;
-		const resourceLocatorCount = this._readers.length;
+		let that = this;
+		let resourceLocatorCount = this._readers.length;
 		let resolveCount = 0;
 
-		if (resourceLocatorCount === 0) {
-			// Short-circuit if there are no readers (Promise.race does not settle for empty arrays)
-			trace.collection(that._name);
-			return Promise.resolve(null);
+		if (this._readers.length === 0) {
+			// Promise.race doesn't resolve for empty arrays
+			return Promise.resolve();
 		}
 
-		// Using Promise.race to deliver files that can be found as fast as possible
+		/* Promise.race to cover the following (self defined) requirement:
+			Deliver files that can be found fast at the cost of slower response times for files that cannot be found.
+		*/
 		return Promise.race(this._readers.map(function(resourceLocator) {
-			return resourceLocator._byPath(virPath, options, trace).then(function(resource) {
+			return resourceLocator._byPath(virPath, options, trace).then(function(result) {
 				return new Promise(function(resolve, reject) {
 					trace.collection(that._name);
 					resolveCount++;
-					if (resource) {
-						resource.pushCollection(that._name);
-						resolve(resource);
+					if (result) {
+						result.pushCollection(that._name);
+						resolve(result);
 					} else if (resolveCount === resourceLocatorCount) {
 						resolve(null);
 					}
@@ -83,4 +76,4 @@ class ReaderCollection extends AbstractReader {
 	}
 }
 
-export default ReaderCollection;
+module.exports = ReaderCollection;
