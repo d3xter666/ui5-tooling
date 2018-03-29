@@ -1,5 +1,6 @@
-import {getLogger} from "@ui5/logger";
-const log = getLogger("lbt:graph:dependencyGraph");
+"use strict";
+
+const log = require("@ui5/logger").getLogger("dependencyGraph");
 
 class Node {
 	constructor(name) {
@@ -11,15 +12,7 @@ class Node {
 	}
 }
 
-/**
- *
- * @param {ResourcePool} pool resource pool
- * @param {Array} roots root elements
- * @param {object} options Options
- * @param {boolean} options.includeConditionalDependencies whether or not to include optional dependencies
- * @returns {Promise<{n0: Node, nodes: Map<any, any>}>}
- */
-async function createDependencyGraph(pool, roots, options) {
+function createDependencyGraph(pool, roots, options) {
 	const includeConditionalDependencies = options && options.includeConditionalDependencies;
 
 	// create graph representing modules and their dependencies
@@ -36,21 +29,21 @@ async function createDependencyGraph(pool, roots, options) {
 		node.visited = true;
 
 		return pool.getModuleInfo( name ).then( (module) => {
-			const p = module.dependencies.map( (dep) => {
+			let p = module.dependencies.map( (dep) => {
 				if ( includeConditionalDependencies || !module.isConditionalDependency(dep) ) {
 					return visitNode(dep).then( (child) => child.pred.add( node ) );
 				}
 			});
 			return Promise.all(p);
 		}, (err) => {
-			log.error(`Module ${name} not found in pool: ${err.message}`);
+			log.error("module %s not found in pool:", name, err);
 		}).then( () => node );
 	}
 
 	// create artificial root node and link it with roots
-	const n0 = new Node("");
+	let n0 = new Node("");
 	nodes.set("", n0);
-	const p = roots.map( (root) => {
+	let p = roots.map( (root) => {
 		// console.log("  entry point %s", root.name);
 		return visitNode(root.name).then( (child) => child.pred.add( n0 ) );
 	});
@@ -63,7 +56,7 @@ async function createDependencyGraph(pool, roots, options) {
 	});
 }
 
-export default createDependencyGraph;
+module.exports = createDependencyGraph;
 
 // TODO introduce class Graph
 // TODO remove n0 here, only introduce it in dominator tree (using the Graph API)
