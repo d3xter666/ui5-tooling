@@ -1,51 +1,44 @@
-import AbstractReader from "./AbstractReader.js";
+const AbstractReader = require("./AbstractReader");
 
 /**
  * Prioritized Resource Locator Collection
  *
- * @public
- * @class
- * @alias @ui5/fs/ReaderCollectionPrioritized
- * @extends @ui5/fs/AbstractReader
+ * @augments AbstractReader
  */
 class ReaderCollectionPrioritized extends AbstractReader {
 	/**
 	 * The constructor.
 	 *
-	 * @param {object} parameters
+	 * @param {Object} parameters
 	 * @param {string} parameters.name The collection name
-	 * @param {@ui5/fs/AbstractReader[]} [parameters.readers]
-	 *   Prioritized list of resource readers (tried in the order provided).
-	 *   If none are provided, the collection will never return any results.
+	 * @param {AbstractReader[]} parameters.readers Prioritized list of resource readers (first is tried first)
 	 */
 	constructor({readers, name}) {
-		super(name);
-
-		// Remove any undefined (empty) readers from array
-		this._readers = readers.filter(($) => $);
+		super();
+		this._name = name;
+		this._readers = readers;
 	}
 
 	/**
-	 * Locates resources by glob.
+	 * Locates resources by GLOB.
 	 *
 	 * @private
-	 * @param {string|string[]} pattern glob pattern as string or an array of
-	 *         glob patterns for virtual directory structure
-	 * @param {object} options glob options
-	 * @param {@ui5/fs/tracing.Trace} trace Trace instance
-	 * @returns {Promise<@ui5/fs/Resource[]>} Promise resolving to list of resources
+	 * @param {string} pattern GLOB pattern
+	 * @param {Object} options GLOB options
+	 * @param {Trace} trace Trace instance
+	 * @returns {Promise<Resource[]>} Promise resolving to list of resources
 	 */
 	_byGlob(pattern, options, trace) {
 		return Promise.all(this._readers.map(function(resourceLocator) {
 			return resourceLocator._byGlob(pattern, options, trace);
 		})).then((result) => {
-			const files = Object.create(null);
-			const resources = [];
+			let files = {};
+			let resources = [];
 			// Prefer files found in preceding resource locators
 			for (let i = 0; i < result.length; i++) {
 				for (let j = 0; j < result[i].length; j++) {
-					const resource = result[i][j];
-					const path = resource.getPath();
+					let resource = result[i][j];
+					let path = resource.getPath();
 					if (!files[path]) {
 						files[path] = true;
 						resources.push(resource);
@@ -63,21 +56,19 @@ class ReaderCollectionPrioritized extends AbstractReader {
 	 *
 	 * @private
 	 * @param {string} virPath Virtual path
-	 * @param {object} options Options
-	 * @param {@ui5/fs/tracing.Trace} trace Trace instance
-	 * @returns {Promise<@ui5/fs/Resource|null>}
-	 *   Promise resolving to a single resource or <code>null</code> if no resource is found
+	 * @param {Object} options Options
+	 * @param {Trace} trace Trace instance
+	 * @returns {Promise<Resource[]>} Promise resolving to a list of resources
 	 */
 	_byPath(virPath, options, trace) {
-		const that = this;
 		const byPath = (i) => {
 			if (i > this._readers.length - 1) {
 				return null;
 			}
-			return this._readers[i]._byPath(virPath, options, trace).then((resource) => {
-				if (resource) {
-					resource.pushCollection(that._name);
-					return resource;
+			return this._readers[i]._byPath(virPath, options, trace).then((result) => {
+				if (result) {
+					result.pushCollection(this._name);
+					return result;
 				} else {
 					return byPath(++i);
 				}
@@ -87,4 +78,4 @@ class ReaderCollectionPrioritized extends AbstractReader {
 	}
 }
 
-export default ReaderCollectionPrioritized;
+module.exports = ReaderCollectionPrioritized;
