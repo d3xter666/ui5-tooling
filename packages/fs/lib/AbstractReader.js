@@ -1,54 +1,37 @@
-import randomInt from "random-int";
-import Trace from "./tracing/Trace.js";
+const randomInt = require("random-int");
+const Trace = require("./tracing/Trace");
 
 /**
- * Abstract resource locator implementing the general API for <b>reading</b> resources
+ * Abstract resource locator
  *
  * @abstract
- * @public
- * @class
- * @alias @ui5/fs/AbstractReader
  */
 class AbstractReader {
 	/**
 	 * The constructor.
-	 *
-	 * @public
-	 * @param {string} name Name of the reader. Typically used for tracing purposes
 	 */
-	constructor(name) {
+	constructor() {
 		if (new.target === AbstractReader) {
 			throw new TypeError("Class 'AbstractReader' is abstract");
 		}
-		this._name = name;
-	}
-
-	/*
-	 * Returns the name of the reader instance. This can be used for logging/tracing purposes.
-	 *
-	 * @returns {string} Name of the reader
-	 */
-	getName() {
-		return this._name || `<unnamed ${this.constructor.name} Reader>`;
 	}
 
 	/**
-	 * Locates resources by matching glob patterns.
+	 * Locates resourcess by GLOB.
 	 *
 	 * @example
-	 * byGlob("**‏/*.{html,htm}");
-	 * byGlob("**‏/.library");
-	 * byGlob("/pony/*");
+	 * <caption>Example patterns:</caption>
+	 * // **\u00002F*.{html,htm}
+	 * // **\u00002F.library
+	 * // /pony/*
 	 *
-	 * @public
-	 * @param {string|string[]} virPattern glob pattern as string or array of glob patterns for
-	 * 										virtual directory structure
-	 * @param {object} [options] glob options
+	 * @param {string|Array} virPattern GLOB pattern as string or array of glob patterns for virtual directory structure
+	 * @param {Object} [options={}] GLOB options
 	 * @param {boolean} [options.nodir=true] Do not match directories
-	 * @returns {Promise<@ui5/fs/Resource[]>} Promise resolving to list of resources
+	 * @returns {Promise<Resource[]>} Promise resolving to list of resources
 	 */
 	byGlob(virPattern, options = {nodir: true}) {
-		const trace = new Trace(virPattern);
+		let trace = new Trace(virPattern);
 		return this._byGlob(virPattern, options, trace).then(function(result) {
 			trace.printReport();
 			return result;
@@ -56,8 +39,8 @@ class AbstractReader {
 			if (resources.length > 1) {
 				// Pseudo randomize result order to prevent consumers from relying on it:
 				// Swap the first object with a randomly chosen one
-				const x = 0;
-				const y = randomInt(0, resources.length - 1);
+				let x = 0;
+				let y = randomInt(0, resources.length - 1);
 				// Swap object at index "x" with  "y"
 				resources[x] = [resources[y], resources[y]=resources[x]][0];
 			}
@@ -66,49 +49,47 @@ class AbstractReader {
 	}
 
 	/**
-	 * Locates resources by matching a given path.
+	 * Locates resources by path.
 	 *
-	 * @public
 	 * @param {string} virPath Virtual path
-	 * @param {object} [options] Options
+	 * @param {Object} options Options
 	 * @param {boolean} [options.nodir=true] Do not match directories
-	 * @returns {Promise<@ui5/fs/Resource>} Promise resolving to a single resource
+	 * @returns {Promise<Resource[]>} Promise resolving to a list of resources
 	 */
 	byPath(virPath, options = {nodir: true}) {
-		const trace = new Trace(virPath);
-		return this._byPath(virPath, options, trace).then(function(resource) {
+		let trace = new Trace(virPath);
+		return this._byPath(virPath, options, trace).then(function(result) {
 			trace.printReport();
-			return resource;
+			return result;
 		});
 	}
 
 	/**
-	 * Locates resources by one or more glob patterns.
+	 * Locates resources by GLOB.
 	 *
 	 * @abstract
 	 * @protected
-	 * @param {string|string[]} virPattern glob pattern as string or an array of
-	 *         glob patterns for virtual directory structure
-	 * @param {object} options glob options
-	 * @param {@ui5/fs/tracing.Trace} trace Trace instance
-	 * @returns {Promise<@ui5/fs/Resource[]>} Promise resolving to list of resources
+	 * @param {string} virPattern GLOB pattern for virtual directory structure
+	 * @param {Object} options GLOB options
+	 * @param {Trace} trace Trace instance
+	 * @returns {Promise<Resource[]>} Promise resolving to list of resources
 	 */
 	_byGlob(virPattern, options, trace) {
-		throw new Error("Function '_byGlob' is not implemented");
+		throw new Error("Not implemented");
 	}
 
 	/**
-	 * Locate resources by matching a single glob pattern.
+	 * Locate resources by GLOB
 	 *
 	 * @abstract
 	 * @protected
-	 * @param {string} pattern glob pattern
-	 * @param {object} options glob options
-	 * @param {@ui5/fs/tracing.Trace} trace Trace instance
-	 * @returns {Promise<@ui5/fs/Resource[]>} Promise resolving to list of resources
+	 * @param {string} pattern GLOB pattern
+	 * @param {Object} options GLOB options
+	 * @param {Trace} trace Trace instance
+	 * @returns {Promise<Resource[]>} Promise resolving to list of resources
 	 */
 	_runGlob(pattern, options, trace) {
-		throw new Error("Function '_runGlob' is not implemented");
+		throw new Error("Not implemented");
 	}
 
 	/**
@@ -117,13 +98,12 @@ class AbstractReader {
 	 * @abstract
 	 * @protected
 	 * @param {string} virPath Virtual path
-	 * @param {object} options Options
-	 * @param {@ui5/fs/tracing.Trace} trace Trace instance
-	 * @returns {Promise<@ui5/fs/Resource>} Promise resolving to a single resource
+	 * @param {Trace} trace Trace instance
+	 * @returns {Promise<Resource[]>} Promise resolving to a list of resources
 	 */
-	_byPath(virPath, options, trace) {
-		throw new Error("Function '_byPath' is not implemented");
+	_byPath(virPath, trace) {
+		throw new Error("Not implemented");
 	}
 }
 
-export default AbstractReader;
+module.exports = AbstractReader;
