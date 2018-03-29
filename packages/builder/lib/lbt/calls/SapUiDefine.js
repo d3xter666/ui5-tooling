@@ -1,7 +1,8 @@
+"use strict";
 
-import {Syntax} from "../utils/parseUtils.js";
-import {resolveRelativeRequireJSName} from "../utils/ModuleName.js";
-import {isBoolean, getStringValue} from "../utils/ASTUtils.js";
+var {Syntax} = require("esprima");
+var ModuleName = require("../utils/ModuleName");
+var {isString} = require("../utils/ASTUtils");
 
 class SapUiDefineCall {
 	constructor(node, moduleName) {
@@ -9,61 +10,39 @@ class SapUiDefineCall {
 		this.name = moduleName;
 		this.dependencyArray = null;
 		this.factory = null;
-		this.exportAsGlobal = false;
-		this.paramNames = null;
 
 		const args = node.arguments;
-		if ( args == null ) {
-			return;
-		}
-
-		// Note: the following code assumes that no variables or expressions are used
-		// for the arguments of the sap.ui.define call. The analysis could be made more
-		// sophisticated and could try to skip unhandled parameter types, based on the
-		// AST type of follow-up arguments.
-		// But on the other hand, an incomplete analysis of the define call is useless in
-		// many cases, so it might not be worth the effort.
-
 		let i = 0;
 		let params;
 
-		const name = getStringValue(args[i]);
-		if ( i < args.length && name ) {
+		if ( args[i].type === Syntax.Literal ) {
 			// assert(String)
-			this.name = name;
-			i++;
+			this.name = args[i++].value;
 		}
 
-		if ( i < args.length && args[i].type === Syntax.ArrayExpression ) {
+		if ( args[i].type === Syntax.ArrayExpression ) {
 			this.dependencyArray = args[i++];
 			this.dependencies = this.dependencyArray.elements.map( (elem) => {
-				const value = getStringValue(elem);
-				if ( !value ) {
+				if ( !isString(elem) ) {
 					throw new TypeError();
 				}
-				return resolveRelativeRequireJSName(this.name, value);
+				return ModuleName.resolveRelativeRequireJSName(this.name, elem.value);
 			});
 			this.dependencyInsertionIdx = this.dependencyArray.elements.length;
 		}
 
-		if ( i < args.length && (
-			args[i].type === Syntax.FunctionExpression || args[i].type === Syntax.ArrowFunctionExpression)
-		) {
+		if ( args[i].type === Syntax.FunctionExpression ) {
 			this.factory = args[i++];
 			params = this.factory.params;
 			this.paramNames = params.map( (param) => {
 				if ( param.type !== Syntax.Identifier ) {
-					return null;
+					throw new TypeError();
 				}
 				return param.name;
 			});
 			if ( this.factory.params.length < this.dependencyInsertionIdx ) {
 				this.dependencyInsertionIdx = this.factory.params.length;
 			}
-		}
-
-		if ( i < args.length && isBoolean(args[i]) ) {
-			this.exportAsGlobal = args[i].value;
 		}
 
 		// console.log("declared dependencies: " + this.dependencies);
@@ -76,7 +55,7 @@ class SapUiDefineCall {
 			// console.error("no dependency error");
 			// return;
 		}
-		let i = this.dependencyInsertionIdx++;
+		var i = this.dependencyInsertionIdx++;
 		this.dependencyArray.elements.splice(i, 0, b.literal(module));
 		this.dependencies.splice(i, 0, module);
 		// console.log(this.factory.params);
@@ -85,7 +64,7 @@ class SapUiDefineCall {
 	}*/
 
 	findImportName(module) {
-		const idx = this.dependencies ? this.dependencies.indexOf(module) : -1;
+		let idx = this.dependencies ? this.dependencies.indexOf(module) : -1;
 		if ( idx >= 0 ) {
 			return this.paramNames[idx];
 		}
@@ -93,4 +72,21 @@ class SapUiDefineCall {
 	}
 }
 
-export default SapUiDefineCall;
+function isSapUiDefineCall(node) {
+	return (
+		node
+		&& node.type === Syntax.CallExpression
+		&& node.callee.type === Syntax.MemberExpression
+		&& node.callee.object.type === Syntax.MemberExpression
+		&& node.callee.object.object.type === Syntax.Identifier
+		&& node.callee.object.object.name === "sap"
+		&& node.callee.object.property.type === Syntax.Identifier
+		&& node.callee.object.property.name === "ui"
+		&& node.callee.property.type === Syntax.Identifier
+		&& node.callee.property.name === "define"
+	);
+}
+
+SapUiDefineCall.check = isSapUiDefineCall;
+
+module.exports = SapUiDefineCall;
