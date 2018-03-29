@@ -1,6 +1,7 @@
+"use strict";
 
-import {promisify} from "node:util";
-import fs from "graceful-fs";
+const {promisify} = require("util");
+const fs = require("fs");
 const readFile = promisify(fs.readFile);
 
 class Resource {
@@ -17,13 +18,6 @@ class Resource {
 	async buffer() {
 		return readFile(this.file);
 	}
-
-	/**
-	 * @returns {Promise<string>} String of the file content
-	 */
-	async string() {
-		return (await this.buffer()).toString();
-	}
 }
 
-export default Resource;
+module.exports = Resource;
