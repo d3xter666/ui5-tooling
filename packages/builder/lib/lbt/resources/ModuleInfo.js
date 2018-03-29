@@ -1,7 +1,7 @@
+"use strict";
 
 /**
  * A strict dependency always has to be fulfilled and is declared as part of the module's definition.
- *
  * @private
  */
 const STRICT = 0;
@@ -9,7 +9,6 @@ const STRICT = 0;
 /**
  * An implicit dependency is also strict, but has not been declared. E.g. each UI5 module depends on
  * jquery.sap.global.
- *
  * @private
  */
 const IMPLICIT = 1;
@@ -17,7 +16,6 @@ const IMPLICIT = 1;
 /**
  * A conditional dependency has to be resolved only under certain conditions that typically are
  * checked at runtime.
- *
  * @private
  */
 const CONDITIONAL = 2;
@@ -37,9 +35,9 @@ const Format = {
  */
 class ModuleInfo {
 	constructor(name) {
-		this._name = name;
+		this.name = name;
 		this.subModules = [];
-		this._dependencies = Object.create(null);
+		this._dependencies = {};
 		this.dynamicDependencies = false;
 
 		/**
@@ -57,12 +55,6 @@ class ModuleInfo {
 		/**
 		 * 'raw' modules are modules that don't use UI5's module system (require/declare)
 		 * TODO align with module format (ui5, amd, es6, raw)
-		 *
-		 * A raw module is a module which does not have in its non-conditional execution:
-		 * <ul>
-		 * <li>sap.ui.define call</li>
-		 * <li>jQuery.sap.declare call</li>
-		 * </ul>
 		 */
 		this.rawModule = false;
 
@@ -113,10 +105,10 @@ class ModuleInfo {
 		// If the dependency was known already, update the kind
 		// only when the new kind is stronger than the current one.
 		// STRICT is stronger than IMPLICIT, IMPLICIT is stronger than CONDITIONAL
-		if ( dependency &&
-				dependency !== this.name &&
-				this.subModules.indexOf(dependency) < 0 &&
-				( !(dependency in this._dependencies) || kind < this._dependencies[dependency]) ) {
+		if ( dependency
+				&& dependency !== this.name
+				&& this.subModules.indexOf(dependency) < 0
+				&& ( !(dependency in this._dependencies) || kind < this._dependencies[dependency]) ) {
 			this._dependencies[dependency] = kind;
 		}
 	}
@@ -130,9 +122,9 @@ class ModuleInfo {
 	}
 
 	setFormat(detectedFormat) {
-		if ( this.format == null ||
-				detectedFormat === Format.UI5_LEGACY ||
-				(detectedFormat === Format.UI5_DEFINE && this.format !== Format.UI5_LEGACY) ) {
+		if ( this.format == null
+				|| detectedFormat === Format.UI5_LEGACY
+				|| (detectedFormat === Format.UI5_DEFINE && this.format !== Format.UI5_LEGACY) ) {
 			this.format = detectedFormat;
 		}
 	}
@@ -157,8 +149,10 @@ class ModuleInfo {
 		if ( other instanceof ModuleInfo ) {
 			this.addSubModule( other.name );
 			// accumulate dependencies
-			for ( const dep of Object.keys(other._dependencies ) ) {
-				this._addDependency(dep, other._dependencies[dep]);
+			for ( let dep in other._dependencies ) {
+				if (other._dependencies.hasOwnProperty(dep)) {
+					this._addDependency(dep, other._dependencies[dep]);
+				}
 			}
 			// inherit dynamic dependencies
 			if ( other.dynamicDependencies ) {
@@ -179,38 +173,8 @@ class ModuleInfo {
 		return this._dependencies[dependency] === IMPLICIT;
 	}
 
-	get name() {
-		return this._name;
-	}
-
-	set name(n) {
-		this._name = n;
-		if ( n != null ) {
-			if ( Object.prototype.hasOwnProperty.call(this._dependencies, n) ) {
-				delete this._dependencies[n];
-			}
-
-			const idx = this.subModules.indexOf(n);
-			if ( idx >= 0 ) {
-				this.subModules.splice(idx, 1);
-			}
-		}
-	}
-
 	get dependencies() {
 		return Object.keys(this._dependencies);
-	}
-
-	/**
-	 * Removes the given set of `ignoredGlobals` from the set of exposed global names.
-	 *
-	 * @param {string[]} ignoredGlobals Names to ignore (determined from shims in .library)
-	 */
-	removeIgnoredGlobalNames(ignoredGlobals) {
-		if ( this.exposedGlobals ) {
-			const remaining = this.exposedGlobals.filter((global) => !ignoredGlobals.includes(global));
-			this.exposedGlobals = remaining.length > 0 ? remaining : null;
-		}
 	}
 
 	toString() {
@@ -247,6 +211,13 @@ public class ModuleInfo {
 	 *
 	private boolean excludeFromAllInOne;
 
+
+	public void removeIgnoredGlobalNames(Collection<String> ignoredNames) {
+		if ( !exposedGlobals.isEmpty() ) {
+			exposedGlobals.removeAll(ignoredNames);
+		}
+	}
+
 } */
 
-export default ModuleInfo;
+module.exports = ModuleInfo;
