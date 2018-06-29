@@ -1,5 +1,5 @@
 {
-  "_version": "1.21.0",
+  "_version": "1.9.0",
   "sap.app": {
     "id": "library.d",
     "type": "library",
@@ -22,14 +22,7 @@
       "libs": {}
     },
     "library": {
-      "i18n": false,
-      "css": false,
-      "content": {
-        "controls": [],
-        "elements": [],
-        "types": [],
-        "interfaces": []
-      }
+      "i18n": false
     }
   }
 }
