@@ -1,7 +1,7 @@
-import {getLogger} from "@ui5/logger";
-const log = getLogger("server:middleware:serveIndex");
-import mime from "mime-types";
-import serveIndex from "./serveIndex/serveIndex.cjs";
+const log = require("@ui5/logger").getLogger("server:middleware:serveIndex");
+const mime = require("mime-types");
+
+const rProperties = /\.properties$/;
 
 const KB = 1024;
 const MB = KB * KB;
@@ -10,18 +10,22 @@ const GB = KB * KB * KB;
 /**
  * Returns the mime type of the given resource
  *
- * @param {module:@ui5/fs/Resource} resource the resource
- * @returns {string} mime type
+ * @param {Resource} resource the resource
+ * @returns {String} mime type
  */
 function getMimeType(resource) {
-	return mime.lookup(resource.getPath()) || "application/octet-stream";
+	if (rProperties.test(resource.getPath())) {
+		return "text/plain;charset=ISO-8859-1";
+	} else {
+		return mime.lookup(resource.getPath()) || "application/octet-stream";
+	}
 }
 
 /**
  * Converts the given bytes into a proper human readable size
  *
- * @param {number} bytes bytes
- * @returns {string} human readable size
+ * @param {Number} bytes bytes
+ * @returns {String} human readable size
  */
 function formatSize(bytes) {
 	let result;
@@ -41,30 +45,32 @@ function formatSize(bytes) {
  * Creates a resource info object which is used to create the HTML
  * content for the resource listing
  *
- * @param {@ui5/fs/Resource} resource the resource to convert
- * @returns {object} resource info object
+ * @param {Resource} resource the resource to convert
+ * @returns {Object} resource info object
  */
 function createResourceInfo(resource) {
-	const stat = resource.getStatInfo();
-	const isDir = stat.isDirectory();
-	return {
+	let stat = resource.getStatInfo();
+	let isDir = stat.isDirectory();
+	let resInfo = {
 		path: resource.getPath() + (isDir ? "/" : ""),
-		name: resource.getName() + (isDir ? "/" : ""),
+		name: resource._name + (isDir ? "/" : ""),
 		isDir: isDir,
 		mimetype: isDir ? "" : getMimeType(resource),
 		lastModified: new Date(stat.mtime).toLocaleString(),
 		size: formatSize(stat.size),
 		sizeInBytes: stat.size,
-		project: resource.getProject()?.getName() || "<unknown>",
-		projectPath: resource.getProject()?.getRootPath() || "<unknown>"
+		// TODO: project as public API of FS?
+		project: resource._project ? resource._project.id : "<unknown>",
+		projectPath: resource._project ? resource._project.path : "<unknown>"
 	};
+	return resInfo;
 }
 
 /**
  * Creates a resource info array from the given resource array
  *
- * @param {@ui5/fs/Resource[]} resources an array of resources
- * @returns {object[]} sorted array of resource infos
+ * @param {Resource[]} resources an array of resources
+ * @returns {Object[]} sorted array of resource infos
  */
 function createResourceInfos(resources) {
 	return resources.map((item, i) => {
@@ -82,43 +88,74 @@ function createResourceInfos(resources) {
 }
 
 /**
+ * Creates the HTML content for the resource listing
+ *
+ * @param {String} path the path
+ * @param {Object[]} resourceInfos an array of resource infos
+ * @returns {String} HTML content for the resource listing
+ */
+function createContent(path, resourceInfos) {
+	return `<!DOCTYPE html>
+	<html>
+		<head>
+			<title>Index of ${path}</title>
+			<style>
+				body, table { font-family: Courier New; font-size: 9pt; margin: 3px; padding: 0; background-color: white; color: black; }
+				h1 { padding: 1px 10px; font-size: 16pt; }
+				table, tr, th, td { border: none; border-collapse: collapse; }
+				th, td {padding: 1px 10px; text-align: left; }
+			</style>
+		</head>
+		<body>
+		<h1>Index of ${path}</h1>
+		<table>
+			<thead><tr><th></th><th>&lt;DIR&gt;</th><th></th><th><a href="..">..</a></th><th></th></tr></thead>
+			<tbody>
+			${resourceInfos.map((info, i) => `
+			<tr${i % 2 == 1 ? " class=\"alternate\"" : ""}>
+				<td>${info.lastModified}</td>
+				<td>${info.isDir ? "&lt;DIR&gt;" : ""}</td>
+				<td${info.isDir ? ">" : " title=\"" + info.sizeInBytes + " Bytes\">" + info.size}</td>
+				<td><a href="${info.path}">${info.name}</a></td>
+				<td>${info.mimetype}</td>
+				<td><a href="file:////${info.projectPath}" title="${info.projectPath}">${info.project}</a></td>
+			</tr>
+			`).join("")}
+			</tbody>
+		</table>
+		</body>
+	</html>
+	`;
+}
+
+/**
  * Creates and returns the middleware to serve a resource index.
  *
- * @module @ui5/server/middleware/serveIndex
- * @param {object} parameters Parameters
- * @param {object} parameters.resources Contains the resource reader or collection to access project related files
- * @param {@ui5/fs/AbstractReader} parameters.resources.all Resource collection which contains the workspace
- * and the project dependencies
- * @param {boolean} [parameters.simpleIndex=false] Use a simplified view for the server directory listing
- * @param {boolean} [parameters.showHidden=true] Show hidden files in the server directory listing
- * @returns {Function} Returns a server middleware closure.
+ * @module server/middleware/serveIndex
+ * @param {Object} resourceCollections Contains the resource reader or collection to access project related files
+ * @param {AbstractReader} resourceCollections.combo Resource collection which contains the workspace and the project dependencies
+ * @returns {function} Returns a server middleware closure.
  */
-
-function createMiddleware({resources, middlewareUtil, simpleIndex = false, showHidden = true}) {
-	return function(req, res, next) {
-		const pathname = middlewareUtil.getPathname(req);
-		log.verbose("\n Listing index of " + pathname);
-		const glob = pathname + (pathname.endsWith("/") ? "*" : "/*");
-		resources.all.byGlob(glob, {nodir: false}).then((resources) => {
-			if (!resources || resources.length === 0) { // Not found
+function createMiddleware({resourceCollections}) {
+	return function serveIndex(req, res, next) {
+		log.verbose("\n Listing index of " +req.path);
+		let glob = req.path + (req.path.endsWith("/") ? "*" : "/*");
+		resourceCollections.combo.byGlob(glob, {nodir: false}).then((resources) => {
+			if (!resources) { // Not found
 				next();
 				return;
 			}
 
-			const resourceInfos = createResourceInfos(resources);
-			serveIndex({
-				req,
-				res,
-				next,
-				simpleIndex,
-				showHidden,
-				resourceInfos,
-				pathname
+			res.writeHead(200, {
+				"Content-Type": "text/html"
 			});
+
+			let resourceInfos = createResourceInfos(resources);
+			res.end(createContent(req.path, resourceInfos));
 		}).catch((err) => {
 			next(err);
 		});
 	};
 }
 
-export default createMiddleware;
+module.exports = createMiddleware;
