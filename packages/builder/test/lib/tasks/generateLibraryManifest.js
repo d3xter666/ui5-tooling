@@ -1,31 +1,46 @@
-import test from "ava";
-import generateLibraryManifest from "../../../lib/tasks/generateLibraryManifest.js";
-import {createAdapter, createResource} from "@ui5/fs/resourceFactory";
+const {test} = require("ava");
+
+const ui5Builder = require("../../../");
+const tasks = ui5Builder.builder.tasks;
+const path = require("path");
+const ui5Fs = require("@ui5/fs");
+const resourceFactory = ui5Fs.resourceFactory;
 
 function createWorkspace() {
-	return createAdapter({
+	return resourceFactory.createAdapter({
 		virBasePath: "/",
 		project: {
-			getName: () => "test.lib",
-			getVersion: () => "2.0.0",
+			metadata: {
+				name: "test.lib"
+			},
+			version: "2.0.0",
+			dependencies: [
+				{
+					metadata: {
+						name: "sap.ui.core"
+					},
+					version: "1.0.0"
+				}
+			]
 		}
 	});
 }
 
+function createDependencies() {
+	return resourceFactory.createAdapter({
+		fsBasePath: path.join(__dirname, "..", "..", "fixtures", "sap.ui.core-evo", "main", "src"),
+		virBasePath: "/resources"
+	});
+}
+
 async function assertCreatedManifest(t, oExpectedManifest) {
-	const {workspace, resources} = t.context;
+	const {workspace, dependencies, resources} = t.context;
 
 	await Promise.all(resources.map((resource) => workspace.write(resource)));
 
-	await generateLibraryManifest({
-		workspace,
-		taskUtil: {
-			getProject: () => {
-				return {
-					getVersion: () => "1.0.0"
-				};
-			}
-		},
+	await tasks.generateLibraryManifest({
+		workspace: workspace,
+		dependencies: dependencies,
 		options: {
 			projectName: "Test Lib"
 		}
@@ -41,10 +56,12 @@ async function assertCreatedManifest(t, oExpectedManifest) {
 	t.deepEqual(JSON.parse(buffer), oExpectedManifest, "Correct content");
 }
 
-test("integration: Library without i18n bundle file", async (t) => {
+test("Library without i18n bundle file", async (t) => {
 	t.context.workspace = createWorkspace();
+	t.context.dependencies = createDependencies();
+
 	t.context.resources = [];
-	t.context.resources.push(createResource({
+	t.context.resources.push(resourceFactory.createResource({
 		path: "/resources/test/lib/.library",
 		string: `
 			<?xml version="1.0" encoding="UTF-8" ?>
@@ -63,7 +80,7 @@ test("integration: Library without i18n bundle file", async (t) => {
 	}));
 
 	await assertCreatedManifest(t, {
-		"_version": "1.21.0",
+		"_version": "1.9.0",
 		"sap.app": {
 			applicationVersion: {
 				version: "2.0.0",
@@ -92,16 +109,17 @@ test("integration: Library without i18n bundle file", async (t) => {
 	});
 });
 
-test("integration: Library with i18n bundle file (messagebundle.properties)", async (t) => {
+test("Library with i18n bundle file (messagebundle.properties)", async (t) => {
 	t.context.workspace = createWorkspace();
+	t.context.dependencies = createDependencies();
 
 	t.context.resources = [];
-	t.context.resources.push(createResource({
+	t.context.resources.push(resourceFactory.createResource({
 		path: "/resources/test/lib/messagebundle.properties",
 		string: "KEY=VALUE",
 		project: t.context.workspace._project
 	}));
-	t.context.resources.push(createResource({
+	t.context.resources.push(resourceFactory.createResource({
 		path: "/resources/test/lib/.library",
 		string: `
 			<?xml version="1.0" encoding="UTF-8" ?>
@@ -120,7 +138,7 @@ test("integration: Library with i18n bundle file (messagebundle.properties)", as
 	}));
 
 	await assertCreatedManifest(t, {
-		"_version": "1.21.0",
+		"_version": "1.9.0",
 		"sap.app": {
 			applicationVersion: {
 				version: "2.0.0",
@@ -143,91 +161,18 @@ test("integration: Library with i18n bundle file (messagebundle.properties)", as
 				minUI5Version: "1.0",
 			},
 			library: {
-				i18n: {
-					bundleUrl: "messagebundle.properties",
-					supportedLocales: [""],
-					fallbackLocale: ""
-				}
+				i18n: "messagebundle.properties",
 			}
 		},
 	});
 });
 
-test("integration: Library with i18n=true declared in .library", async (t) => {
+test("Library with i18n=true declared in .library", async (t) => {
 	t.context.workspace = createWorkspace();
+	t.context.dependencies = createDependencies();
 
 	t.context.resources = [];
-	t.context.resources.push(createResource({
-		path: "/resources/test/lib/.library",
-		string: `
-			<?xml version="1.0" encoding="UTF-8" ?>
-			<library xmlns="http://www.sap.com/sap.ui.library.xsd" >
-
-				<name>test.lib</name>
-				<vendor>SAP SE</vendor>
-				<copyright></copyright>
-				<version>2.0.0</version>
-
-				<documentation>Test Lib</documentation>
-
-				<appData>
-					<manifest xmlns="http://www.sap.com/ui5/buildext/manifest">
-						<sap.ui5>
-							<library>
-								<i18n>true</i18n>
-							</library>
-						</sap.ui5>
-					</manifest>
-				</appData>
-
-			</library>
-		`,
-		project: t.context.workspace._project
-	}));
-	t.context.resources.push(createResource({
-		path: "/resources/test/lib/messagebundle.properties",
-		project: t.context.workspace._project
-	}));
-
-	await assertCreatedManifest(t, {
-		"_version": "1.21.0",
-		"sap.app": {
-			applicationVersion: {
-				version: "2.0.0",
-			},
-			description: "Test Lib",
-			embeds: [],
-			id: "test.lib",
-			offline: true,
-			resources: "resources.json",
-			title: "Test Lib",
-			type: "library",
-		},
-		"sap.ui": {
-			supportedThemes: [],
-			technology: "UI5",
-		},
-		"sap.ui5": {
-			dependencies: {
-				libs: {},
-				minUI5Version: "1.0",
-			},
-			library: {
-				i18n: {
-					bundleUrl: "messagebundle.properties",
-					supportedLocales: [""],
-					fallbackLocale: ""
-				}
-			}
-		},
-	});
-});
-
-test("integration: Library with i18n=true declared in .library and multiple locales", async (t) => {
-	t.context.workspace = createWorkspace();
-
-	t.context.resources = [];
-	t.context.resources.push(createResource({
+	t.context.resources.push(resourceFactory.createResource({
 		path: "/resources/test/lib/.library",
 		string: `
 			<?xml version="1.0" encoding="UTF-8" ?>
@@ -255,18 +200,8 @@ test("integration: Library with i18n=true declared in .library and multiple loca
 		project: t.context.workspace._project
 	}));
 
-	t.context.resources.push(createResource({
-		path: "/resources/test/lib/messagebundle.properties",
-		project: t.context.workspace._project
-	}));
-
-	t.context.resources.push(createResource({
-		path: "/resources/test/lib/messagebundle_en.properties",
-		project: t.context.workspace._project
-	}));
-
 	await assertCreatedManifest(t, {
-		"_version": "1.21.0",
+		"_version": "1.9.0",
 		"sap.app": {
 			applicationVersion: {
 				version: "2.0.0",
@@ -289,91 +224,18 @@ test("integration: Library with i18n=true declared in .library and multiple loca
 				minUI5Version: "1.0",
 			},
 			library: {
-				i18n: {
-					bundleUrl: "messagebundle.properties",
-					supportedLocales: ["", "en"]
-				}
+				i18n: "messagebundle.properties",
 			}
 		},
 	});
 });
 
-test("integration: Library with i18n=true declared in .library and single locale", async (t) => {
+test("Library with i18n=false declared in .library", async (t) => {
 	t.context.workspace = createWorkspace();
+	t.context.dependencies = createDependencies();
 
 	t.context.resources = [];
-	t.context.resources.push(createResource({
-		path: "/resources/test/lib/.library",
-		string: `
-			<?xml version="1.0" encoding="UTF-8" ?>
-			<library xmlns="http://www.sap.com/sap.ui.library.xsd" >
-
-				<name>test.lib</name>
-				<vendor>SAP SE</vendor>
-				<copyright></copyright>
-				<version>2.0.0</version>
-
-				<documentation>Test Lib</documentation>
-
-				<appData>
-					<manifest xmlns="http://www.sap.com/ui5/buildext/manifest">
-						<sap.ui5>
-							<library>
-								<i18n>true</i18n>
-							</library>
-						</sap.ui5>
-					</manifest>
-				</appData>
-
-			</library>
-		`,
-		project: t.context.workspace._project
-	}));
-
-	t.context.resources.push(createResource({
-		path: "/resources/test/lib/messagebundle_de.properties",
-		project: t.context.workspace._project
-	}));
-
-	await assertCreatedManifest(t, {
-		"_version": "1.21.0",
-		"sap.app": {
-			applicationVersion: {
-				version: "2.0.0",
-			},
-			description: "Test Lib",
-			embeds: [],
-			id: "test.lib",
-			offline: true,
-			resources: "resources.json",
-			title: "Test Lib",
-			type: "library",
-		},
-		"sap.ui": {
-			supportedThemes: [],
-			technology: "UI5",
-		},
-		"sap.ui5": {
-			dependencies: {
-				libs: {},
-				minUI5Version: "1.0",
-			},
-			library: {
-				i18n: {
-					bundleUrl: "messagebundle.properties",
-					supportedLocales: ["de"],
-					fallbackLocale: "de"
-				}
-			}
-		},
-	});
-});
-
-test("integration: Library with i18n=false declared in .library", async (t) => {
-	t.context.workspace = createWorkspace();
-
-	t.context.resources = [];
-	t.context.resources.push(createResource({
+	t.context.resources.push(resourceFactory.createResource({
 		path: "/resources/test/lib/.library",
 		string: `
 			<?xml version="1.0" encoding="UTF-8" ?>
@@ -402,7 +264,7 @@ test("integration: Library with i18n=false declared in .library", async (t) => {
 	}));
 
 	await assertCreatedManifest(t, {
-		"_version": "1.21.0",
+		"_version": "1.9.0",
 		"sap.app": {
 			applicationVersion: {
 				version: "2.0.0",
@@ -431,11 +293,12 @@ test("integration: Library with i18n=false declared in .library", async (t) => {
 	});
 });
 
-test("integration: Library with i18n=foo.properties declared in .library", async (t) => {
+test("Library with i18n=foo.properties declared in .library", async (t) => {
 	t.context.workspace = createWorkspace();
+	t.context.dependencies = createDependencies();
 
 	t.context.resources = [];
-	t.context.resources.push(createResource({
+	t.context.resources.push(resourceFactory.createResource({
 		path: "/resources/test/lib/.library",
 		string: `
 			<?xml version="1.0" encoding="UTF-8" ?>
@@ -463,12 +326,8 @@ test("integration: Library with i18n=foo.properties declared in .library", async
 		project: t.context.workspace._project
 	}));
 
-	t.context.resources.push(createResource({
-		path: "/resources/test/lib/foo.properties",
-		project: t.context.workspace._project
-	}));
 	await assertCreatedManifest(t, {
-		"_version": "1.21.0",
+		"_version": "1.9.0",
 		"sap.app": {
 			applicationVersion: {
 				version: "2.0.0",
@@ -491,21 +350,18 @@ test("integration: Library with i18n=foo.properties declared in .library", async
 				minUI5Version: "1.0",
 			},
 			library: {
-				i18n: {
-					bundleUrl: "foo.properties",
-					supportedLocales: [""],
-					fallbackLocale: ""
-				}
+				i18n: "foo.properties"
 			}
 		},
 	});
 });
 
-test("integration: Library with css=true declared in .library", async (t) => {
+test("Library with css=true declared in .library", async (t) => {
 	t.context.workspace = createWorkspace();
+	t.context.dependencies = createDependencies();
 
 	t.context.resources = [];
-	t.context.resources.push(createResource({
+	t.context.resources.push(resourceFactory.createResource({
 		path: "/resources/test/lib/.library",
 		string: `
 			<?xml version="1.0" encoding="UTF-8" ?>
@@ -534,7 +390,7 @@ test("integration: Library with css=true declared in .library", async (t) => {
 	}));
 
 	await assertCreatedManifest(t, {
-		"_version": "1.21.0",
+		"_version": "1.9.0",
 		"sap.app": {
 			applicationVersion: {
 				version: "2.0.0",
@@ -563,11 +419,12 @@ test("integration: Library with css=true declared in .library", async (t) => {
 	});
 });
 
-test("integration: Library with css=false declared in .library", async (t) => {
+test("Library with css=false declared in .library", async (t) => {
 	t.context.workspace = createWorkspace();
+	t.context.dependencies = createDependencies();
 
 	t.context.resources = [];
-	t.context.resources.push(createResource({
+	t.context.resources.push(resourceFactory.createResource({
 		path: "/resources/test/lib/.library",
 		string: `
 			<?xml version="1.0" encoding="UTF-8" ?>
@@ -596,7 +453,7 @@ test("integration: Library with css=false declared in .library", async (t) => {
 	}));
 
 	await assertCreatedManifest(t, {
-		"_version": "1.21.0",
+		"_version": "1.9.0",
 		"sap.app": {
 			applicationVersion: {
 				version: "2.0.0",
