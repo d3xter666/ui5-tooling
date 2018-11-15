@@ -1,50 +1,43 @@
-import baseMiddleware from "../middlewares/base.js";
-import path from "node:path";
-import {isLogLevelEnabled} from "@ui5/logger";
-import {createRequire} from "node:module";
-
-// Using CommonsJS require since JSON module imports are still experimental
-const require = createRequire(import.meta.url);
+// Versions
+const baseMiddleware = require("../middlewares/base.js");
 
 const versions = {
 	command: "versions",
-	describe: "Shows the versions of all UI5 CLI modules",
+	describe: "Show versions of all UI5 Tooling modules",
 	middlewares: [baseMiddleware]
 };
 
 const NOT_FOUND = "===(not installed)";
-versions.getVersion = (pkg) => {
+const getVersion = (pkg) => {
 	try {
 		const packageInfo = require(`${pkg}/package.json`);
-		if (!packageInfo?.version) {
-			return NOT_FOUND;
-		}
-		let res = packageInfo.version;
-		if (isLogLevelEnabled("verbose")) {
-			const packageDir = path.dirname(require.resolve(`${pkg}/package.json`));
-			res += ` (from ${packageDir})`;
-		}
-		return res;
-	} catch {
+		return packageInfo.version || NOT_FOUND;
+	} catch (err) {
 		return NOT_FOUND;
 	}
 };
 
-versions.handler = async function() {
-	const output = (await Promise.all(
-		[
-			"@ui5/cli",
-			"@ui5/builder",
-			"@ui5/server",
-			"@ui5/fs",
-			"@ui5/project",
-			"@ui5/logger",
-		].map(async (id) => {
-			return (id + ":").padEnd(15) + versions.getVersion(id);
-		})
-	)).join("\n");
-
-	process.stdout.write(`\n${output}\n\n`);
+versions.handler = (argv) => {
+	try {
+		const cliVersion =
+			require("../../../package.json").version || NOT_FOUND;
+		const builderVersion = getVersion("@ui5/builder");
+		const serverVersion = getVersion("@ui5/server");
+		const fsVersion = getVersion("@ui5/fs");
+		const projectVersion = getVersion("@ui5/project");
+		const loggerVersion = getVersion("@ui5/logger");
+		console.log(`
+	@ui5/cli:      ${cliVersion}
+	@ui5/builder:  ${builderVersion}
+	@ui5/server:   ${serverVersion}
+	@ui5/fs:       ${fsVersion}
+	@ui5/project:  ${projectVersion}
+	@ui5/logger:   ${loggerVersion}
+		`);
+	} catch (err) {
+		console.error(err);
+		process.exit(1);
+	}
 };
 
-export default versions;
+module.exports = versions;
