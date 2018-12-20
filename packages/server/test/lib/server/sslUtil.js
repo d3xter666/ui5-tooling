@@ -1,11 +1,12 @@
-import path from "node:path";
-import fs from "node:fs";
-import test from "ava";
-import sinon from "sinon";
-import {promisify} from "node:util";
+const path = require("path");
+const fs = require("fs");
+const {test} = require("ava");
+const sinon = require("sinon");
+const {promisify} = require("util");
 const stat = promisify(fs.stat);
-import {rimraf} from "rimraf";
-import esmock from "esmock";
+const prompt = require("prompt");
+const mock = require("mock-require");
+const sslUtil = require("../../../").sslUtil;
 
 function fileExists(filePath) {
 	return stat(filePath).then(() => true, (err) => {
@@ -17,101 +18,64 @@ function fileExists(filePath) {
 	});
 }
 
-test.beforeEach(async (t) => {
-	t.context.yesno = sinon.stub();
-	t.context.devcertSanscache = sinon.stub();
-	t.context.mkdir = sinon.stub().resolves();
-
-	t.context.createSslUtilMock = async (mockMkdir = false) => {
-		const mocks = {
-			"yesno": t.context.yesno,
-			"devcert-sanscache": t.context.devcertSanscache
-		};
-		if (mockMkdir) {
-			mocks["node:fs/promises"] = {
-				mkdir: t.context.mkdir
-			};
-		}
-		t.context.sslUtil = await esmock.p("../../../lib/sslUtil.js", mocks);
-		return t.context.sslUtil;
-	};
-});
-
-test.afterEach.always((t) => {
-	esmock.purge(t.context.sslUtil);
-});
-
-test("Get existing certificate", async (t) => {
-	const sslUtil = await esmock("../../../lib/sslUtil.js");
-
+test("Get existing certificate", (t) => {
+	t.plan(2);
 	const sslPath = path.join(process.cwd(), "./test/fixtures/ssl/");
-	const result = await sslUtil.getSslCertificate(
+	const result = sslUtil.getSslCertificate(
 		path.join(sslPath, "dummy.key"),
 		path.join(sslPath, "dummy.crt"),
 	);
-	t.is(result.key.toString(), "dummy-key-file", "Key exists");
-	t.is(result.cert.toString(), "dummy-crt-file", "Cert exists");
+	return result.then((res) => {
+		t.deepEqual(res.key.toString(), "dummy-key-file", "Key exists");
+		t.deepEqual(res.cert.toString(), "dummy-crt-file", "Cert exists");
+	});
 });
 
-test.serial("Create new certificate and install it", async (t) => {
-	const {createSslUtilMock, yesno, devcertSanscache} = t.context;
-	const sslUtil = await createSslUtilMock();
-
-	t.plan(6);
-
+test.serial("Create new certificate and install it", (t) => {
+	t.plan(5);
 	const sslKey = "abcd";
 	const sslCert = "defg";
-
-	yesno.callsFake(async function(options) {
-		t.deepEqual(options, {
-			question: "No SSL certificates found. " +
-				"Do you want to create new SSL certificates and install them locally? (yes)",
-			defaultValue: true
-		}, "Pass options to yesno");
-
-		return true;
+	const promptStartStub = sinon.stub(prompt, "start").callsFake(function() {});
+	const promptGetStub = sinon.stub(prompt, "get").callsFake(function(property, callback) {
+		return callback(null, {yesno: "yes"});
 	});
 
-	devcertSanscache.callsFake(function(name) {
-		t.is(name, "UI5Tooling", "Create certificate for UI5Tooling.");
+	mock("devcert-sanscache", function(name) {
+		t.deepEqual(name, "ui5-tooling", "Create certificate for ui5-tooling.");
 		return Promise.resolve({
 			key: sslKey,
 			cert: sslCert
 		});
 	});
 
+	mock.reRequire("devcert-sanscache");
+	const sslUtil = mock.reRequire("../../../lib/sslUtil");
 	const sslPath = path.join(process.cwd(), "./test/tmp/ssl/");
-	await rimraf(sslPath); // Ensure that tmp directory doesn't exist
-
 	const sslPathKey = path.join(sslPath, "someOtherServer1.key");
 	const sslPathCert = path.join(sslPath, "someOtherServer1.crt");
-	const result = await sslUtil.getSslCertificate(sslPathKey, sslPathCert);
-	t.deepEqual(result.key, sslKey, "Key should be returned");
-	t.deepEqual(result.cert, sslCert, "Cert should be returned");
-
-	const fileExistsResult = await Promise.all([
-		fileExists(sslPathKey),
-		fileExists(sslPathCert)
-	]);
-
-	t.is(fileExistsResult[0], true, "Key was created.");
-	t.is(fileExistsResult[1], true, "Cert was created.");
+	const result = sslUtil.getSslCertificate(sslPathKey, sslPathCert);
+	return result.then((res) => {
+		t.deepEqual(res.key, sslKey, "Key should be returned");
+		t.deepEqual(res.cert, sslCert, "Cert should be returned");
+	}).then(() => {
+		return Promise.all([
+			fileExists(sslPathKey),
+			fileExists(sslPathCert)
+		]);
+	}).then((fileExistsResult) => {
+		t.deepEqual(fileExistsResult[0], true, "Key was created.");
+		t.deepEqual(fileExistsResult[1], true, "Cert was created.");
+		promptStartStub.restore();
+		promptGetStub.restore();
+		mock.stop("devcert-sanscache");
+	});
 });
 
-test.serial("Create new certificate and do not install it", async (t) => {
-	const {createSslUtilMock, yesno} = t.context;
-	const sslUtil = await createSslUtilMock();
-
-	t.plan(2);
-
-	yesno.callsFake(async function(options) {
-		t.deepEqual(options, {
-			question: "No SSL certificates found. " +
-				"Do you want to create new SSL certificates and install them locally? (yes)",
-			defaultValue: true
-		}, "Pass options to yesno");
-
-		return false;
+test.serial("Create new certificate and do not install it", (t) => {
+	t.plan(1);
+	const promptStartStub = sinon.stub(prompt, "start").callsFake(function() {});
+	const promptGetStub = sinon.stub(prompt, "get").callsFake(function(property, callback) {
+		return callback(null, {yesno: "no"});
 	});
 
 	const sslPath = path.join(process.cwd(), "./test/tmp/ssl/");
@@ -119,47 +83,57 @@ test.serial("Create new certificate and do not install it", async (t) => {
 	const sslPathCert = path.join(sslPath, "someOtherServer2.crt");
 	const result = sslUtil.getSslCertificate(sslPathKey, sslPathCert);
 	return result.catch((error) => {
-		t.is(
-			error.message,
+		t.deepEqual(
+			error,
 			"Certificate installation aborted! Please install the SSL certificate manually.",
 			"Certificate install aborted."
 		);
+		promptStartStub.restore();
+		promptGetStub.restore();
 	});
 });
 
-test.serial("Create new certificate not succeeded", async (t) => {
-	const {createSslUtilMock, yesno, devcertSanscache, mkdir} = t.context;
-	const sslUtil = await createSslUtilMock(true);
+test.serial("Create new certificate not succeeded", (t) => {
+	t.plan(5);
 
-	t.plan(6);
-
-	yesno.callsFake(async function(options) {
-		t.deepEqual(options, {
-			question: "No SSL certificates found. " +
-				"Do you want to create new SSL certificates and install them locally? (yes)",
-			defaultValue: true
-		}, "Pass options to yesno");
-
-		return true;
+	const promptStartStub = sinon.stub(prompt, "start").callsFake(function() {});
+	const promptGetStub = sinon.stub(prompt, "get").callsFake(function(property, callback) {
+		return callback(null, {yesno: "yes"});
 	});
+	const consoleSpyLog = sinon.spy(console, "log");
+	const consoleSpyError = sinon.spy(console, "error");
 
-	devcertSanscache.callsFake(async function(name) {
-		t.is(name, "UI5Tooling", "Create certificate for UI5Tooling.");
-		return {
+	mock("devcert-sanscache", function(name) {
+		t.deepEqual(name, "ui5-tooling", "Create certificate for ui5-tooling.");
+		return Promise.resolve({
 			key: "aaa",
 			cert: "bbb"
-		};
+		});
 	});
-	mkdir.callsFake(async function(dirName) {
-		t.pass("mkdir mock reached.");
 
-		throw new Error("some error");
+	mock("make-dir", function(dirName) {
+		t.pass("make-dir mock reached.");
+
+		return Promise.reject("some error");
 	});
+
+	mock.reRequire("devcert-sanscache");
+	mock.reRequire("make-dir");
+	const sslUtil = mock.reRequire("../../../lib/sslUtil");
 
 	const sslPath = path.join(process.cwd(), "./test/tmp/ssl/");
 	const sslPathKey = path.join(sslPath, "someOtherServer3.key");
 	const sslPathCert = path.join(sslPath, "someOtherServer3.crt");
-	const err = await t.throwsAsync(sslUtil.getSslCertificate(sslPathKey, sslPathCert));
-	t.is(err.message, "some error", "Correct error thrown");
+	const result = sslUtil.getSslCertificate(sslPathKey, sslPathCert);
+	return result.then(() => {
+		t.true(consoleSpyLog.calledWith("Could not create certificate"), "Info was logged.");
+		t.true(consoleSpyError.calledWith("some error"), "Error was logged.");
+		promptStartStub.restore();
+		promptGetStub.restore();
+		consoleSpyLog.restore();
+		consoleSpyError.restore();
+		mock.stop("devcert-sanscache");
+		mock.stop("make-dir");
+	});
 });
 
