@@ -1,5 +1,5 @@
-import test from "ava";
-import nonReadRequestsMiddleware from "../../../../lib/middleware/nonReadRequests.js";
+const {test} = require("ava");
+const nonReadRequestsMiddleware = require("../../../../lib/middleware/nonReadRequests");
 
 test("Read requests", (t) => {
 	t.plan(3);
@@ -13,9 +13,9 @@ test("Read requests", (t) => {
 		t.pass("Next was called.");
 	};
 
-	middleware({method: "GET", url: "/somePath"}, res, next);
-	middleware({method: "HEAD", url: "/somePath"}, res, next);
-	middleware({method: "OPTIONS", url: "/somePath"}, res, next);
+	middleware({method: "GET", path: "somePath"}, res, next);
+	middleware({method: "HEAD", path: "somePath"}, res, next);
+	middleware({method: "OPTIONS", path: "somePath"}, res, next);
 });
 
 test("Non read requests results in status 404 and an error message", (t) => {
@@ -29,13 +29,16 @@ test("Non read requests results in status 404 and an error message", (t) => {
 	const methods = ["POST", "PUT", "DELETE"];
 	methods.forEach(function(method) {
 		res = {
-			statusCode: 200,
-			end: function(message) {
-				t.is(res.statusCode, 404, "Status should be 404");
-				t.deepEqual(message, "Cannot " + method + " /somePath", "Finished with error message.");
+			status: function(status) {
+				t.deepEqual(status, 404, "Status should be 404");
+				return {
+					end: function(message) {
+						t.deepEqual(message, "Cannot " + method + " somePath", "Finished with error message.");
+					}
+				};
 			}
 		};
 
-		middleware({method: method, url: "/somePath"}, res, next);
+		middleware({method: method, path: "somePath"}, res, next);
 	});
 });
