@@ -1,204 +1,61 @@
-import test from "ava";
-import * as resourceFactory from "@ui5/fs/resourceFactory";
-import MiddlewareUtil from "../../../../lib/middleware/MiddlewareUtil.js";
-import serveIndexMiddleware from "../../../../lib/middleware/serveIndex.js";
+const path = require("path");
+const {test} = require("ava");
+const resourceFactory = require("@ui5/fs").resourceFactory;
 
-test.serial("serveIndex default", async (t) => {
-	t.plan(4);
-	const writeResource = function(writer, path, buffer) {
-		const statInfo = {
-			mtime: 0,
-			size: buffer.byteLength,
-			isDirectory: function() {
-				return false;
-			}
+test.serial("Check if index for files is created", (t) => {
+	t.plan(3);
+	const serveIndexMiddleware = require("../../../../lib/middleware/serveIndex");
+	const writeResource = function(writer, path, size = 0, stringContent = "abc") {
+		const resource = resourceFactory.createResource({path, string: stringContent});
+		resource.getStatInfo = function() {
+			return {
+				mtime: 0,
+				size: size,
+				isDirectory: function() {
+					return false;
+				}
+			};
 		};
-		const resource = resourceFactory.createResource({statInfo, path, buffer});
 		return writer.write(resource);
 	};
 
-	const readerWriter = resourceFactory.createAdapter({virBasePath: "/"});
-
-	await Promise.all([
-		writeResource(readerWriter, "/myFile1.meh", Buffer.alloc(1024)), // KB
-		writeResource(readerWriter, "/myFile2.js", Buffer.alloc(1024 * 1024)), // MB
-		writeResource(readerWriter, "/myFile3.properties", Buffer.alloc(1024 * 1024 * 1024)), // GB
-		writeResource(readerWriter, "/.myFile4", Buffer.alloc(1024)), // hidden 1 KB
-	]);
-	const middleware = serveIndexMiddleware({
-		middlewareUtil: new MiddlewareUtil({graph: "graph", project: "project"}),
-		resources: {
-			all: readerWriter
-		}
+	const filePath = path.join(process.cwd(), "./test/tmp/");
+	const reader = resourceFactory.createAdapter({fsBasePath: filePath, virBasePath: "/"});
+	const writer = resourceFactory.createAdapter({virBasePath: "/"});
+	const workspace = resourceFactory.createWorkspace({
+		reader: reader,
+		writer: writer
 	});
 
-	await new Promise((resolve, reject) => {
-		const req = {
-			url: "/"
-		};
-		const res = {
-			writeHead: function(status, contentType) {
-			},
-			end: function(content) {
-				t.regex(content,
-					RegExp(
-						"<li><a href=\"/myFile1.meh\" class=\"icon icon icon-meh icon-default\" " +
-							"title=\"myFile1.meh\"><span class=\"name\">myFile1.meh</span><span class=\"size\">" +
-							"1.00 KB</span>"));
-				t.regex(content,
-					RegExp(
-						"<li><a href=\"/myFile2.js\" class=\"icon icon icon-js icon-application-javascript\" " +
-							"title=\"myFile2.js\"><span class=\"name\">myFile2.js</span><span class=\"size\">" +
-							"1.00 MB</span>"));
-				t.regex(content,
-					RegExp(
-						"<li><a href=\"/myFile3.properties\" class=\"icon icon icon-properties icon-default\" " +
-							"title=\"myFile3.properties\"><span class=\"name\">myFile3.properties</span>" +
-							"<span class=\"size\">1.00 GB</span>"));
-				t.regex(content,
-					RegExp(
-						"<li><a href=\"/.myFile4\" class=\"icon icon icon- icon-default\" title=\".myFile4\">" +
-							"<span class=\"name\">.myFile4</span><span class=\"size\">1.00 KB</span>"));
-				resolve();
-			},
-		};
-		const next = function(err) {
-			reject(new Error(`Next callback called with error: ${err.message}`));
-		};
-		middleware(req, res, next);
-	});
-});
-
-test.serial("serveIndex no hidden", async (t) => {
-	t.plan(4);
-	const writeResource = function(writer, path, buffer) {
-		const statInfo = {
-			mtime: 0,
-			size: buffer.byteLength,
-			isDirectory: function() {
-				return false;
+	return Promise.all([
+		writeResource(writer, "/myFile1.meh", 1024), // KB
+		writeResource(writer, "/myFile2.js", 1024 * 1024), // MB
+		writeResource(writer, "/myFile3.properties", 1024 * 1024 * 1024), // GB
+	]).then(() => {
+		const middleware = serveIndexMiddleware({
+			resourceCollections: {
+				combo: workspace
 			}
-		};
-		const resource = resourceFactory.createResource({statInfo, path, buffer});
-		return writer.write(resource);
-	};
+		});
 
-	const readerWriter = resourceFactory.createAdapter({virBasePath: "/"});
-
-	await Promise.all([
-		writeResource(readerWriter, "/myFile1.meh", Buffer.alloc(1024)), // KB
-		writeResource(readerWriter, "/myFile2.js", Buffer.alloc(1024 * 1024)), // MB
-		writeResource(readerWriter, "/myFile3.properties", Buffer.alloc(1024 * 1024 * 1024)), // GB
-		writeResource(readerWriter, "/.myFile4", Buffer.alloc(1024)), // hidden 1 KB
-	]);
-	const middleware = serveIndexMiddleware({
-		middlewareUtil: new MiddlewareUtil({graph: "graph", project: "project"}),
-		resources: {
-			all: readerWriter
-		},
-		simpleIndex: false,
-		showHidden: false
-	});
-
-	await new Promise((resolve, reject) => {
-		const req = {
-			url: "/"
-		};
-		const res = {
-			writeHead: function(status, contentType) {
-			},
-			end: function(content) {
-				t.regex(content,
-					RegExp(
-						"<li><a href=\"/myFile1.meh\" class=\"icon icon icon-meh icon-default\" " +
-							"title=\"myFile1.meh\"><span class=\"name\">myFile1.meh</span>" +
-							"<span class=\"size\">1.00 KB</span>"));
-				t.regex(content,
-					RegExp(
-						"<li><a href=\"/myFile2.js\" class=\"icon icon icon-js icon-application-javascript\" " +
-							"title=\"myFile2.js\"><span class=\"name\">myFile2.js</span>" +
-							"<span class=\"size\">1.00 MB</span>"));
-				t.regex(content,
-					RegExp(
-						"<li><a href=\"/myFile3.properties\" class=\"icon icon icon-properties icon-default\" " +
-							"title=\"myFile3.properties\"><span class=\"name\">myFile3.properties</span>" +
-							"<span class=\"size\">1.00 GB</span>"));
-				t.notRegex(content,
-					RegExp(
-						"<li><a href=\"/.myFile4\" class=\"icon icon icon- icon-default\" " +
-							"title=\".myFile4\"><span class=\"name\">.myFile4</span>" +
-							"<span class=\"size\">1.00 KB</span>"));
-				resolve();
-			},
-		};
-		const next = function(err) {
-			reject(new Error(`Next callback called with error: ${err.message}`));
-		};
-		middleware(req, res, next);
-	});
-});
-
-test.serial("serveIndex no details", async (t) => {
-	t.plan(4);
-	const writeResource = function(writer, path, buffer) {
-		const statInfo = {
-			mtime: 0,
-			size: buffer.byteLength,
-			isDirectory: function() {
-				return false;
-			}
-		};
-		const resource = resourceFactory.createResource({statInfo, path, buffer});
-		return writer.write(resource);
-	};
-
-	const readerWriter = resourceFactory.createAdapter({virBasePath: "/"});
-
-	await Promise.all([
-		writeResource(readerWriter, "/myFile1.meh", Buffer.alloc(1024)), // KB
-		writeResource(readerWriter, "/myFile2.js", Buffer.alloc(1024 * 1024)), // MB
-		writeResource(readerWriter, "/myFile3.properties", Buffer.alloc(1024 * 1024 * 1024)), // GB
-		writeResource(readerWriter, "/.myFile4", Buffer.alloc(1024)), // hidden 1 KB
-	]);
-	const middleware = serveIndexMiddleware({
-		middlewareUtil: new MiddlewareUtil({graph: "graph", project: "project"}),
-		resources: {
-			all: readerWriter
-		},
-		simpleIndex: true,
-		showHidden: true
-	});
-
-	await new Promise((resolve, reject) => {
-		const req = {
-			url: "/"
-		};
-		const res = {
-			writeHead: function(status, contentType) {
-			},
-			end: function(content) {
-				t.regex(content, RegExp(
-					"<li><a href=\"/myFile1.meh\" class=\"icon icon icon-meh icon-default\" " +
-						"title=\"myFile1.meh\"><span class=\"name\">myFile1.meh</span>" +
-						"<span class=\"size\">1.00 KB</span>"));
-				t.regex(content, RegExp(
-					"<li><a href=\"/myFile2.js\" class=\"icon icon icon-js icon-application-javascript\" " +
-						"title=\"myFile2.js\"><span class=\"name\">myFile2.js</span>" +
-						"<span class=\"size\">1.00 MB</span>"));
-				t.regex(content, RegExp(
-					"<li><a href=\"/myFile3.properties\" class=\"icon icon icon-properties icon-default\" " +
-						"title=\"myFile3.properties\"><span class=\"name\">myFile3.properties</span>" +
-						"<span class=\"size\">1.00 GB</span>"));
-				t.regex(content, RegExp(
-					"<li><a href=\"/.myFile4\" class=\"icon icon icon- icon-default\" " +
-						"title=\".myFile4\"><span class=\"name\">.myFile4</span><span class=\"size\">1.00 KB</span>"));
-				resolve();
-			},
-		};
-		const next = function(err) {
-			reject(new Error(`Next callback called with error: ${err.message}`));
-		};
-		middleware(req, res, next);
+		return new Promise((resolve) => {
+			const req = {
+				path: "/"
+			};
+			const res = {
+				writeHead: function(status, contentType) {
+				},
+				end: function(content) {
+					t.regex(content, /<td title="1024 Bytes">1\.00 KB<\/td>\s*<td><a href="\/myFile1\.meh">myFile1\.meh<\/a><\/td>\s*<td>application\/octet-stream<\/td>/);
+					t.regex(content, /<td title="1048576 Bytes">1\.00 MB<\/td>\s*<td><a href="\/myFile2\.js">myFile2\.js<\/a><\/td>\s*<td>application\/javascript<\/td>/g);
+					t.regex(content, /<td title="1073741824 Bytes">1\.00 GB<\/td>\s*<td><a href="\/myFile3\.properties">myFile3\.properties<\/a><\/td>\s*<td>text\/plain;charset=ISO-8859-1<\/td>/g);
+					resolve();
+				},
+			};
+			const next = function() {
+			};
+			middleware(req, res, next);
+		});
 	});
 });
 
