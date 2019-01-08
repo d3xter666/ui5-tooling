@@ -1,6 +1,7 @@
-import test from "ava";
-import dependencyGraph from "../../../../lib/lbt/graph/dependencyGraph.js";
-import ModuleInfo from "../../../../lib/lbt/resources/ModuleInfo.js";
+const {test} = require("ava");
+
+const dependencyGraph = require("../../../../lib/lbt/graph/dependencyGraph");
+const ModuleInfo = require("../../../../lib/lbt/resources/ModuleInfo");
 
 function createMockPool(dependencyMapping) {
 	return {
@@ -122,7 +123,7 @@ test("dependency with 2 roots", async (t) => {
 test("dependency graph with rejecting pool", async (t) => {
 	const pool = {
 		async getModuleInfo() {
-			throw new Error("myerror");
+			return Promise.reject("myerror");
 		}
 	};
 	const roots = [{

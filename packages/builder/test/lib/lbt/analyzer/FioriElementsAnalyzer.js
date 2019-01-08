@@ -1,13 +1,11 @@
 const {test} = require("ava");
-const SmartTemplateAnalyzer = require("../../../../lib/lbt/analyzer/SmartTemplateAnalyzer");
-const ModuleInfo = require("../../../../lib/lbt/resources/ModuleInfo");
+const FioriElementsAnalyzer = require("../../../../lib/lbt/analyzer/FioriElementsAnalyzer");
 const sinon = require("sinon");
 const esprima = require("esprima");
 
-
 test("analyze: with Component.js", async (t) => {
 	const emptyPool = {};
-	const analyzer = new SmartTemplateAnalyzer(emptyPool);
+	const analyzer = new FioriElementsAnalyzer(emptyPool);
 	const name = "sap/ui/core/Component.js";
 	const moduleInfo = {};
 	const result = await analyzer.analyze({name}, moduleInfo);
@@ -25,7 +23,8 @@ test("analyze: without manifest", async (t) => {
 
 	const moduleInfo = {};
 
-	const analyzer = new SmartTemplateAnalyzer(mockPool);
+	const analyzer = new FioriElementsAnalyzer(mockPool);
+
 	const stubAnalyzeManifest = sinon.stub(analyzer, "_analyzeManifest").resolves();
 
 	const name = "MyComponent.js";
@@ -35,83 +34,93 @@ test("analyze: without manifest", async (t) => {
 	t.deepEqual(result, {}, "empty module info object expected since resource was not found (rejects)");
 });
 
-test("_analyzeManifest: without manifest", async (t) => {
+test("analyze: with manifest", async (t) => {
+	const manifest = {
+		"sap.fe": {
+			"entitySets": [{
+				"mySet": {
+					"myProp": {
+						"template": "MyTmpl"
+					}
+				}
+			}]
+		}
+	};
+	const mockPool = {
+		async findResource() {
+			return {
+				buffer: async () => JSON.stringify(manifest)
+			};
+		}
+	};
+
 	const moduleInfo = {};
 
-	const analyzer = new SmartTemplateAnalyzer();
+	const analyzer = new FioriElementsAnalyzer(mockPool);
 
-	const result = await analyzer._analyzeManifest({}, moduleInfo);
+	const stubAnalyzeManifest = sinon.stub(analyzer, "_analyzeManifest").resolves();
 
-	t.deepEqual(result, [], "resolves with empty array");
+	const name = "MyComponent.js";
+	await analyzer.analyze({name}, moduleInfo);
+
+	t.true(stubAnalyzeManifest.calledOnce, "_analyzeManifest was called once");
+	t.deepEqual(stubAnalyzeManifest.getCall(0).args[0], manifest,
+		"_analyzeManifest should be called with the manifest");
 });
 
+test("_analyzeManifest: Manifest with TemplateAssembler code", async (t) => {
+	const manifest = {
+		"sap.fe": {
+			"entitySets": [{
+				"mySet": {
+					"myProp": {
+						"template": "MyTmpl"
+					}
+				}
+			}]
+		}
+	};
 
-test("_analyzeManifest: with manifest with recursive pages", async (t) => {
 	const moduleInfo = {
 		addDependency: function() {}
 	};
 	const stubAddDependency = sinon.spy(moduleInfo, "addDependency");
 
-	const manifest = {
-		"sap.ui.generic.app": {
-			"pages": [{
-				"component": {
-					"name": "mycomp.js",
-					"settings": {
-						"templateName": "myTemplate"
-					}
-				},
-				"pages": [{
-					"component": {
-						"name": "mycomp2.js",
-						"settings": {
-							"templateName": "myTemplate"
-						}
-					},
-				}]
-			}]
-		}
-	};
+	const analyzer = new FioriElementsAnalyzer();
 
-	const analyzer = new SmartTemplateAnalyzer();
 	const stubAnalyzeTemplateComponent = sinon.stub(analyzer, "_analyzeTemplateComponent").resolves();
 
 	await analyzer._analyzeManifest(manifest, moduleInfo);
 
-	t.is(stubAnalyzeTemplateComponent.callCount, 2, "_analyzeTemplateComponent was called twice");
-	t.deepEqual(stubAnalyzeTemplateComponent.getCall(0).args[0], "mycomp/js/Component.js",
-		"_analyzeTemplateComponent should be called with the component");
+	t.true(stubAnalyzeTemplateComponent.calledOnce, "_analyzeManifest was called once");
+	t.deepEqual(stubAnalyzeTemplateComponent.getCall(0).args[0], "sap/fe/templates/MyTmpl/Component.js",
+		"_analyzeManifest should be called with the module name");
+
 	t.deepEqual(stubAnalyzeTemplateComponent.getCall(0).args[1], {
-		"component": {
-			"name": "mycomp.js",
-			"settings": {
-				"templateName": "myTemplate"
-			}
-		},
-		"pages": [{
-			"component": {
-				"name": "mycomp2.js",
-				"settings": {
-					"templateName": "myTemplate"
-				}
-			},
-		}]
-	}, "_analyzeTemplateComponent should be called with the page");
+		"template": "MyTmpl"
+	}, "_analyzeManifest should be called with the actionCfg");
 
-	t.deepEqual(stubAnalyzeTemplateComponent.getCall(1).args[0], "mycomp2/js/Component.js",
-		"_analyzeTemplateComponent should be called with the component");
-	t.deepEqual(stubAnalyzeTemplateComponent.getCall(1).args[1], {
-		"component": {
-			"name": "mycomp2.js",
-			"settings": {
-				"templateName": "myTemplate"
-			}
-		}
-	}, "_analyzeTemplateComponent should be called with the page");
+	t.deepEqual(stubAnalyzeTemplateComponent.getCall(0).args[2], moduleInfo,
+		"_analyzeManifest should be called with moduleInfo");
 
-	t.is(stubAddDependency.callCount, 2, "addDependency was called twice");
-	t.deepEqual(stubAddDependency.getCall(0).args[0], "mycomp/js/Component.js",
+	t.true(stubAddDependency.calledOnce, "addDependency was called once");
+	t.deepEqual(stubAddDependency.getCall(0).args[0], "sap/fe/templates/MyTmpl/Component.js",
 		"addDependency should be called with the dependency name");
+});
+
+test("_analyzeManifest: Manifest with entitySet key", async (t) => {
+	const manifest = {
+		"sap.fe": {
+			"entitySets": [{
+				"entitySet": "123"
+			}]
+		}
+	};
+
+	const moduleInfo = {};
+	const analyzer = new FioriElementsAnalyzer();
+	const result = await analyzer._analyzeManifest(manifest, moduleInfo);
+	t.deepEqual(result, [], "resolves with an empty array");
 });
 
 
@@ -129,7 +138,7 @@ test.serial("_analyzeTemplateComponent: Manifest with TemplateAssembler code", a
 		}
 	};
 
-	const analyzer = new SmartTemplateAnalyzer(mockPool);
+	const analyzer = new FioriElementsAnalyzer(mockPool);
 
 	const stubAnalyzeAST = sinon.stub(analyzer, "_analyzeAST").returns("mytpl");
 	const stubParse = sinon.stub(esprima, "parse").returns("");
@@ -163,7 +172,7 @@ test.serial("_analyzeTemplateComponent: no default template name", async (t) => 
 		}
 	};
 
-	const analyzer = new SmartTemplateAnalyzer(mockPool);
+	const analyzer = new FioriElementsAnalyzer(mockPool);
 
 	const stubAnalyzeAST = sinon.stub(analyzer, "_analyzeAST").returns("");
 	const stubParse = sinon.stub(esprima, "parse").returns("");
@@ -192,7 +201,7 @@ test.serial("_analyzeTemplateComponent: with template name from pageConfig", asy
 		}
 	};
 
-	const analyzer = new SmartTemplateAnalyzer(mockPool);
+	const analyzer = new FioriElementsAnalyzer(mockPool);
 
 	const stubAnalyzeAST = sinon.stub(analyzer, "_analyzeAST").returns("");
 	const stubParse = sinon.stub(esprima, "parse").returns("");
@@ -215,8 +224,7 @@ test.serial("_analyzeTemplateComponent: with template name from pageConfig", asy
 });
 
 test("_analyzeAST: get template name from ast", async (t) => {
-	const code = `sap.ui.define(["a", "sap/suite/ui/generic/template/lib/TemplateAssembler"], 
-	function(a, TemplateAssembler){   
+	const code = `sap.ui.define(["a", "sap/fe/core/TemplateAssembler"], function(a, TemplateAssembler){   
 		return TemplateAssembler.getTemplateComponent(getMethods,
 		"sap.fe.templates.Page.Component", {
 			metadata: {
@@ -231,7 +239,7 @@ test("_analyzeAST: get template name from ast", async (t) => {
 		});});`;
 	const ast = esprima.parse(code);
 
-	const analyzer = new SmartTemplateAnalyzer();
+	const analyzer = new FioriElementsAnalyzer();
 
 	const stubAnalyzeTemplateClassDefinition = sinon.stub(analyzer,
 		"_analyzeTemplateClassDefinition").returns("donkey");
@@ -246,8 +254,7 @@ test("_analyzeAST: get template name from ast", async (t) => {
 });
 
 test("_analyzeAST: no template name from ast", async (t) => {
-	const code = `sap.ui.define(["a", "sap/suite/ui/generic/template/lib/TemplateAssembler"], 
-	function(a, TemplateAssembler){   
+	const code = `sap.ui.define(["a", "sap/fe/core/TemplateAssembler"], function(a, TemplateAssembler){   
 		return TemplateAssembler.getTemplateComponent(getMethods,
 		"sap.fe.templates.Page.Component", {
 			metadata: {
@@ -262,7 +269,7 @@ test("_analyzeAST: no template name from ast", async (t) => {
 		});});`;
 	const ast = esprima.parse(code);
 
-	const analyzer = new SmartTemplateAnalyzer();
+	const analyzer = new FioriElementsAnalyzer();
 
 	const stubAnalyzeTemplateClassDefinition = sinon.stub(analyzer,
 		"_analyzeTemplateClassDefinition").returns(false);
@@ -274,51 +281,6 @@ test("_analyzeAST: no template name from ast", async (t) => {
 
 	stubAnalyzeTemplateClassDefinition.restore();
 	t.deepEqual(result, "");
-});
-
-test("Analysis of Manifest and TemplateAssembler code", async (t) => {
-	const manifest = {
-		"sap.ui.generic.app": {
-			"pages": [{
-				"component": {
-					"name": "mycomp.js",
-					"settings": {
-						"templateName": "myTemplate"
-					}
-				},
-			}]
-		}
-	};
-
-	const code = `sap.ui.define(["a", "sap/suite/ui/generic/template/lib/TemplateAssembler"], 
-		function(a, TemplateAssembler){   return TemplateAssembler.getTemplateComponent(getMethods,
-		"sap.suite.ui.generic.templates.Page.Component", {
-			metadata: {
-				properties: {
-					"templateName": {
-						"type": "string",
-						"defaultValue": "sap.suite.ui.generic.templates.Page.view.Page"
-					}
-				},
-				"manifest": "json"
-			}
-		});
-	});`;
-	const mockPool = {
-		async findResource(name) {
-			return {
-				buffer: () => name.endsWith(".json") ? JSON.stringify(manifest): code
-			};
-		}
-	};
-
-	const moduleInfo = new ModuleInfo();
-
-	const analyzer = new SmartTemplateAnalyzer(mockPool);
-	const name = "MyComponent.js";
-	await analyzer.analyze({name}, moduleInfo);
-	t.deepEqual(moduleInfo.dependencies, ["mycomp/js/Component.js", "myTemplate.view.xml"],
-		"Resulting dependencies should come from manifest and code");
 });
 
 test("_analyzeTemplateClassDefinition: get template name from metadata", async (t) => {
@@ -336,7 +298,7 @@ test("_analyzeTemplateClassDefinition: get template name from metadata", async (
 	const ast = esprima.parse(code);
 	const expression = ast.body[0].declarations[0].init;
 
-	const analyzer = new SmartTemplateAnalyzer();
+	const analyzer = new FioriElementsAnalyzer();
 
 	const result = await analyzer._analyzeTemplateClassDefinition(expression);
 
@@ -358,7 +320,7 @@ test("_analyzeTemplateClassDefinition: no string template name from metadata", a
 	const ast = esprima.parse(code);
 	const expression = ast.body[0].declarations[0].init;
 
-	const analyzer = new SmartTemplateAnalyzer();
+	const analyzer = new FioriElementsAnalyzer();
 
 	const result = await analyzer._analyzeTemplateClassDefinition(expression);
 

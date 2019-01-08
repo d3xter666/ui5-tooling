@@ -1,6 +1,8 @@
-import test from "ava";
-import topologicalSort from "../../../../lib/lbt/graph/topologicalSort.js";
-import ModuleInfo from "../../../../lib/lbt/resources/ModuleInfo.js";
+const {test} = require("ava");
+
+const topologicalSort = require("../../../../lib/lbt/graph/topologicalSort");
+
+const ModuleInfo = require("../../../../lib/lbt/resources/ModuleInfo");
 
 function createMockPool(dependencyMapping) {
 	return {
@@ -28,17 +30,10 @@ test("topologicalSort", async (t) => {
 	t.deepEqual(topologicalSortResult, ["mydep", "myroot"]);
 });
 
+
 test("cyclic dependencies", async (t) => {
 	const pool = createMockPool({"third": "mydep", "mydep": "third"});
 	const roots = ["myroot", "mydep", "third"];
-	const error = await t.throwsAsync(topologicalSort(pool, roots));
-	t.is(error.message, "Failed to resolve cyclic dependencies: mydep, third");
-});
-
-test("no dependencies", async (t) => {
-	const pool = createMockPool({});
-	const roots = ["module4", "module2", "module3", "module1"];
-	const topologicalSortResult = await topologicalSort(pool, roots);
-	// Modules should not be sorted by any means as no dependencies are defined
-	t.deepEqual(topologicalSortResult, ["module4", "module2", "module3", "module1"]);
+	const error = await t.throws(topologicalSort(pool, roots), Error);
+	t.deepEqual(error.message, "failed to resolve cyclic dependencies: mydep,third");
 });
