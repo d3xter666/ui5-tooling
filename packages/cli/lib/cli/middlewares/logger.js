@@ -1,33 +1,22 @@
-import {setLogLevel, isLogLevelEnabled, getLogger} from "@ui5/logger";
-import ConsoleWriter from "@ui5/logger/writers/Console";
-import {getVersion} from "../version.js";
 /**
- * Logger middleware to enable logging capabilities
+ * Logger middleware
  *
- * @param {object} argv logger arguments
+ * Logger middleware used as one of default middlewares by tooling
+ * @param {Object} argv logger arguments
+ * @returns {Object} logger instance or null
  */
-export async function initLogger(argv) {
-	if (argv.silent) {
-		setLogLevel("silent");
-	}
-	if (argv.perf) {
-		setLogLevel("perf");
+function init(argv) {
+	if (!argv.verbose && !argv.loglevel) return null;
+
+	const logger = require("@ui5/logger");
+	if (argv.loglevel) {
+		logger.setLevel(argv.loglevel);
 	}
 	if (argv.verbose) {
-		setLogLevel("verbose");
+		logger.setLevel("verbose");
+		logger.getLogger("cli:middlewares:base").verbose(`using node version ${process.version}`);
 	}
-	if (argv.loglevel && argv.loglevel !== "info") {
-		// argv.loglevel defaults to "info", which is anyways already the Logger's default
-		// Therefore do not explicitly set it again in order to allow overwriting the log level
-		// using the UI5_LOG_LVL environment variable
-		setLogLevel(argv.loglevel);
-	}
-
-	// Initialize writer
-	ConsoleWriter.init();
-	if (isLogLevelEnabled("verbose")) {
-		const log = getLogger("cli:middlewares:base");
-		log.verbose(`using @ui5/cli version ${getVersion()}`);
-		log.verbose(`using node version ${process.version}`);
-	}
+	return logger;
 }
+
+module.exports = {init};
