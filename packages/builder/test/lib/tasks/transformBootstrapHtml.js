@@ -1,39 +1,42 @@
-import test from "ava";
-import sinonGlobal from "sinon";
-import esmock from "esmock";
+const {test} = require("ava");
+const sinon = require("sinon");
+const mock = require("mock-require");
 
-test.beforeEach(async (t) => {
-	const sinon = t.context.sinon = sinonGlobal.createSandbox();
+let transformBootstrapHtml = require("../../../lib/tasks/transformBootstrapHtml");
 
-	t.context.log = {
-		warn: sinon.stub()
-	};
-
-	t.context.bootstrapHtmlTransformerStub = sinon.stub();
-
-	t.context.transformBootstrapHtml = await esmock("../../../lib/tasks/transformBootstrapHtml.js", {
-		"@ui5/logger": {
-			getLogger: sinon.stub().withArgs("builder:tasks:transformBootstrapHtml").returns(t.context.log)
-		},
-		"../../../lib/processors/bootstrapHtmlTransformer": t.context.bootstrapHtmlTransformerStub,
+test.beforeEach((t) => {
+	// Spying logger of tasks/transformBootstrapHtml
+	const log = require("@ui5/logger");
+	const loggerInstance = log.getLogger("builder:tasks:transformBootstrapHtml");
+	mock("@ui5/logger", {
+		getLogger: () => loggerInstance
 	});
+	mock.reRequire("@ui5/logger");
+	t.context.logWarnSpy = sinon.spy(loggerInstance, "warn");
+
+	// Stubbing processors/bootstrapHtmlTransformer
+	t.context.bootstrapHtmlTransformerStub = sinon.stub();
+	mock("../../../lib/processors/bootstrapHtmlTransformer", t.context.bootstrapHtmlTransformerStub);
+
+	// Re-require tested module
+	transformBootstrapHtml = mock.reRequire("../../../lib/tasks/transformBootstrapHtml");
 });
 
 test.afterEach.always((t) => {
-	t.context.sinon.restore();
+	mock.stop("@ui5/logger");
+	mock.stop("../../../lib/processors/bootstrapHtmlTransformer");
+	t.context.logWarnSpy.restore();
 });
 
 test.serial("Transforms index.html resource", async (t) => {
-	const {transformBootstrapHtml, log} = t.context;
-
 	t.plan(5);
 
 	const resource = {};
 
 	const workspace = {
 		byPath: (actualPath) => {
-			t.is(actualPath, "/resources/sap/ui/demo/app/index.html",
-				"Reads index.html file from application namespace.");
+			t.deepEqual(actualPath, "/resources/sap/ui/demo/app/index.html",
+				"Reads index.html file from applicaiton namespace.");
 			return Promise.resolve(resource);
 		},
 		write: (actualResource) => {
@@ -48,11 +51,11 @@ test.serial("Transforms index.html resource", async (t) => {
 		workspace,
 		options: {
 			projectName: "sap.ui.demo.app",
-			projectNamespace: "sap/ui/demo/app"
+			namespace: "sap/ui/demo/app"
 		}
 	});
 
-	t.is(t.context.bootstrapHtmlTransformerStub.callCount, 1,
+	t.deepEqual(t.context.bootstrapHtmlTransformerStub.callCount, 1,
 		"Processor should be called once");
 
 	t.true(t.context.bootstrapHtmlTransformerStub.calledWithExactly({
@@ -62,59 +65,16 @@ test.serial("Transforms index.html resource", async (t) => {
 		}
 	}), "Processor should be called with expected arguments");
 
-	t.true(log.warn.notCalled, "No warnings should be logged");
-});
-
-test.serial("Transforms index.html resource without namespace", async (t) => {
-	const {transformBootstrapHtml, log} = t.context;
-
-	t.plan(5);
-
-	const resource = {};
-
-	const workspace = {
-		byPath: (actualPath) => {
-			t.is(actualPath, "/index.html",
-				"Reads index.html file from application namespace.");
-			return Promise.resolve(resource);
-		},
-		write: (actualResource) => {
-			t.deepEqual(actualResource, resource,
-				"Expected resource is written back to workspace");
-		}
-	};
-
-	t.context.bootstrapHtmlTransformerStub.returns([resource]);
-
-	await transformBootstrapHtml({
-		workspace,
-		options: {
-			projectName: "sap.ui.demo.app"
-		}
-	});
-
-	t.is(t.context.bootstrapHtmlTransformerStub.callCount, 1,
-		"Processor should be called once");
-
-	t.true(t.context.bootstrapHtmlTransformerStub.calledWithExactly({
-		resources: [resource],
-		options: {
-			src: "resources/sap-ui-custom.js"
-		}
-	}), "Processor should be called with expected arguments");
-
-	t.true(log.warn.notCalled, "No warnings should be logged");
+	t.true(t.context.logWarnSpy.notCalled, "No warnings should be logged");
 });
 
 test.serial("No index.html resource exists", async (t) => {
-	const {transformBootstrapHtml, log} = t.context;
-
 	t.plan(4);
 
 	const workspace = {
 		byPath: (actualPath) => {
-			t.is(actualPath, "/resources/sap/ui/demo/app/index.html",
-				"Reads index.html file from application namespace.");
+			t.deepEqual(actualPath, "/resources/sap/ui/demo/app/index.html",
+				"Reads index.html file from applicaiton namespace.");
 			return Promise.resolve(null);
 		},
 		write: () => {
@@ -126,16 +86,41 @@ test.serial("No index.html resource exists", async (t) => {
 		workspace,
 		options: {
 			projectName: "sap.ui.demo.app",
-			projectNamespace: "sap/ui/demo/app"
+			namespace: "sap/ui/demo/app"
 		}
 	});
 
 	t.true(t.context.bootstrapHtmlTransformerStub.notCalled,
 		"Processor should not be called");
 
-	t.is(log.warn.callCount, 1, "One warning should be logged");
-	t.true(
-		log.warn.calledWith(
-			`Skipping bootstrap transformation due to missing index.html in project "sap.ui.demo.app".`),
+	t.deepEqual(t.context.logWarnSpy.callCount, 1, "One warning should be logged");
+	t.true(t.context.logWarnSpy.calledWith(`Skipping bootstrap transformation due to missing index.html in project "sap.ui.demo.app".`),
+		"Warning about missing index.html file should be logged");
+});
+
+test.serial("No namespace provided", async (t) => {
+	t.plan(3);
+
+	const workspace = {
+		byPath: (actualPath) => {
+			t.fail("No index.html file should be read from workspace");
+		},
+		write: () => {
+			t.fail("No resources should be written to workspace");
+		}
+	};
+
+	await transformBootstrapHtml({
+		workspace,
+		options: {
+			projectName: "sap.ui.demo.app"
+		}
+	});
+
+	t.true(t.context.bootstrapHtmlTransformerStub.notCalled,
+		"Processor should not be called");
+
+	t.deepEqual(t.context.logWarnSpy.callCount, 1, "One warning should be logged");
+	t.true(t.context.logWarnSpy.calledWith(`Skipping bootstrap transformation due to missing namespace of project "sap.ui.demo.app".`),
 		"Warning about missing index.html file should be logged");
 });
