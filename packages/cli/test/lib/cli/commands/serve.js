@@ -1,853 +1,184 @@
-import path from "node:path";
-import test from "ava";
-import sinon from "sinon";
-import esmock from "esmock";
-import chalk from "chalk";
+const {test} = require("ava");
+const sinon = require("sinon");
+const normalizer = require("@ui5/project").normalizer;
+const serve = require("../../../../lib/cli/commands/serve");
+const ui5Server = require("@ui5/server");
+const server = ui5Server.server;
+const mockRequire = require("mock-require");
+const defaultInitialHandlerArgs = Object.freeze({
+	accessRemoteConnections: false,
+	cert: "$HOME/.ui5/server/server.crt",
+	h2: false,
+	key: "$HOME/.ui5/server/server.key",
+	loglevel: "info",
+	t8r: "npm",
+	translator: "npm"
+});
 
-function getDefaultArgv() {
-	// This has been taken from the actual argv object yargs provides
-	return {
-		"_": ["serve"],
-		"loglevel": "info",
-		"log-level": "info",
-		"logLevel": "info",
-		"perf": false,
-		"silent": false,
-		"h2": false,
-		"simple-index": false,
-		"simpleIndex": false,
-		"accept-remote-connections": false,
-		"acceptRemoteConnections": false,
-		"key": "/home/.ui5/server/server.key",
-		"cert": "/home/.ui5/server/server.crt",
-		"sap-csp-policies": false,
-		"sapCspPolicies": false,
-		"serve-csp-reports": false,
-		"serveCspReports": false,
-		"cache-mode": "Default",
-		"cacheMode": "Default",
-		"$0": "ui5"
-	};
-}
+const projectTree = {
+	metadata: {
+		name: "Sample"
+	}
+};
 
-test.beforeEach(async (t) => {
-	t.context.argv = getDefaultArgv();
+let normalizerStub = null;
+let serverStub = null;
+let sslUtilStub = null;
 
-	t.context.server = {
-		serve: sinon.stub().returns({
-			h2: false,
-			port: 8080
-		})
-	};
-	t.context.sslUtil = {
-		getSslCertificate: sinon.stub().resolves()
-	};
-
-	t.context.getServerSettings = sinon.stub().returns({});
-	t.context.fakeGraph = {
-		getRoot: () => {
-			return {
-				getServerSettings: t.context.getServerSettings
-			};
-		}
-	};
-
-	t.context.graph = {
-		graphFromStaticFile: sinon.stub().resolves(t.context.fakeGraph),
-		graphFromPackageDependencies: sinon.stub().resolves(t.context.fakeGraph)
-	};
-
-
-	t.context.consoleOutput = "";
-	t.context.processStderrWrite = sinon.stub(process.stderr, "write").callsFake((message) => {
-		// NOTE: This fake impl only supports one string arg passed to console.log
-		t.context.consoleOutput += message;
-	});
-	t.context.processStdoutWrite = sinon.stub(process.stdout, "write").callsFake((message) => {
-		// NOTE: This fake impl only supports one string arg passed to console.log
-		t.context.consoleOutput += message;
-	});
-
-	t.context.open = sinon.stub();
-
-	t.context.serve = await esmock.p("../../../../lib/cli/commands/serve.js", {
-		"@ui5/server": t.context.server,
-		"@ui5/server/internal/sslUtil": t.context.sslUtil,
-		"@ui5/project/graph": t.context.graph,
-		"open": t.context.open
-	});
+test.beforeEach((t) => {
+	normalizerStub = sinon.stub(normalizer, "generateProjectTree");
+	serverStub = sinon.stub(server, "serve");
+	sslUtilStub = sinon.stub(ui5Server.sslUtil, "getSslCertificate");
 });
 
 test.afterEach.always((t) => {
 	sinon.restore();
-	esmock.purge(t.context.serve);
 });
 
 test.serial("ui5 serve: default", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
+	normalizerStub.resolves(projectTree);
+	serverStub.resolves({h2: false, port: 8080});
 
-	await serve.handler(argv);
+	// loads project tree
+	const pPrepareServerConfig = await serve.handler(defaultInitialHandlerArgs);
+	// preprocess project config, skipping cert load
+	const pServeServer = await pPrepareServerConfig;
+	// serve server using config
+	await pServeServer;
 
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
+	const injectedProjectTree = serverStub.getCall(0).args[0];
+	const injectedServerConfig = serverStub.getCall(0).args[1];
 
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
+	t.deepEqual(injectedProjectTree, projectTree, "Starting server with given project tree");
+	t.deepEqual(injectedServerConfig, {
+		changePortIfInUse: true,
+		acceptRemoteConnections: false,
+		h2: false,
+		port: 8080,
+		cert: undefined,
+		key: undefined
+	}, "Starting server with specific server config");
 });
 
 test.serial("ui5 serve --h2", async (t) => {
-	const {argv, serve, graph, server, fakeGraph, sslUtil} = t.context;
-
-	sslUtil.getSslCertificate.resolves({
-		key: "random-key",
-		cert: "random-cert"
+	normalizerStub.resolves(projectTree);
+	serverStub.resolves({h2: true, port: 8443});
+	sslUtilStub.resolves({
+		key: "randombyte-likes-ponies-key",
+		cert: "randombyte-likes-ponies-cert"
 	});
 
-	server.serve.returns({
+	// loads project tree using http 2
+	const pPrepareServerConfig = await serve.handler(Object.assign({}, defaultInitialHandlerArgs, {h2: true}));
+	// preprocess project config
+	const pFetchSSLCert = await pPrepareServerConfig;
+	// Fetching ssl certificate
+	const pServeServer = await pFetchSSLCert;
+	// serve server using config
+	await pServeServer;
+
+	const injectedProjectTree = serverStub.getCall(0).args[0];
+	const injectedServerConfig = serverStub.getCall(0).args[1];
+
+	t.is(sslUtilStub.getCall(0).args[0], "$HOME/.ui5/server/server.key", "Load ssl key from default path");
+	t.is(sslUtilStub.getCall(0).args[1], "$HOME/.ui5/server/server.crt", "Load ssl cert from default path");
+	t.deepEqual(injectedProjectTree, projectTree, "Starting server with given project tree");
+	t.is(injectedServerConfig.port === 8443, true, "http2 default port was auto set");
+
+	t.deepEqual(injectedServerConfig, {
+		changePortIfInUse: true,
+		acceptRemoteConnections: false,
 		h2: true,
-		port: 8443
-	});
-
-	argv.h2 = true;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: https://localhost:8443
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			changePortIfInUse: true,
-			h2: true,
-			key: "random-key",
-			cert: "random-cert",
-			port: 8443,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-
-	t.is(sslUtil.getSslCertificate.callCount, 1);
-	t.deepEqual(sslUtil.getSslCertificate.getCall(0).args, [
-		"/home/.ui5/server/server.key",
-		"/home/.ui5/server/server.crt"
-	]);
+		port: 8443,
+		key: "randombyte-likes-ponies-key",
+		cert: "randombyte-likes-ponies-cert"
+	}, "Starting server with specific server config");
 });
 
 test.serial("ui5 serve --accept-remote-connections", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
-
-	argv.acceptRemoteConnections = true;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `
-${chalk.bold("⚠️  This server is accepting connections from all hosts on your network")}
-${chalk.dim.underline("Please Note:")}
-${chalk.bold.dim("* This server is intended for development purposes only. Do not use it in production.")}
-${chalk.dim("* Vulnerable (custom-)middleware can pose a threat to your system when exposed to the network")}
-${chalk.dim("* The use of proxy-middleware with preconfigured credentials might enable unauthorized access " +
-	"to a target system for third parties on your network")}
-
-Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: true,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
+	normalizerStub.resolves(projectTree);
+	serverStub.resolves({port: 8080});
+	const pPrepareServerConfig = await serve.handler(
+		Object.assign({}, defaultInitialHandlerArgs, {acceptRemoteConnections: true})
+	);
+	const pServeServer = await pPrepareServerConfig;
+	await pServeServer;
+	const injectedServerConfig = serverStub.getCall(0).args[1];
+	t.is(injectedServerConfig.acceptRemoteConnections, true, "Remove connections are accepted");
 });
 
 test.serial("ui5 serve --open", async (t) => {
-	const {argv, serve, graph, server, fakeGraph, open} = t.context;
-
-	argv.open = "index.html";
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-
-	t.is(open.callCount, 1);
-	t.deepEqual(open.getCall(0).args, [
-		"http://localhost:8080/index.html"
-	]);
+	normalizerStub.resolves(projectTree);
+	serverStub.resolves({port: 8080});
+	mockRequire("opn", function(openedUrl) {
+		t.is(openedUrl, "http://localhost:8080/webapp/index.html", `Opens url: ${openedUrl}`);
+		mockRequire.stop("opn");
+	});
+	await serve.handler(
+		Object.assign({}, defaultInitialHandlerArgs, {open: "webapp/index.html"})
+	);
 });
 
 test.serial("ui5 serve --open (opens default url)", async (t) => {
-	const {argv, serve, graph, server, fakeGraph, open} = t.context;
-
-	argv.open = true;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-
-	t.is(open.callCount, 1);
-	t.deepEqual(open.getCall(0).args, [
-		"http://localhost:8080"
-	]);
+	normalizerStub.resolves(projectTree);
+	serverStub.resolves({port: 8080});
+	mockRequire("opn", function(openedUrl) {
+		t.is(openedUrl, "http://localhost:8080", `Opens url: ${openedUrl}`);
+		mockRequire.stop("opn");
+	});
+	await serve.handler(
+		Object.assign({}, defaultInitialHandlerArgs, {open: true})
+	);
 });
 
-test.serial("ui5 serve --config", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
-
-	const fakePath = path.join("/", "path", "to", "ui5.yaml");
-	argv.config = fakePath;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: fakePath, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-});
-
-test.serial("ui5 serve --dependency-definition", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
-
-	const fakePath = path.join("/", "path", "to", "dependencies.yaml");
-	argv.dependencyDefinition = fakePath;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromPackageDependencies.callCount, 0);
-	t.is(graph.graphFromStaticFile.callCount, 1);
-	t.deepEqual(graph.graphFromStaticFile.getCall(0).args, [{
-		filePath: fakePath, versionOverride: undefined,
-		cacheMode: "Default", rootConfigPath: undefined
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false
-		}
-	]);
-});
-
-test.serial("ui5 serve --dependency-definition / --config", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
-
-	const fakeDependenciesPath = path.join("/", "path", "to", "dependencies.yaml");
-	argv.dependencyDefinition = fakeDependenciesPath;
-
-	const fakeConfigPath = path.join("/", "path", "to", "ui5.yaml");
-	argv.config = fakeConfigPath;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromPackageDependencies.callCount, 0);
-	t.is(graph.graphFromStaticFile.callCount, 1);
-	t.deepEqual(graph.graphFromStaticFile.getCall(0).args, [{
-		filePath: fakeDependenciesPath, versionOverride: undefined,
-		cacheMode: "Default", rootConfigPath: fakeConfigPath
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false
-		}
-	]);
-});
-
-test.serial("ui5 serve --framework-version", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
-
-	argv.frameworkVersion = "1.234.5";
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: "1.234.5",
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-});
-
-test.serial("ui5 serve --cache-mode", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
-
-	argv.cacheMode = "Force";
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Force",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-});
-
-test.serial("ui5 serve --workspace", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
-
-	argv.workspace = "dolphin";
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: "dolphin",
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-});
-
-test.serial("ui5 serve --no-workspace", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
-
-	argv.workspace = false;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: null,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-});
-
-test.serial("ui5 serve --workspace-config", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
-
-	const fakePath = path.join("/", "path", "to", "ui5-workspace.yaml");
-	argv.workspaceConfig = fakePath;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: fakePath, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-});
-
-test.serial("ui5 serve --sap-csp-policies", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
-
-	argv.sapCspPolicies = true;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: true,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-});
-
-test.serial("ui5 serve --serve-csp-reports", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
-
-	argv.serveCspReports = true;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: true,
-			simpleIndex: false,
-		}
-	]);
-});
-
-test.serial("ui5 serve --simple-index", async (t) => {
-	const {argv, serve, graph, server, fakeGraph} = t.context;
-
-	argv.simpleIndex = true;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:8080
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: true,
-			h2: false,
-			key: undefined,
-			port: 8080,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: true,
-		}
-	]);
-});
-
-test.serial("ui5 serve with ui5.yaml port setting", async (t) => {
-	const {argv, serve, graph, server, fakeGraph, getServerSettings} = t.context;
-
-	getServerSettings.returns({
-		httpPort: 3333
+test.serial("ui5 serve --key --cert", async (t) => {
+	normalizerStub.resolves(projectTree);
+	serverStub.resolves({h2: true, port: 8443});
+	sslUtilStub.resolves({
+		key: "ponies-loaded-from-custompath-key",
+		cert: "ponies-loaded-from-custompath-crt"
 	});
 
-	server.serve.returns({
-		h2: false,
-		port: 3333
-	});
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: http://localhost:3333
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			cert: undefined,
-			changePortIfInUse: false,
-			h2: false,
-			key: undefined,
-			port: 3333,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-});
-
-test.serial("ui5 serve --h2 with ui5.yaml port setting", async (t) => {
-	const {argv, serve, graph, server, fakeGraph, sslUtil, getServerSettings} = t.context;
-
-	sslUtil.getSslCertificate.resolves({
-		key: "random-key",
-		cert: "random-cert"
-	});
-
-	getServerSettings.returns({
-		httpsPort: 4444
-	});
-
-	server.serve.returns({
+	// loads project tree using http 2
+	const pPrepareServerConfig = await serve.handler(Object.assign({}, defaultInitialHandlerArgs, {
 		h2: true,
-		port: 4444
-	});
+		key: "server/randombyte-likes-ponies.key",
+		cert: "server/randombyte-likes-ponies.crt"
+	}));
+	// preprocess project config
+	const pFetchSSLCert = await pPrepareServerConfig;
+	// Fetching ssl certificate
+	const pServeServer = await pFetchSSLCert;
+	// serve server using config
+	await pServeServer;
 
-	argv.h2 = true;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: https://localhost:4444
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			changePortIfInUse: false,
-			h2: true,
-			key: "random-key",
-			cert: "random-cert",
-			port: 4444,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-
-	t.is(sslUtil.getSslCertificate.callCount, 1);
-	t.deepEqual(sslUtil.getSslCertificate.getCall(0).args, [
-		"/home/.ui5/server/server.key",
-		"/home/.ui5/server/server.crt"
-	]);
+	const injectedServerConfig = serverStub.getCall(0).args[1];
+	t.is(sslUtilStub.getCall(0).args[0], "server/randombyte-likes-ponies.key", "Loading key from specified path");
+	t.is(sslUtilStub.getCall(0).args[1], "server/randombyte-likes-ponies.crt", "Loading cert from specified path");
+	t.deepEqual(injectedServerConfig, {
+		changePortIfInUse: true,
+		acceptRemoteConnections: false,
+		h2: true,
+		port: 8443,
+		key: "ponies-loaded-from-custompath-key",
+		cert: "ponies-loaded-from-custompath-crt"
+	}, "Starting server with specific server config");
 });
 
-test.serial("ui5 serve --h2 with ui5.yaml port setting and port CLI argument", async (t) => {
-	const {argv, serve, graph, server, fakeGraph, sslUtil, getServerSettings} = t.context;
 
-	sslUtil.getSslCertificate.resolves({
-		key: "random-key",
-		cert: "random-cert"
-	});
+test.serial("ui5 serve --translator --config", async (t) => {
+	normalizerStub.resolves(projectTree);
+	serverStub.resolves({h2: false, port: 8080});
 
-	getServerSettings.returns({
-		httpsPort: 4444
-	});
+	const pPrepareServerConfig = await serve.handler(Object.assign({}, defaultInitialHandlerArgs, {
+		translator: "static",
+		config: "path/to/my/config.json"
+	}));
+	const pServeServer = await pPrepareServerConfig;
+	await pServeServer;
 
-	server.serve.returns({
-		h2: true,
-		port: 5555
-	});
-
-	argv.h2 = true;
-	argv.port = 5555;
-
-	await serve.handler(argv);
-
-	t.is(graph.graphFromStaticFile.callCount, 0);
-	t.is(graph.graphFromPackageDependencies.callCount, 1);
-	t.deepEqual(graph.graphFromPackageDependencies.getCall(0).args, [{
-		rootConfigPath: undefined, versionOverride: undefined,
-		workspaceConfigPath: undefined, workspaceName: undefined,
-		cacheMode: "Default",
-	}]);
-
-	t.is(t.context.consoleOutput, `Server started
-URL: https://localhost:5555
-`);
-
-	t.is(server.serve.callCount, 1);
-	t.deepEqual(server.serve.getCall(0).args, [
-		fakeGraph,
-		{
-			acceptRemoteConnections: false,
-			changePortIfInUse: false,
-			h2: true,
-			key: "random-key",
-			cert: "random-cert",
-			port: 5555,
-			sendSAPTargetCSP: false,
-			serveCSPReports: false,
-			simpleIndex: false,
-		}
-	]);
-
-	t.is(sslUtil.getSslCertificate.callCount, 1);
-	t.deepEqual(sslUtil.getSslCertificate.getCall(0).args, [
-		"/home/.ui5/server/server.key",
-		"/home/.ui5/server/server.crt"
-	]);
+	t.deepEqual(normalizerStub.getCall(0).args[0], {
+		translator: "static",
+		configPath: "path/to/my/config.json"
+	}, "CLI was called with static translator");
 });
