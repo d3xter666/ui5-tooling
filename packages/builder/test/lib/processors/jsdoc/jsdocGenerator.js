@@ -1,22 +1,21 @@
-import path from "node:path";
-import test from "ava";
-import sinon from "sinon";
-import esmock from "esmock";
-import {fileURLToPath} from "node:url";
-import jsdocGenerator from "../../../../lib/processors/jsdoc/jsdocGenerator.js";
+const path = require("path");
+const {test} = require("ava");
+const sinon = require("sinon");
+const mock = require("mock-require");
+const jsdocGenerator = require("../../../../lib/processors/jsdoc/jsdocGenerator");
 
-test.serial("generateJsdocConfig", async (t) => {
+test("generateJsdocConfig", async (t) => {
 	const res = await jsdocGenerator._generateJsdocConfig({
 		sourcePath: "/some/source/path",
 		targetPath: "/some/target/path",
 		tmpPath: "/some/tm\\p/path",
 		namespace: "some/namespace",
-		projectName: "some.projectName",
+		projectName: "some.namespace",
 		version: "1.0.0",
 		variants: ["apijson"]
 	});
 
-	const jsdocGeneratorPath = path.resolve(import.meta.dirname, "..", "..", "..", "..", "lib", "processors",
+	const jsdocGeneratorPath = path.resolve(__dirname, "..", "..", "..", "..", "lib", "processors",
 		"jsdoc");
 
 	const backslashRegex = /\\/g;
@@ -27,7 +26,7 @@ test.serial("generateJsdocConfig", async (t) => {
 		.replace(backslashRegex, "\\\\");
 	const destinationPath = path.join("/", "some", "tm\\p", "path")
 		.replace(backslashRegex, "\\\\");
-	const jsapiFilePath = path.join("/", "some", "target", "path", "libraries", "some.projectName.js")
+	const jsapiFilePath = path.join("/", "some", "target", "path", "libraries", "some.namespace.js")
 		.replace(backslashRegex, "\\\\");
 	const apiJsonFolderPath = path.join("/", "some", "tm\\p", "path", "dependency-apis")
 		.replace(backslashRegex, "\\\\");
@@ -36,7 +35,7 @@ test.serial("generateJsdocConfig", async (t) => {
 			.replace(backslashRegex, "\\\\");
 
 
-	t.is(res, `{
+	t.deepEqual(res, `{
 		"plugins": ["${pluginPath}"],
 		"opts": {
 			"recurse": true,
@@ -51,7 +50,6 @@ test.serial("generateJsdocConfig", async (t) => {
 			"ui5": {
 				"variants": ["apijson"],
 				"version": "1.0.0",
-				"uilib": "some.namespace",
 				"jsapiFile": "${jsapiFilePath}",
 				"apiJsonFolder": "${apiJsonFolderPath}",
 				"apiJsonFile": "${apiJsonFilePath}"
@@ -61,45 +59,45 @@ test.serial("generateJsdocConfig", async (t) => {
 });
 
 test.serial("writeJsdocConfig", async (t) => {
-	const jsdocGenerator = await esmock("../../../../lib/processors/jsdoc/jsdocGenerator.js", {
-		"graceful-fs": {
-			writeFile: (configPath, configContent, callback) => {
-				t.deepEqual(configPath, path.join("/", "some", "path", "jsdoc-config.json"),
-					"Correct config path supplied");
-				t.is(configContent, "some config", "Correct config content supplied");
-				callback();
-			}
-		}});
+	mock("graceful-fs", {
+		writeFile: (configPath, configContent, callback) => {
+			t.deepEqual(configPath, path.join("/", "some", "path", "jsdoc-config.json"),
+				"Correct config path supplied");
+			t.deepEqual(configContent, "some config", "Correct config content supplied");
+			callback();
+		}
+	});
+	mock.reRequire("graceful-fs");
 
+	// Re-require tested module
+	const jsdocGenerator = mock.reRequire("../../../../lib/processors/jsdoc/jsdocGenerator");
 	const res = await jsdocGenerator._writeJsdocConfig("/some/path", "some config");
 
 	t.deepEqual(res, path.join("/", "some", "path", "jsdoc-config.json"), "Correct config path returned");
+
+	mock.stop("graceful-fs");
 });
 
 test.serial("buildJsdoc", async (t) => {
+	const childProcess = require("child_process");
 	let exitCode = 0;
-	const cpStub = sinon.stub().returns({
+	const cpStub = sinon.stub(childProcess, "spawn").returns({
 		on: (event, callback) => {
 			callback(exitCode);
 		}
 	});
-
-	const jsdocGenerator = await esmock("../../../../lib/processors/jsdoc/jsdocGenerator.js", {
-		"node:child_process": {
-			spawn: cpStub
-		}
-	});
+	const jsdocGenerator = mock.reRequire("../../../../lib/processors/jsdoc/jsdocGenerator");
 
 	await jsdocGenerator._buildJsdoc({
 		sourcePath: "/some/path",
 		configPath: "/some/config/path/jsdoc-config.json"
 	});
-	t.is(cpStub.callCount, 1, "Spawn got called");
+	t.deepEqual(cpStub.callCount, 1, "Spawn got called");
 
 	const firstCallArgs = cpStub.getCall(0).args;
-	t.is(firstCallArgs[0], "node", "Spawn got called with correct process argument");
+	t.deepEqual(firstCallArgs[0], "node", "Spawn got called with correct process argument");
 	t.deepEqual(firstCallArgs[1], [
-		fileURLToPath(import.meta.resolve("jsdoc/jsdoc.js")),
+		path.resolve(__dirname, "..", "..", "..", "..", "node_modules", "jsdoc", "jsdoc.js"),
 		"-c",
 		"/some/config/path/jsdoc-config.json",
 		"--verbose",
@@ -109,37 +107,28 @@ test.serial("buildJsdoc", async (t) => {
 
 	// Re-execute with exit code 1
 	exitCode = 1;
-	await t.throwsAsync(jsdocGenerator._buildJsdoc({
-		sourcePath: "/some/path",
-		configPath: "/some/config/path/jsdoc-config.json"
-	}), {
-		message: "JSDoc reported an error, check the log for issues (exit code: 1)"
-	});
-
-	// Re-execute with exit code 2
-	exitCode = 2;
-	const error = await t.throwsAsync(jsdocGenerator._buildJsdoc({
+	await t.notThrows(jsdocGenerator._buildJsdoc({
 		sourcePath: "/some/path",
 		configPath: "/some/config/path/jsdoc-config.json"
 	}));
-	t.is(error.message, "JSDoc reported an error, check the log for issues (exit code: 2)");
+
+	// Re-execute with exit code 2
+	exitCode = 2;
+	const error = await t.throws(jsdocGenerator._buildJsdoc({
+		sourcePath: "/some/path",
+		configPath: "/some/config/path/jsdoc-config.json"
+	}));
+	t.deepEqual(error.message, "JSDoc child process closed with code 2");
 });
 
 test.serial("jsdocGenerator", async (t) => {
-	const byPathStub = sinon.stub().resolves("some resource");
-	const createAdapterStub = sinon.stub().returns({
-		byPath: byPathStub
-	});
-
-	const jsdocGenerator = await esmock("../../../../lib/processors/jsdoc/jsdocGenerator.js", {
-		"@ui5/fs/resourceFactory": {
-			createAdapter: createAdapterStub
-		}
-	});
-
 	const generateJsdocConfigStub = sinon.stub(jsdocGenerator, "_generateJsdocConfig").resolves("some config");
 	const writeJsdocConfigStub = sinon.stub(jsdocGenerator, "_writeJsdocConfig").resolves("/some/config/path");
 	const buildJsdocStub = sinon.stub(jsdocGenerator, "_buildJsdoc").resolves();
+	const byPathStub = sinon.stub().resolves("some resource");
+	const createAdapterStub = sinon.stub(require("@ui5/fs").resourceFactory, "createAdapter").returns({
+		byPath: byPathStub
+	});
 
 	const res = await jsdocGenerator({
 		sourcePath: "/some/source/path",
@@ -152,10 +141,10 @@ test.serial("jsdocGenerator", async (t) => {
 		}
 	});
 
-	t.is(res.length, 1, "Returned 1 resource");
-	t.is(res[0], "some resource", "Returned 1 resource");
+	t.deepEqual(res.length, 1, "Returned 1 resource");
+	t.deepEqual(res[0], "some resource", "Returned 1 resource");
 
-	t.is(generateJsdocConfigStub.callCount, 1, "generateJsdocConfig called once");
+	t.deepEqual(generateJsdocConfigStub.callCount, 1, "generateJsdocConfig called once");
 	t.deepEqual(generateJsdocConfigStub.getCall(0).args[0], {
 		targetPath: "/some/target/path",
 		tmpPath: "/some/tmp/path",
@@ -165,13 +154,13 @@ test.serial("jsdocGenerator", async (t) => {
 		variants: ["apijson"]
 	}, "generateJsdocConfig called with correct arguments");
 
-	t.is(writeJsdocConfigStub.callCount, 1, "writeJsdocConfig called once");
-	t.is(writeJsdocConfigStub.getCall(0).args[0], "/some/tmp/path",
+	t.deepEqual(writeJsdocConfigStub.callCount, 1, "writeJsdocConfig called once");
+	t.deepEqual(writeJsdocConfigStub.getCall(0).args[0], "/some/tmp/path",
 		"writeJsdocConfig called with correct tmpPath argument");
-	t.is(writeJsdocConfigStub.getCall(0).args[1], "some config",
+	t.deepEqual(writeJsdocConfigStub.getCall(0).args[1], "some config",
 		"writeJsdocConfig called with correct config argument");
 
-	t.is(buildJsdocStub.callCount, 1, "buildJsdoc called once");
+	t.deepEqual(buildJsdocStub.callCount, 1, "buildJsdoc called once");
 	t.deepEqual(buildJsdocStub.getCall(0).args[0], {
 		sourcePath: "/some/source/path",
 		configPath: "/some/config/path"
@@ -181,7 +170,7 @@ test.serial("jsdocGenerator", async (t) => {
 		fsBasePath: "/some/target/path",
 		virBasePath: "/"
 	}, "createAdapter called with correct arguments");
-	t.is(byPathStub.getCall(0).args[0], "/test-resources/some/project/name/designtime/api.json",
+	t.deepEqual(byPathStub.getCall(0).args[0], "/test-resources/some/project/name/designtime/api.json",
 		"byPath called with correct path for api.json");
 
 
@@ -223,7 +212,7 @@ test.serial("jsdocGenerator", async (t) => {
 });
 
 test("jsdocGenerator missing parameters", async (t) => {
-	await t.throwsAsync(jsdocGenerator(), {
-		instanceOf: TypeError
-	}, "TypeError thrown");
+	const error = await t.throws(jsdocGenerator());
+	t.deepEqual(error.message, "[jsdocGenerator]: One or more mandatory parameters not provided",
+		"Correct error message thrown");
 });
