@@ -9,15 +9,5 @@
         },
         "embeds": ["embedded"],
         "title": "{{title}}"
-    },
-	"sap.ui5": {
-		"dependencies": {
-			"minUI5Version": "1.72",
-			"libs": {
-				"sap.ui.layout": {},
-				"sap.ui.core": {},
-				"sap.m": {}
-			}
-        }
     }
 }
