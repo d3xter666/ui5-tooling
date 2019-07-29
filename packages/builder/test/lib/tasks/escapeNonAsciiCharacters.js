@@ -1,13 +1,16 @@
-import test from "ava";
-import escapeNonAsciiCharacters from "../../../lib/tasks/escapeNonAsciiCharacters.js";
-import {createAdapter, createResource} from "@ui5/fs/resourceFactory";
-import DuplexCollection from "@ui5/fs/DuplexCollection";
+const test = require("ava");
 
-test("integration: escape non ascii characters (utf8, default)", async (t) => {
-	const reader = createAdapter({
+const ui5Builder = require("../../../");
+const tasks = ui5Builder.builder.tasks;
+const ui5Fs = require("@ui5/fs");
+const resourceFactory = ui5Fs.resourceFactory;
+const DuplexCollection = ui5Fs.DuplexCollection;
+
+test("integration: escape non ascii characters (utf8, default)", (t) => {
+	const reader = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
-	const writer = createAdapter({
+	const writer = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
 	const workspace = new DuplexCollection({reader, writer});
@@ -26,34 +29,37 @@ street=Stra\\u00dfe:\\u2665
 zip=PLZ:
 city=Ort:`;
 
-	const resource = createResource({
+	const resource = resourceFactory.createResource({
 		path: "/i18n.properties",
 		string: content
 	});
 
-	await workspace.write(resource);
-	await escapeNonAsciiCharacters({
-		workspace,
-		options: {
-			encoding: "UTF-8",
-			pattern: "/**/*.properties"
-		}
+	return workspace.write(resource).then(() => {
+		return tasks.escapeNonAsciiCharacters({
+			workspace,
+			options: {
+				encoding: "UTF-8",
+				pattern: "/**/*.properties"
+			}
+		}).then(() => {
+			return writer.byPath("/i18n.properties").then((resource) => {
+				if (!resource) {
+					t.fail("Could not find /i18n.properties in target");
+				} else {
+					return resource.getString();
+				}
+			});
+		}).then((result) => {
+			return t.deepEqual(result, expected);
+		});
 	});
-
-	const escapedResource = await writer.byPath("/i18n.properties");
-
-	if (!escapedResource) {
-		t.fail("Could not find /i18n.properties in target");
-	} else {
-		t.deepEqual(await escapedResource.getString(), expected);
-	}
 });
 
-test("integration: escape non ascii characters source encoding being (ISO-8859-1)", async (t) => {
-	const reader = createAdapter({
+test("integration: escape non ascii characters source encoding being (ISO-8859-1)", (t) => {
+	const reader = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
-	const writer = createAdapter({
+	const writer = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
 	const workspace = new DuplexCollection({reader, writer});
@@ -73,39 +79,42 @@ street=Stra\\u00dfe:
 zip=PLZ:
 city=Ort:`;
 
-	const resource = createResource({
+	const resource = resourceFactory.createResource({
 		path: "/i18n.properties",
 		buffer: content
 	});
 
-	await workspace.write(resource);
-	await escapeNonAsciiCharacters({
-		workspace,
-		options: {
-			encoding: "ISO-8859-1",
-			pattern: "/**/*.properties"
-		}
+	return workspace.write(resource).then(() => {
+		return tasks.escapeNonAsciiCharacters({
+			workspace,
+			options: {
+				encoding: "ISO-8859-1",
+				pattern: "/**/*.properties"
+			}
+		}).then(() => {
+			return writer.byPath("/i18n.properties").then((resource) => {
+				if (!resource) {
+					t.fail("Could not find /i18n.properties in target");
+				} else {
+					return resource.getString();
+				}
+			});
+		}).then((result) => {
+			return t.deepEqual(result, expected);
+		});
 	});
-
-	const escapedResource = await writer.byPath("/i18n.properties");
-
-	if (!escapedResource) {
-		t.fail("Could not find /i18n.properties in target");
-	} else {
-		t.deepEqual(await escapedResource.getString(), expected);
-	}
 });
 
 test("integration: escape non ascii characters source encoding being empty", async (t) => {
-	const reader = createAdapter({
+	const reader = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
-	const writer = createAdapter({
+	const writer = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
 	const workspace = new DuplexCollection({reader, writer});
 
-	const error = await t.throwsAsync(escapeNonAsciiCharacters({
+	const error = await t.throwsAsync(tasks.escapeNonAsciiCharacters({
 		workspace,
 		options: {
 			encoding: "",
@@ -116,15 +125,15 @@ test("integration: escape non ascii characters source encoding being empty", asy
 });
 
 test("integration: escape non ascii characters source encoding being UTF-16", async (t) => {
-	const reader = createAdapter({
+	const reader = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
-	const writer = createAdapter({
+	const writer = resourceFactory.createAdapter({
 		virBasePath: "/"
 	});
 	const workspace = new DuplexCollection({reader, writer});
 
-	const error = await t.throwsAsync(escapeNonAsciiCharacters({
+	const error = await t.throwsAsync(tasks.escapeNonAsciiCharacters({
 		workspace,
 		options: {
 			encoding: "utf16le",
