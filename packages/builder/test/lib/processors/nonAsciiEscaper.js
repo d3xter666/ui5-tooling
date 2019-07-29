@@ -1,18 +1,19 @@
-import test from "ava";
-import nonAsciiEscaper from "../../../lib/processors/nonAsciiEscaper.js";
-import Resource from "@ui5/fs/Resource";
+const test = require("ava");
+
+const nonAsciiEscaper = require("../../../lib/processors/nonAsciiEscaper");
+const Resource = require("@ui5/fs").Resource;
 
 /**
  * Executes string escaping. Returns <code>undefined</code> if nothing was escaped.
  *
  * @param {string} input string
- * @param {object} [options]
+ * @param {Object} [options]
  * @param {string} encoding character encoding used, e.g. utf8, latin1, ..
  * @returns {Promise<string|undefined>} escaped string if non-ascii characters present, <code>undefined</code> otherwise
  */
 const escape = async function(input, options={}, encoding="utf8") {
 	const resource = new Resource({
-		path: "/my.properties",
+		path: "my.properties",
 		buffer: Buffer.from(input, encoding)
 	});
 	return nonAsciiEscaper({resources: [resource], options});
@@ -115,7 +116,7 @@ test("Invalid encoding", async (t) => {
 
 
 test("getEncodingFromAlias", (t) => {
-	t.is(nonAsciiEscaper.getEncodingFromAlias("UTF-8"), "utf8");
+	t.is("utf8", nonAsciiEscaper.getEncodingFromAlias("UTF-8"));
 });
 
 test("getEncodingFromAlias invalid", (t) => {
