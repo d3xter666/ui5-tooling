@@ -1,15 +1,15 @@
 # RFC 0007 Properties File Encoding
 
 - Start Date: 2019-07-15
-- RFC PR: [#168](https://github.com/UI5/cli/pull/168)
-- Issue: [#161](https://github.com/UI5/cli/issues/161)
-- Affected components <!-- Check affected components by writing an "X" into the brackets -->
-    + [x] [ui5-builder](./packages/builder)
-    + [x] [ui5-server](./packages/server)
-    + [ ] [ui5-cli](./packages/cli)
-    + [ ] [ui5-fs](./packages/fs)
-    + [ ] [ui5-project](./packages/project)
-    + [ ] [ui5-logger](./packages/logger)
+- RFC PR: [#168](https://github.com/SAP/ui5-tooling/pull/168)
+- Issue: [#161](https://github.com/SAP/ui5-tooling/issues/161)
+- Affected components
+  - [x] [ui5-builder](https://github.com/SAP/ui5-builder)
+  - [x] [ui5-server](https://github.com/SAP/ui5-server)
+  - [ ] [ui5-cli](https://github.com/SAP/ui5-cli)
+  - [ ] [ui5-fs](https://github.com/SAP/ui5-fs)
+  - [ ] [ui5-project](https://github.com/SAP/ui5-project)
+  - [ ] [ui5-logger](https://github.com/SAP/ui5-logger)
 
 ## Summary
 
@@ -29,8 +29,8 @@ Also with Java 9 the default encoding for properties files has been changed to U
 A workaround to this problem is to use unicode escape sequences (`\uXXXX`) which makes the content independent from the encoding but very cumbersome to maintain without additional tools to convert the file.
 This escaping solution is already used for most of the UI5 libraries, especially for locales which require unicode characters not supported in ISO-8859-1.
 
-To improve the overall developer experience and to prevent encoding issues, the UI5 CLI should be enhanced to also support properties files encoded in UTF-8.
-But as there are existing tools and server middleware which explicitly expect those files to be encoded in ISO-8859-1, the output of the UI5 CLI needs to be independent of the encoding (plain ASCII). This should be achieved by converting non-ASCII characters to unicode escape sequences (`\uXXXX`), as already mentioned above.
+To improve the overall developer experience and to prevent encoding issues, the UI5 Tooling should be enhanced to also support properties files encoded in UTF-8.
+But as there are existing tools and server middleware which explicitly expect those files to be encoded in ISO-8859-1, the output of the UI5 Tooling needs to be independent of the encoding (plain ASCII). This should be achieved by converting non-ASCII characters to unicode escape sequences (`\uXXXX`), as already mentioned above.
 
 ## Detailed design
 
