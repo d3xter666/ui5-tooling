@@ -1,7 +1,7 @@
 /*
  * Node script to create cross-library API index files for use in the UI5 SDKs.
  *
- * (c) Copyright 2025 SAP SE or an SAP affiliate company.
+ * (c) Copyright 2009-2019 SAP SE or an SAP affiliate company.
  * Licensed under the Apache License, Version 2.0 - see LICENSE.txt.
  */
 
@@ -39,12 +39,12 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 		log.info("Using custom fs");
 	}
 	if (returnOutputFiles) {
-		log.info("Returning output files instead of writing to fs.");
+		log.info("Returning output files instead of writing to fs.")
 	}
 	log.info("");
 
 	// Deprecated, Experimental and Since collections
-	const oListCollection = {
+	let oListCollection = {
 		deprecated: {
 			noVersion: {
 				apis: []
@@ -63,11 +63,13 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 			fs.readFile(file, 'utf8', function (err, data) {
 				if (err) {
 					reject(err);
-				} else if (data.trim() === "") {
-					// Handle empty files scenario
-					resolve({});
 				} else {
-					resolve(JSON.parse(String(data)));
+					// Handle empty files scenario
+					if (data.trim() === "") {
+						resolve({});
+					} else {
+						resolve(JSON.parse(String(data)));
+					}
 				}
 			});
 		});
@@ -100,37 +102,30 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 	 * Returns a promise that resolves with an array of symbols.
 	 */
 	function createSymbolSummaryForLib(lib) {
-		const file = path.join(unpackedTestresourcesRoot, lib.replace(/\./g, "/"), "designtime/api.json");
+		let file = path.join(unpackedTestresourcesRoot, lib.replace(/\./g, "/"), "designtime/api.json");
 
 		return readJSONFile(file).then(function (apijson) {
 			if (!apijson.hasOwnProperty("symbols") || !Array.isArray(apijson.symbols)) {
 				// Ignore libraries with invalid api.json content like empty object or non-array "symbols" property.
 				return [];
 			}
-			return apijson.symbols.map((symbol) => {
-				const oReturn = {
+			return apijson.symbols.map(symbol => {
+				let oReturn = {
 					name: symbol.name,
 					kind: symbol.kind,
 					visibility: symbol.visibility,
-					"extends": symbol.extends,
-					"implements": symbol.implements,
+					extends: symbol.extends,
+					implements: symbol.implements,
 					lib: lib
 				};
 				// We add deprecated member only when the control is deprecated to keep file size at check
 				if (symbol.deprecated) {
 					oReturn.deprecated = true;
 				}
-
-				if (symbol.experimental && !symbol.deprecated) {
-					oReturn.experimental = true;
-				} else {
-					oReturn.experimental = false;
-				}
-
 				collectLists(symbol);
 				return oReturn;
 			});
-		});
+		})
 	}
 
 	/*
@@ -140,11 +135,10 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 	function collectLists(oSymbol) {
 
 		function addData(oDataType, oEntityObject, sObjectType, sSymbolName) {
-			const sSince = oDataType !== "since" ? oEntityObject[oDataType].since : oEntityObject.since;
-			const sText = oDataType !== "since" ? oEntityObject[oDataType].text : oEntityObject.description;
-			const oData = {
+			let sSince = oDataType !== "since" ? oEntityObject[oDataType].since : oEntityObject.since,
+				oData = {
 					control: sSymbolName,
-					text: sText || undefined,
+					text: oEntityObject[oDataType].text || oEntityObject.description,
 					type: sObjectType,
 					"static": !!oEntityObject.static,
 					visibility: oEntityObject.visibility
@@ -157,7 +151,7 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 
 			if (sSince && sSince !== "undefined" /* Sometimes sSince comes as string "undefined" */) {
 				// take only major and minor versions
-				const sVersion = sSince.split(".").slice(0, 2).join(".");
+				let sVersion = sSince.split(".").slice(0, 2).join(".");
 
 				oData.since = sSince;
 
@@ -179,7 +173,7 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 			addData("deprecated", oSymbol, "class", oSymbol.name);
 		}
 
-		if (oSymbol.experimental && !oSymbol.deprecated) {
+		if (oSymbol.experimental) {
 			addData("experimental", oSymbol, "class", oSymbol.name);
 		}
 
@@ -188,12 +182,12 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 		}
 
 		// Methods
-		oSymbol.methods?.forEach((oMethod) => {
+		oSymbol.methods && oSymbol.methods.forEach(oMethod => {
 			if (oMethod.deprecated) {
 				addData("deprecated", oMethod, "methods", oSymbol.name);
 			}
 
-			if (oMethod.experimental && !oSymbol.deprecated) {
+			if (oMethod.experimental) {
 				addData("experimental", oMethod, "methods", oSymbol.name);
 			}
 
@@ -203,12 +197,12 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 		});
 
 		// Events
-		oSymbol.events?.forEach((oEvent) => {
+		oSymbol.events && oSymbol.events.forEach(oEvent => {
 			if (oEvent.deprecated) {
 				addData("deprecated", oEvent, "events", oSymbol.name);
 			}
 
-			if (oEvent.experimental && !oSymbol.deprecated) {
+			if (oEvent.experimental) {
 				addData("experimental", oEvent, "events", oSymbol.name);
 			}
 
@@ -227,28 +221,22 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 	}
 
 	function expandHierarchyInfo(symbols) {
-		const byName = new Map();
-		symbols.forEach((symbol) => {
+		let byName = new Map();
+		symbols.forEach(symbol => {
 			byName.set(symbol.name, symbol);
 		});
-		symbols.forEach((symbol) => {
-			const parent = symbol.extends && byName.get(symbol.extends);
+		symbols.forEach(symbol => {
+			let parent = symbol.extends && byName.get(symbol.extends);
 			if (parent) {
-				parent.extendedBy = parent.extendedBy || [];
-				parent.extendedBy.push({
-					name: symbol.name,
-					visibility: symbol.visibility
-				});
+				parent.extendedBy = parent.extendedBy ||  [];
+				parent.extendedBy.push(symbol.name);
 			}
 			if (symbol.implements) {
-				symbol.implements.forEach((intfName) => {
-					const intf = byName.get(intfName);
+				symbol.implements.forEach(intfName => {
+					let intf = byName.get(intfName);
 					if (intf) {
-						intf.implementedBy = intf.implementedBy || [];
-						intf.implementedBy.push({
-							name: symbol.name,
-							visibility: symbol.visibility
-						});
+						intf.implementedBy = intf.implementedBy ||  [];
+						intf.implementedBy.push(symbol.name);
 					}
 				});
 			}
@@ -257,42 +245,45 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 	}
 
 	function convertListToTree(symbols) {
-		const aTree = [];
+		let aTree = [];
 
-		// Filter out excluded libraries
-		symbols = symbols.filter(({lib}) => ["sap.ui.documentation"].indexOf(lib) === -1);
+		// Filter out black list libraries
+		symbols = symbols.filter(({lib}) => ["sap.ui.demokit", "sap.ui.documentation"].indexOf(lib) === -1);
 
 		// Create treeName and displayName
-		symbols.forEach((oSymbol) => {
+		symbols.forEach(oSymbol => {
 			oSymbol.treeName = oSymbol.name.replace(/^module:/, "").replace(/\//g, ".");
 			oSymbol.displayName = oSymbol.treeName.split(".").pop();
+			oSymbol.bIsDeprecated = !!oSymbol.deprecated;
 		});
 
 		// Create missing - virtual namespaces
-		symbols.forEach((oSymbol) => {
+		symbols.forEach(oSymbol => {
 			oSymbol.treeName.split(".").forEach((sPart, i, a) => {
-				const sName = a.slice(0, (i + 1)).join(".");
+				let sName = a.slice(0, (i + 1)).join(".");
 
-				if (!symbols.find((o) => o.treeName === sName)) {
+				if (!symbols.find(o => o.treeName === sName)) {
 					symbols.push({
 						name: sName,
 						treeName: sName,
 						displayName: sPart,
 						lib: oSymbol.lib,
 						kind: "namespace",
-						visibility: "public" // Virtual namespace are always public
+						visibility: "public", // Virtual namespace are always public
+						bIsDeprecated: false // Virtual namespace can't be deprecated
 					});
 				}
 			});
 		});
 
 		// Discover parents
-		symbols.forEach((oSymbol) => {
-			const aParent = oSymbol.treeName.split(".");
+		symbols.forEach(oSymbol => {
+			let aParent = oSymbol.treeName.split("."),
+				sParent;
 
 			// Extract parent name
 			aParent.pop();
-			const sParent = aParent.join(".");
+			sParent = aParent.join(".");
 
 			// Mark parent
 			if (symbols.find(({treeName}) => treeName === sParent)) {
@@ -302,20 +293,20 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 
 		// Sort the list before building the tree
 		symbols.sort((a, b) => {
-			const sA = a.treeName.toUpperCase(),
+			let sA = a.treeName.toUpperCase(),
 				sB = b.treeName.toUpperCase();
 
-			if (sA < sB) {return -1;}
-			if (sA > sB) {return 1;}
+			if (sA < sB) return -1;
+			if (sA > sB) return 1;
 			return 0;
 		});
 
 		// Build tree
-		symbols.forEach((oSymbol) => {
+		symbols.forEach(oSymbol => {
 			if (oSymbol.parent) {
-				const oParent = symbols.find(({treeName}) => treeName === oSymbol.parent);
+				let oParent = symbols.find(({treeName}) => treeName === oSymbol.parent);
 
-				if (!oParent.nodes) {oParent.nodes = [];}
+				if (!oParent.nodes) oParent.nodes = [];
 				oParent.nodes.push(oSymbol);
 			} else {
 				aTree.push(oSymbol);
@@ -324,96 +315,28 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 
 		// Custom sort first level tree items - "sap" namespace should be on top
 		aTree.sort((a, b) => {
-			const sA = a.displayName.toUpperCase(),
+			let sA = a.displayName.toUpperCase(),
 				sB = b.displayName.toUpperCase();
 
-			if (sA === "SAP") {return -1;}
-			if (sB === "SAP") {return 1;}
-			if (sA < sB) {return -1;}
-			if (sA > sB) {return 1;}
+			if (sA === "SAP") return -1;
+			if (sB === "SAP") return 1;
+			if (sA < sB) return -1;
+			if (sA > sB) return 1;
 
 			return 0;
 		});
-
-		// walk the tree *from bottom to top*
-		// in order to detect all parent nodes
-		// that should be marked as content-deprecated
-		// because their children are explicitly deprecated
-		toChildrenFirstArray(aTree).forEach(markDeprecatedNodes);
 
 		// Clean tree - keep file size down
 		function cleanTree (oSymbol) {
 			delete oSymbol.treeName;
 			delete oSymbol.parent;
 			if (oSymbol.nodes) {
-				oSymbol.nodes.forEach((o) => cleanTree(o));
+				oSymbol.nodes.forEach(o => cleanTree(o));
 			}
 		}
-		aTree.forEach((o) => cleanTree(o));
+		aTree.forEach(o => cleanTree(o));
 
 		return aTree;
-	}
-
-	/**
-	 * Creates an array of all tree nodes,
-	 * where the child nodes precede the parent nodes
-	 * @param aTree
-	 * @returns {Array}
-	 */
-	function toChildrenFirstArray(aTree) {
-		var aChildrenFirst = [];
-		function addToLeafsFirst(node) {
-			if (node.nodes) {
-				node.nodes.forEach(function(child) {
-					addToLeafsFirst(child);
-				});
-			}
-			aChildrenFirst.push(node);
-		}
-		aTree.forEach(function(parent) {
-			addToLeafsFirst(parent);
-		});
-		return aChildrenFirst;
-	}
-
-	/**
-	 * Sets the <code>bAllContentDeprecated</code> flag of each symbol
-	 *
-	 * The <code>bAllContentDeprecated</code> flag differs from the already existing <code>deprecated</code> flag
-	 * in the following respect:
-	 *
-	 *     1) if a node is deprecated => all its children should be marked as <code>bAllContentDeprecated</code>
-	 *        (even if not explicitly deprecated in their JSDoc)
-	 *     2) if all children of the node are deprecated => that node should also be marked as <code>bAllContentDeprecated</code>
-	 *        (even if not explicitly deprecated in its JSDoc)
-	 *     3) if a node is explicitly deprecated in its JSDoc => it should also be marked as <code>bAllContentDeprecated</code>
-	 *        (for consistency)
-	 *
-	 * @param oSymbol
-	 */
-	function markDeprecatedNodes(oSymbol) {
-		// 1. If the symbol is deprecated all content in it should be also deprecated
-		if (oSymbol.deprecated) {
-			// 2. If all content in the symbol is deprecated, flag should explicitly be passed to its child nodes.
-			propagateFlags(oSymbol, { bAllContentDeprecated: true });
-		} else {
-			// 3. If all children are deprecated, then the parent is marked as content-deprecated
-			oSymbol.bAllContentDeprecated = !!oSymbol.nodes && oSymbol.nodes.every((node) => node.bAllContentDeprecated);
-		}
-	}
-
-	/**
-	 * Merges the set of flags from <code>oFlags</code> into the given <code>oSymbol</code>
-	 * @param oSymbol
-	 * @param oFlags
-	 */
-	function propagateFlags(oSymbol, oFlags) {
-		Object.assign(oSymbol, oFlags);
-		if (oSymbol.nodes) {
-			oSymbol.nodes.forEach((node) => {
-				propagateFlags(node, oFlags);
-			});
-		}
 	}
 
 	function createOverallIndex() {
@@ -421,11 +344,11 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 		const filesToReturn = {};
 
 		var p = readJSONFile(versionInfoFile)
-			.then((versionInfo) => {
+			.then(versionInfo => {
 				version = versionInfo.version;
 				return Promise.all(
 					versionInfo.libraries.map(
-						(lib) => createSymbolSummaryForLib(lib.name).catch((err) => {
+						lib => createSymbolSummaryForLib(lib.name).catch(err => {
 							// ignore 'file not found' errors as some libs don't have an api.json (themes, server libs)
 							if (err.code === 'ENOENT') {
 								return [];
@@ -438,8 +361,8 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 			.then(deepMerge)
 			.then(expandHierarchyInfo)
 			.then(convertListToTree)
-			.then((symbols) => {
-				const result = {
+			.then(symbols => {
+				let result = {
 					"$schema-ref": "http://schemas.sap.com/sapui5/designtime/api-index.json/1.0",
 					version: version,
 					library: "*",
@@ -453,13 +376,13 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 			})
 			.then(() => {
 				/* Lists - modify and cleanup */
-				const sortList = function (oList) {
+				let sortList = function (oList) {
 					/* Sorting since records */
-					const aKeys = Object.keys(oList),
+					let aKeys = Object.keys(oList),
 						oSorted = {};
 
 					aKeys.sort((a, b) => {
-						const aA = a.split("."),
+						let aA = a.split("."),
 							aB = b.split(".");
 
 						if (a === "noVersion") {
@@ -475,22 +398,11 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 						b = [aB[0], ('0' + aB[1]).slice(-2)].join("");
 
 						// Sort descending
-						return parseInt(b) - parseInt(a);
+						return parseInt(b, 10) - parseInt(a, 10);
 					});
 
 					aKeys.forEach((sKey) => {
 						oSorted[sKey] = oList[sKey];
-						oSorted[sKey].apis.sort((a,b) => {
-							const keyA = `${a.control}|${a.entityName || ""}`.toLowerCase();
-							const keyB = `${b.control}|${b.entityName || ""}`.toLowerCase();
-							if ( keyA === keyB ) {
-								if ( a.static === b.static ) {
-									return 0;
-								}
-								return a.static ? -1 : 1;
-							}
-							return keyA < keyB ? -1 : 1;
-						}); // sort entries within the same version alphabetically (case insensitive)
 					});
 
 					return oSorted;
@@ -526,8 +438,8 @@ function createIndexFiles(versionInfoFile, unpackedTestresourcesRoot, targetFile
 					]);
 				}
 			})
-			.catch((err) => {
-				log.error("**** failed to create API index for libraries:", err);
+			.catch(err => {
+				log.error("**** failed to create API index for libraries:", err)
 				throw err;
 			});
 
