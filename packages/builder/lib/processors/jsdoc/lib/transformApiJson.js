@@ -1,14 +1,13 @@
-/**
+/*
  * Node script to preprocess api.json files for use in the UI5 SDKs.
  *
- * (c) Copyright 2025 SAP SE or an SAP affiliate company.
+ * (c) Copyright 2009-2019 SAP SE or an SAP affiliate company.
  * Licensed under the Apache License, Version 2.0 - see LICENSE.txt.
  */
 
 "use strict";
 const cheerio = require("cheerio");
 const path = require('path');
-const {TypeParser} = require("./ui5/template/utils/typeParser");
 const log = (function() {
 	try {
 		return require("@ui5/logger").getLogger("builder:processors:jsdoc:transformApiJson");
@@ -26,18 +25,7 @@ const log = (function() {
 	}
 }());
 
-function replaceLastPathSegment(p, replacement) {
-	// Note: path.join also correctly normalizes any POSIX paths on Windows
-	return path.join(path.dirname(p), replacement);
-}
-
-function normalizeToUI5GlobalNotation(sModuleName){
-	return sModuleName.replace(/\//g, ".");
-}
-
-const typeParser = new TypeParser();
-
-/**
+/*
  * Transforms the api.json as created by the JSDoc build into a pre-processed api.json file suitable for the SDK.
  *
  * The pre-processing includes formatting of type references, rewriting of links and other time consuming calculations.
@@ -47,10 +35,9 @@ const typeParser = new TypeParser();
  * @param {string} sLibraryFile Path to the .library file of the library, used to extract further documentation information
  * @param {string|string[]} vDependencyAPIFiles Path of folder that contains api.json files of predecessor libs or
  *                 an array of paths of those files
- * @param {string} sFAQDir Path to the directory containing the sources for the FAQ section in APiRef
  * @returns {Promise} A Promise that resolves after the transformation has been completed
  */
-function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles, sFAQDir, options) {
+function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles, options) {
 	const fs = options && options.fs || require("fs");
 	const returnOutputFiles = options && !!options.returnOutputFiles;
 
@@ -59,213 +46,33 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 	log.info("  output file: " + sOutputFile);
 	log.info("  library file: " + sLibraryFile);
 	log.info("  dependency dir: " + vDependencyAPIFiles);
-	log.info("  FAQ src dir: " + sFAQDir);
 	if (options && options.fs) {
 		log.info("Using custom fs.");
 	}
 	if (returnOutputFiles) {
-		log.info("Returning output files instead of writing to fs.");
+		log.info("Returning output files instead of writing to fs.")
 	}
 	log.info("");
-
-	function resolveTypeParameters(func) {
-		if ( !func.typeParameters ) {
-			return func;
-		}
-		const replacements = Object.create(null);
-		let regex;
-		const _resolve = (str) =>
-			(str && regex ? str.replace(regex, (_,prefix,token,suffix) => prefix + replacements[token] + suffix) : str);
-
-		func.typeParameters.forEach((typeParam) => {
-			typeParam.type = _resolve(typeParam.type);
-			replacements[typeParam.name] = typeParam.type || "any";
-			regex = new RegExp("(^|\\W)(" + Object.keys(replacements).join("|") + ")(\\W|$)");
-			typeParam.default = _resolve(typeParam.default);
-		});
-
-		function _resolveParamProperties(param) {
-			if ( param.parameterProperties ) {
-				Object.keys(param.parameterProperties).forEach((key) => {
-					const prop = param.parameterProperties[key];
-					prop.type = _resolve(prop.type);
-					_resolveParamProperties(prop);
-				});
-			}
-		}
-
-		if ( func.returnValue ) {
-			func.returnValue.type = _resolve(func.returnValue.type);
-		}
-		if ( func.parameters ) {
-			func.parameters.forEach((param) => {
-				param.type = _resolve(param.type);
-				_resolveParamProperties(param);
-			});
-		}
-		if ( func.throws ) {
-			func.throws.forEach((ex) => {
-				ex.type = _resolve(ex.type);
-			});
-		}
-		return func;
-	}
-
-	function isUI5Type(sType) {
-		return !isBuiltInType(sType) && possibleUI5Symbol(sType);
-	}
-
-	/**
-	 * Returns an object with the parsed custom-type information, namely:
-	 * - types: array of the parsed UI5 types inside the given complex type
-	 * - template: the template string with placeholders for the parsed UI5 types
-	 *
-	 * Examples:
-	 *
-	 * - parseUI5Types("sap.ui.core.ID | sap.ui.core.Control") returns
-	 *   {
-	 *     template: "${0} | ${1}",
-	 *     UI5Types: ["sap.ui.core.ID", "sap.ui.core.Control"]
-	 *   }
-	 *
-	 * - parseUI5Types("Array<sap.ui.core.Control>") returns
-	 *    {
-	 *      template: "Array<${0}>",
-	 *      UI5Types: ["sap.ui.core.Control"]
-	 *    }
-	 *
-	 * - parseUI5Types("Array<sap.ui.core.ID|string>") returns
-	 *    {
-	 *      template: "Array<${0} | string>", // built-in types remain unchanged in the template
-	 *      UI5Types: ["sap.ui.core.ID"]
-	 *    }
-	 *
-	 * - parseUI5Types("Object<string, sap.ui.core.Control>") returns
-	 *    {
-	 *      template: "Object<string, ${0}>", // built-in types remain unchanged in the template
-	 *      UI5Types: ["sap.ui.core.Control"]
-	 *    }
-	 *
-	 * - parseUI5Types("string") returns
-	 *    {
-	 *      template: "string" // skip the types array if empty
-	 *    }
-	 *
-	 * - parseUI5Types("sap.ui.core.Control") returns
-	 *    {
-	 *      UI5Types: ["sap.ui.core.Control"] // skip template if its value is "${0}" (default value)
-	 *    }
-	 * @param {string} sComplexType
-	 * @returns {{template=: string, UI5Types=: string[]}}
-	 */
-	function parseUI5Types(sComplexType) {
-		let oParsed;
-		try {
-			oParsed = typeParser.parseSimpleTypes(sComplexType, isUI5Type);
-		} catch (e) {
-			log.error("Error parsing type: " + sComplexType);
-			log.error(e);
-			oParsed = { template: sComplexType };
-		}
-
-		const result = {};
-
-		if (oParsed.template !== '${0}') { // default is '${0}', so omit if not required
-			result.template = oParsed.template;
-		}
-
-		if (oParsed.simpleTypes?.length) { // it can be empty if none of the included simple types satisfied the filter function
-			result.UI5Types = oParsed.simpleTypes;
-		}
-
-		return result;
-	}
-
-	function includesIgnoreCase(array, string) {
-		return array.some((item) => item.toLowerCase() === string.toLowerCase());
-	}
-
-	/**
-	 * Check if a type is a built-in type, handling both simple
-	 * and compound types gracefully.
-	 *
-	 * @param {string} type A type to check
-	 * @returns {boolean} true if the type is built-in, otherwise false
-	 */
-	function isBuiltInType(type) {
-		const builtInTypes = formatters._baseTypes;
-
-		// Early return if the type is directly in baseTypes
-		if (includesIgnoreCase(builtInTypes, type)) {
-			return true;
-		}
-
-		// Check if the type is a union type
-		if (type.includes("|")) {
-			const unionParts = type.split("|").map((part) => part.trim());
-			return unionParts.every((part) => isBuiltInType(part));
-		}
-
-		// Handle array notation directly
-		if (type.endsWith("[]")) {
-			return builtInTypes.includes(type.slice(0, -2));
-		}
-
-		// Predefined regex patterns for reuse
-		const arrayRegex = /Array<(.+)>/;
-		const arrayDotRegex = /Array\.<(.+)>/;
-		const objectRegex = /Object<([^,]+),([^>]+)>/;
-		const objectDotRegex = /Object\.<([^,]+),([^>]+)>/;
-
-		// Check if the type is a generic Array type
-		const arrayMatch = arrayRegex.exec(type);
-		if (arrayMatch) {
-			const innerType = arrayMatch[1];
-			return isBuiltInType(innerType);
-		}
-
-		const arrayDotMatch = arrayDotRegex.exec(type);
-		if (arrayDotMatch) {
-			const innerType = arrayDotMatch[1];
-			return isBuiltInType(innerType);
-		}
-
-		// Check if the type is a generic Object type
-		const objectMatch = objectRegex.exec(type);
-		if (objectMatch) {
-			const innerTypes = [objectMatch[1], objectMatch[2]].map((t) => t.trim());
-			return innerTypes.every((innerType) => isBuiltInType(innerType));
-		}
-
-		const objectDotMatch = objectDotRegex.exec(type);
-		if (objectDotMatch) {
-			const innerTypes = [objectDotMatch[1], objectDotMatch[2]].map((t) => t.trim());
-			return innerTypes.every((innerType) => isBuiltInType(innerType));
-		}
-
-		// Fallback case: if none of the above matched, return false
-		return false;
-	}
-
-	/**
-	 * Heuristically determining if there is a possibility the given input string
-	 * to be a UI5 symbol
-	 * Examples of UI5 symbols:
-	 * -"sap.ui.core.date.UI5Date"
-	 * -"module:sap/ui/core/date/UI5Date"
-	 * @param {string} sName
-	 * @returns {boolean}
-	 */
-	function possibleUI5Symbol(sName) {
-		const ui5SymbolRegex = /^(module:)?sap[/.][a-zA-Z][a-zA-Z0-9/.$]*[a-zA-Z0-9]$/;
-		return ui5SymbolRegex.test(sName);
-	}
 
 	/**
 	 * Transforms api.json file
 	 * @param {object} oChainObject chain object
 	 */
-	const transformApiJson = function (oChainObject) {
+	let transformApiJson = function (oChainObject) {
+		function isBuiltInType(type) {
+			return formatters._baseTypes.indexOf(type) >= 0;
+		}
+
+		/**
+		 * Heuristically determining if there is a possibility the given input string
+		 * to be a UI5 symbol
+		 * @param {string} sName
+		 * @returns {boolean}
+		 */
+		function possibleUI5Symbol(sName) {
+			return /^[a-zA-Z][a-zA-Z.]*[a-zA-Z]$/.test(sName);
+		}
+
 		// Function is a copy from: LibraryInfo.js => LibraryInfo.prototype._getActualComponent => "match" inline method
 		function matchComponent(sModuleName, sPattern) {
 			sModuleName = sModuleName.toLowerCase();
@@ -284,18 +91,18 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 		 */
 		function preProcessSymbols(symbols) {
 			// Create treeName and modify module names
-			symbols.forEach((oSymbol) => {
-				const sModuleClearName = oSymbol.name.replace(/^module:/, "");
+			symbols.forEach(oSymbol => {
+				let sModuleClearName = oSymbol.name.replace(/^module:/, "");
 				oSymbol.displayName = sModuleClearName;
-				oSymbol.treeName = normalizeToUI5GlobalNotation(sModuleClearName);
+				oSymbol.treeName = sModuleClearName.replace(/\//g, ".");
 			});
 
 			// Create missing - virtual namespaces
-			symbols.forEach((oSymbol) => {
+			symbols.forEach(oSymbol => {
 				oSymbol.treeName.split(".").forEach((sPart, i, a) => {
-					const sName = a.slice(0, (i + 1)).join(".");
+					let sName = a.slice(0, (i + 1)).join(".");
 
-					if (!symbols.find((o) => o.treeName === sName)) {
+					if (!symbols.find(o => o.treeName === sName)) {
 						symbols.push({
 							name: sName,
 							displayName: sName,
@@ -308,12 +115,13 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 			});
 
 			// Discover parents
-			symbols.forEach((oSymbol) => {
-				const aParent = oSymbol.treeName.split(".");
+			symbols.forEach(oSymbol => {
+				let aParent = oSymbol.treeName.split("."),
+					sParent;
 
 				// Extract parent name
 				aParent.pop();
-				const sParent = aParent.join(".");
+				sParent = aParent.join(".");
 
 				// Mark parent
 				if (symbols.find(({treeName}) => treeName === sParent)) {
@@ -322,37 +130,30 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 			});
 
 			// Attach children info
-			symbols.forEach((oSymbol) => {
+			symbols.forEach(oSymbol => {
 				if (oSymbol.parent) {
-					const oParent = symbols.find(({treeName}) => treeName === oSymbol.parent);
+					let oParent = symbols.find(({treeName}) => treeName === oSymbol.parent);
 
-					if (!oParent.nodes) {oParent.nodes = [];}
-
-					const oNode = {
+					if (!oParent.nodes) oParent.nodes = [];
+					oParent.nodes.push({
 						name: oSymbol.displayName,
 						description: formatters._preProcessLinksInTextBlock(
 							extractFirstSentence(oSymbol.description)
 						),
-						href: "api/" + encodeURIComponent(oSymbol.name)
-					};
-
-					if (oSymbol.deprecated) {
-						oNode.deprecated = true;
-					}
-
-					oParent.nodes.push(oNode);
+						href: "#/api/" + encodeURIComponent(oSymbol.name)
+					});
 				}
 			});
 
 			// Clean list - keep file size down
-			symbols.forEach((o) => {
+			symbols.forEach(o => {
 				delete o.treeName;
 				delete o.parent;
 			});
 		}
 
 		// Transform to object
-		const oData = oChainObject.fileData;
+		let oData = oChainObject.fileData;
 
 		// Attach default component for the library if available
 		if (oChainObject.defaultComponent) {
@@ -368,15 +169,15 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 		oData.symbols.forEach((oSymbol) => {
 
 			// when the module name starts with the library name, then we apply the default component
-			if (normalizeToUI5GlobalNotation(oSymbol.displayName).startsWith(oData.library)) {
+			if (oSymbol.name.indexOf(oData.library) === 0) {
 				oSymbol.component = oChainObject.defaultComponent;
 			}
 
 			// Attach symbol specific component if available (special cases)
 			// Note: Last hit wins as there may be a more specific component pattern
 			if (oChainObject.customSymbolComponents) {
-				Object.keys(oChainObject.customSymbolComponents).forEach((sComponent) => {
-					if (matchComponent(normalizeToUI5GlobalNotation(oSymbol.displayName), sComponent)) {
+				Object.keys(oChainObject.customSymbolComponents).forEach(sComponent => {
+					if (matchComponent(oSymbol.name, sComponent)) {
 						oSymbol.component = oChainObject.customSymbolComponents[sComponent];
 					}
 				});
@@ -397,7 +198,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 
 			// Constructor
 			if (oSymbol.constructor) {
-				const oConstructor = resolveTypeParameters(oSymbol.constructor);
+				let oConstructor = oSymbol.constructor;
 
 				// Description
 				if (oConstructor.description) {
@@ -429,13 +230,21 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 				if (oConstructor.parameters) {
 					oConstructor.parameters = methods.buildConstructorParameters(oConstructor.parameters);
 
-					const aParameters = oConstructor.parameters;
-					aParameters.forEach((oParameter) => {
+					let aParameters = oConstructor.parameters;
+					aParameters.forEach(oParameter => {
 
 						// Types
 						oParameter.types = [];
 						if (oParameter.type) {
-							oParameter.typeInfo = parseUI5Types(oParameter.type);
+							let aTypes = oParameter.type.split("|");
+
+							for (let i = 0; i < aTypes.length; i++) {
+								oParameter.types.push({
+									name: aTypes[i],
+									linkEnabled: !isBuiltInType(aTypes[i])
+								});
+							}
+
 							// Keep file size in check
 							delete oParameter.type;
 						}
@@ -448,12 +257,12 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 							oParameter.description = formatters.formatDescription(oParameter.description);
 						}
 
-					});
+					})
 				}
 
 				// Throws
 				if (oConstructor.throws) {
-					oConstructor.throws.forEach((oThrows) => {
+					oConstructor.throws.forEach(oThrows => {
 
 						// Description
 						if (oThrows.description) {
@@ -483,12 +292,6 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 
 			// Properties
 			if (oSymbol.properties) {
-
-				// Pre-process properties
-				if (oSymbol.kind === "typedef") {
-					oSymbol.properties = methods.buildPropertiesModel(oSymbol.properties);
-				}
-
 				oSymbol.properties.forEach((oProperty) => {
 
 					// Name
@@ -502,28 +305,10 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 						oProperty.description = formatters.formatDescription(oProperty.description);
 					}
 
-					// Examples
-					if (oProperty.examples) {
-						oProperty.examples.forEach((oExample) => {
-							oExample.data = formatters.formatExample(oExample.caption, oExample.text);
-
-							// Keep file size in check
-							if (oExample.caption) {
-								delete oExample.caption;
-							}
-							if (oExample.text) {
-								delete oExample.text;
-							}
-						});
-					}
-
-					// Type
-					if (oSymbol.kind !== "enum") { // enum properties don't have an own type
-						if (oProperty.type) {
-							oProperty.typeInfo = parseUI5Types(oProperty.type);
-							// Keep file size in check
-							delete oProperty.type;
-						}
+					// Link Enabled
+					if (oSymbol.kind !== "enum" && !isBuiltInType(oProperty.type) && possibleUI5Symbol(oProperty.type)) {
+						oProperty.linkEnabled = true;
+						oProperty.href = "#/api/" + oProperty.type.replace("[]", "");
 					}
 
 					// Keep file size in check
@@ -531,14 +316,16 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 						delete oProperty.static;
 					}
 
-					delete oProperty.type;
+					if (oSymbol.kind === "enum" || oProperty.type === "undefined") {
+						delete oProperty.type;
+					}
 
 				});
 			}
 
 			// UI5 Metadata
 			if (oSymbol["ui5-metadata"]) {
-				const oMeta = oSymbol["ui5-metadata"];
+				let oMeta = oSymbol["ui5-metadata"];
 
 				// Properties
 				if (oMeta.properties) {
@@ -558,15 +345,13 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 						// Name
 						oProperty.name = formatters.formatEntityName(oProperty.name, oSymbol.name, oProperty.static);
 
-						// Type
-						if (oProperty.type) {
-							oProperty.typeInfo = parseUI5Types(oProperty.type);
-							// Keep file size in check
-							delete oProperty.type;
-						}
-
 						// Description
 						oProperty.description = formatters.formatDescriptionSince(oProperty.description, oProperty.since);
+
+						// Link Enabled
+						if (!isBuiltInType(oProperty.type)) {
+							oProperty.linkEnabled = true;
+						}
 
 						// Default value
 						oProperty.defaultValue = formatters.formatDefaultValue(oProperty.defaultValue);
@@ -604,11 +389,10 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 
 						// Description
 						if (oAggregation.deprecated) {
-							oAggregation.description = formatters.formatDescription(oAggregation.description);
-							oAggregation.deprecatedText = formatters.formatDeprecated(oAggregation.deprecated.since,
-								oAggregation.deprecated.text);
+							oAggregation.description = formatters.formatDescription(oAggregation.description,
+								oAggregation.deprecated.text, oAggregation.deprecated.since);
 						} else {
-							oAggregation.description = formatters.formatDescriptionSince(oAggregation.description, oAggregation.since);
+							oAggregation.description = formatters.formatDescription(oAggregation.description);
 						}
 
 						// Link enabled
@@ -642,53 +426,24 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 							oAssociation.description = formatters.formatDescription(oAssociation.description,
 								oAssociation.deprecated.text, oAssociation.deprecated.since);
 						} else {
-							oAssociation.description = formatters.formatDescriptionSince(oAssociation.description, oAssociation.since);
+							oAssociation.description = formatters.formatDescription(oAssociation.description);
 						}
 					});
 				}
 
 				// Events
 				if (oMeta.events) {
-
-					oMeta.events.forEach((oEvent) => {
-						const aParams = oEvent.parameters;
-
-						if (aParams) {
-							Object.keys(aParams).forEach((sParam) => {
-								const sSince = aParams[sParam].since;
-								const oDeprecated = aParams[sParam].deprecated;
-								const oEvtInSymbol = oSymbol.events.find((e) => e.name === oEvent.name);
-								const oParamInSymbol = oEvtInSymbol && oEvtInSymbol.parameters[0] &&
-														oEvtInSymbol.parameters[0].parameterProperties &&
-														oEvtInSymbol.parameters[0].parameterProperties.getParameters &&
-														oEvtInSymbol.parameters[0].parameterProperties.getParameters.parameterProperties &&
-														oEvtInSymbol.parameters[0].parameterProperties.getParameters.parameterProperties[sParam];
-
-								if (typeof oParamInSymbol === 'object' && oParamInSymbol !== null) {
-									if (sSince) {
-										oParamInSymbol.since = sSince;
-									}
-
-									if (oDeprecated) {
-										oParamInSymbol.deprecated = oDeprecated;
-									}
-								}
-							});
-						}
-					});
-
 					// We don't need event's data from the UI5-metadata for now. Keep file size in check
 					delete oMeta.events;
 				}
 
 				// Special Settings
 				if (oMeta.specialSettings) {
-					oMeta.specialSettings.forEach((oSetting) => {
+					oMeta.specialSettings.forEach(oSetting => {
 
 						// Link Enabled
-						if (oSetting.type) {
-							oSetting.typeInfo = parseUI5Types(oSetting.type);
-							delete oSetting.type; // Keep file size in check
+						if (!isBuiltInType(oSetting.type)) {
+							oSetting.linkEnabled = true;
 						}
 
 						// Description
@@ -704,7 +459,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 
 				// Annotations
 				if (oMeta.annotations) {
-					oMeta.annotations.forEach((oAnnotation) => {
+					oMeta.annotations.forEach(oAnnotation => {
 
 						// Description
 						oAnnotation.description = formatters.formatAnnotationDescription(oAnnotation.description,
@@ -730,19 +485,11 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 				// Pre-process events
 				methods.buildEventsModel(oSymbol.events);
 
-				oSymbol.events.forEach((oEvent) => {
+				oSymbol.events.forEach(oEvent => {
 
 					// Description
 					if (oEvent.description) {
 						oEvent.description = formatters.formatDescriptionSince(oEvent.description, oEvent.since);
-					}
-
-					if (oEvent.references) {
-						formatters.formatReferencesInDescription(oEvent);
-					}
-
-					if (oEvent.description) {
-						oEvent.description = formatters.formatDescription(oEvent.description);
 					}
 
 					// Deprecated
@@ -753,31 +500,21 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 
 					// Parameters
 					if (oEvent.parameters && Array.isArray(oEvent.parameters)) {
-						oEvent.parameters.forEach((oParameter) => {
+						oEvent.parameters.forEach(oParameter => {
 
-							if (oParameter.type) {
-								oParameter.typeInfo = parseUI5Types(oParameter.type);
-								delete oParameter.type; // Keep file size in check
+							// Link Enabled
+							if (!isBuiltInType(oParameter.type)) {
+								oParameter.linkEnabled = true;
 							}
 
 							// Description
-							if (oParameter.description) {
-								oParameter.description = formatters.formatDescriptionSince(oParameter.description, oParameter.since);
-							}
-
-							if (oParameter.references) {
-								formatters.formatReferencesInDescription(oParameter);
-							}
-
-							if (oParameter.description) {
+							if (oParameter.deprecated) {
+								oParameter.description = formatters.formatDescription(oParameter.description,
+									oParameter.deprecated.text, oParameter.deprecated.since);
+							} else {
 								oParameter.description = formatters.formatDescription(oParameter.description);
 							}
 
-							// Deprecated
-							if (oParameter.deprecated) {
-								oParameter.deprecatedText = formatters.formatDeprecated(oParameter.deprecated.since,
-									oParameter.deprecated.text);
-							}
 						});
 					}
 
@@ -791,15 +528,15 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 				// Pre-process methods
 				methods.buildMethodsModel(oSymbol.methods);
 
-				oSymbol.methods.forEach((oMethod) => {
+				oSymbol.methods.forEach(oMethod => {
 
 					// Name and link
 					if (oMethod.name) {
 						oMethod.name = formatters.formatEntityName(oMethod.name, oSymbol.name, oMethod.static);
 
 						// Link
-						oMethod.href = "api/" + oSymbol.name +
-							"#methods/" + oMethod.name;
+						oMethod.href = "#/api/" + encodeURIComponent(oSymbol.name) +
+							"/methods/" + encodeURIComponent(oMethod.name);
 					}
 
 					formatters.formatReferencesInDescription(oMethod);
@@ -810,7 +547,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 					}
 
 					// Examples
-					oMethod.examples?.forEach((oExample) => {
+					oMethod.examples && oMethod.examples.forEach(oExample => {
 						oExample = formatters.formatExample(oExample.caption, oExample.text);
 					});
 
@@ -825,7 +562,20 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 
 					// Parameters
 					if (oMethod.parameters) {
-						oMethod.parameters?.forEach((oParameter) => {
+						oMethod.parameters.forEach(oParameter => {
+
+							// Types
+							if (oParameter.types) {
+								oParameter.types.forEach(oType => {
+
+									// Link Enabled
+									if (!isBuiltInType(oType.value) && possibleUI5Symbol(oType.value)) {
+										oType.linkEnabled = true;
+										oType.href = "#/api/" + oType.value.replace("[]", "");
+									}
+
+								});
+							}
 
 							// Default value
 							oParameter.defaultValue = formatters.formatDefaultValue(oParameter.defaultValue);
@@ -847,11 +597,24 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 						// Description
 						oMethod.returnValue.description = formatters.formatDescription(oMethod.returnValue.description);
 
+						// Types
+						if (oMethod.returnValue.types) {
+							oMethod.returnValue.types.forEach(oType => {
+
+								// Link Enabled
+								if (!isBuiltInType(oType.value)) {
+									oType.href = "#/api/" + encodeURIComponent(oType.value.replace("[]", ""));
+									oType.linkEnabled = true;
+								}
+
+							});
+						}
+
 					}
 
 					// Throws
 					if (oMethod.throws) {
-						oMethod.throws.forEach((oThrows) => {
+						oMethod.throws.forEach(oThrows => {
 
 							// Description
 							if (oThrows.description) {
@@ -935,11 +698,11 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 		}
 
 		// otherwise, it names a directory that has to be scanned for the files
-		return new Promise((oResolve) => {
+		return new Promise(oResolve => {
 			fs.readdir(vDependencyAPIFiles, function (oError, aItems) {
 				if (!oError && aItems && aItems.length) {
-					const aFiles = [];
-					aItems.forEach((sItem) => {
+					let aFiles = [];
+					aItems.forEach(sItem => {
 						aFiles.push(path.join(vDependencyAPIFiles, sItem));
 					});
 					oChainObject.aDependentLibraryFiles = aFiles;
@@ -953,18 +716,18 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 		if (!oChainObject.aDependentLibraryFiles) {
 			return oChainObject;
 		}
-		const aPromises = [];
-		oChainObject.aDependentLibraryFiles.forEach((sFile) => {
-			aPromises.push(new Promise((oResolve) => {
+		let aPromises = [];
+		oChainObject.aDependentLibraryFiles.forEach(sFile => {
+			aPromises.push(new Promise(oResolve => {
 				fs.readFile(sFile, 'utf8', (oError, oData) => {
 					oResolve(oError ? false : oData);
 				});
 			}));
 		});
-		return Promise.all(aPromises).then((aValues) => {
-			const oDependentAPIs = {};
+		return Promise.all(aPromises).then(aValues => {
+			let oDependentAPIs = {};
 
-			aValues.forEach((sData) => {
+			aValues.forEach(sData => {
 				let oData;
 
 				try {
@@ -983,28 +746,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 
 			oChainObject.oDependentAPIs = oDependentAPIs;
 			return oChainObject;
-		});
-	}
-
-	/**
-	 * Check for existence of FAQ data
-	 * (FAQ data must be defined as *.md files in the <code>sFAQDir</code>)
-	 * and add a boolean flag in case it exists
-	 *
-	 * @param oChainObject chain object
-	 */
-	function addFlagsForFAQData(oChainObject) {
-		if (!sFAQDir) {
-			return oChainObject;
-		}
-		const slibName = oChainObject.fileData.library;
-		oChainObject.fileData.symbols.forEach(function(symbol) {
-			const sfile = symbol.name.replace(slibName, "").replace(/[.]/g, "/") + ".md";
-			if (fs.existsSync(path.join(sFAQDir, sfile))) {
-				symbol.hasFAQ = true;
-			}
-		});
-		return oChainObject;
+		})
 	}
 
 	/**
@@ -1013,10 +755,10 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 	 */
 	function createApiRefApiJson(oChainObject) {
 		if (returnOutputFiles) {
-			// If requested, return data instead of writing to FS (required by UI5 CLI/UI5 Builder)
+			// If requested, return data instead of writing to FS (required by UI5 Tooling/UI5 Builder)
 			return JSON.stringify(oChainObject.parsedData);
 		}
-		const sOutputDir = path.dirname(oChainObject.outputFile);
+		let sOutputDir = path.dirname(oChainObject.outputFile);
 
 		// Create dir if it does not exist
 		if (!fs.existsSync(sOutputDir)) {
@@ -1050,7 +792,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 		oChainObject.modules = [];
 
 		if (oChainObject.libraryFileData) {
-			const $ = cheerio.load(oChainObject.libraryFileData, {
+			let $ = cheerio.load(oChainObject.libraryFileData, {
 				ignoreWhitespace: true,
 				xmlMode: true,
 				lowerCaseTags: false
@@ -1066,8 +808,8 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 					if (oComponent.children.length === 1) {
 						oChainObject.defaultComponent = $(oComponent).text();
 					} else {
-						const sCurrentComponentName = $(oComponent).find("name").text();
-						const aCurrentModules = [];
+						let sCurrentComponentName = $(oComponent).find("name").text();
+						let aCurrentModules = [];
 						$(oComponent).find("module").each((a, oC) => {
 							aCurrentModules.push($(oC).text().replace(/\//g, "."));
 						});
@@ -1095,9 +837,9 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 	function flattenComponents(oChainObject) {
 		if (oChainObject.modules && oChainObject.modules.length > 0) {
 			oChainObject.customSymbolComponents = {};
-			oChainObject.modules.forEach((oComponent) => {
-				const sCurrentComponent = oComponent.componentName;
-				oComponent.modules.forEach((sModule) => {
+			oChainObject.modules.forEach(oComponent => {
+				let sCurrentComponent = oComponent.componentName;
+				oComponent.modules.forEach(sModule => {
 					oChainObject.customSymbolComponents[sModule] = sCurrentComponent;
 				});
 			});
@@ -1122,69 +864,17 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 			// Normalize path to resolve relative path
 			sPath = path.normalize(sPath);
 
-			const {sources} = options;
-			let {librarySrcDir, libraryTestDir} = options;
-
-			if (Array.isArray(sources) && typeof librarySrcDir === "string" && typeof libraryTestDir === "string") {
-
-				// Using path.join to normalize POSIX paths to Windows paths on Windows
-				librarySrcDir = path.join(librarySrcDir);
-				libraryTestDir = path.join(libraryTestDir);
-
-				/**
-				 * Calculate prefix to check
-				 *
-				 * Example 1:
-				 * - sSource: /path/to/project/src
-				 * - sLibrarySrcDir: src
-				 *
-				 * Prefix: /path/to/project/test-resources
-				 *
-				 * Example 2:
-				 * - sSource: /path/to/project/src/main/js
-				 * - sLibrarySrcDir: src/main/js
-				 *
-				 * Prefix: /path/to/project/src/main/test-resources
-				 */
-				const librarySrcDirWithTestResources = replaceLastPathSegment(librarySrcDir, "test-resources");
-
-				for (const sourcePath of sources) {
-					/**
-					 * Replace prefix with file system path
-					 *
-					 * Example 1:
-					 * - sPath: /path/to/project/test-resources/sap/test/demokit/docuindex.json
-					 *
-					 * New sPath: /path/to/project/test/sap/test/demokit/docuindex.json
-					 *
-					 * Example 2:
-					 * - sPath: /path/to/project/src/main/test-resources/sap/test/demokit/docuindex.json
-					 *
-					 * New sPath: /path/to/project/src/main/test/sap/test/demokit/docuindex.json
-					 */
-					if (!sourcePath.endsWith(librarySrcDir)) {
-						continue;
-					}
-					const libraryDir = sourcePath.substring(0, sourcePath.lastIndexOf(librarySrcDir) - 1);
-					const prefix = path.join(libraryDir, librarySrcDirWithTestResources);
-					if (sPath.startsWith(prefix)) {
-						sPath = path.join(libraryDir, libraryTestDir, sPath.substring(prefix.length));
-						break;
-					}
-				}
-			}
-
 			fs.readFile(sPath, 'utf8', (oError, oFileData) => {
 				if (!oError) {
 					oFileData = JSON.parse(oFileData);
 					if (oFileData.explored && oFileData.explored.entities && oFileData.explored.entities.length > 0) {
 						oChainObject.entitiesWithSamples = [];
-						oFileData.explored.entities.forEach((oEntity) => {
+						oFileData.explored.entities.forEach(oEntity => {
 							oChainObject.entitiesWithSamples.push(oEntity.id);
 						});
 					}
 				}
-				// We always resolve as this data is not mandatory
+				// We aways resolve as this data is not mandatory
 				oResolve(oChainObject);
 			});
 
@@ -1209,20 +899,21 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 		});
 	}
 
-	/**
+	/*
 	 * =====================================================================================================================
 	 * IMPORTANT NOTE: Formatter code is a copy from APIDetail.controller.js with a very little modification and mocking and
 	 * code can be significantly improved
 	 * =====================================================================================================================
 	 */
-	const formatters = {
+	let formatters = {
+
 		_sTopicId: "",
 		_oTopicData: {},
 		_baseTypes: [
 			"sap.ui.core.any",
 			"sap.ui.core.object",
 			"sap.ui.core.function",
-			"sap.ui.core.number",
+			"sap.ui.core.number", // TODO discuss with Thomas, type does not exist
 			"sap.ui.core.float",
 			"sap.ui.core.int",
 			"sap.ui.core.boolean",
@@ -1230,26 +921,26 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 			"sap.ui.core.void",
 			"null",
 			"any",
+			"any[]",
 			"Error",
+			"Error[]",
 			"array",
 			"element",
 			"Element",
-			"HTMLElement",
-			"Node",
-			"Attr",
-			"Date",
 			"DomRef",
-			"jQuery",
-			"jQuery.promise",
-			"jQuery.event",
-			"QUnit.Assert",
 			"object",
 			"Object",
+			"object[]",
+			"object|object[]",
+			"[object Object][]",
+			"Array.<[object Object]>",
+			"Object.<string,string>",
 			"function",
 			"float",
 			"int",
 			"boolean",
 			"string",
+			"string[]",
 			"number",
 			"map",
 			"promise",
@@ -1258,13 +949,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 			"Document",
 			"Touch",
 			"TouchList",
-			"undefined",
-			"this",
-			"Blob",
-			"RegExp",
-			"void",
-			"ArrayBuffer",
-			"[object Object]"
+			"undefined"
 		],
 		ANNOTATIONS_LINK: 'http://docs.oasis-open.org/odata/odata/v4.0/odata-v4.0-part3-csdl.html',
 		ANNOTATIONS_NAMESPACE_LINK: 'http://docs.oasis-open.org/odata/odata/v4.0/errata02/os/complete/vocabularies/',
@@ -1308,13 +993,11 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 		 * @returns string - the formatted text
 		 */
 		formatAnnotationNamespace: function (namespace) {
-			var aNamespaceParts = namespace.split("."),
-				result, target, text;
+			var result,
+				aNamespaceParts = namespace.split(".");
 
 			if (aNamespaceParts[0] === "Org" && aNamespaceParts[1] === "OData") {
-				target = this.ANNOTATIONS_NAMESPACE_LINK + namespace + ".xml";
-				text = namespace;
-				result = this.handleExternalUrl(target, text);
+				result = '<a href="' + this.ANNOTATIONS_NAMESPACE_LINK + namespace + '.xml">' + namespace + '</a>';
 			} else {
 				result = namespace;
 			}
@@ -1348,11 +1031,11 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 		},
 
 		formatMethodCode: function (sName, aParams, aReturnValue) {
-			var result = '<pre>' + sName + '(';
+			var result = '<pre class="prettyprint">' + sName + '(';
 
 			if (aParams && aParams.length > 0) {
 				/* We consider only root level parameters so we get rid of all that are not on the root level */
-				aParams = aParams.filter((oElem) => {
+				aParams = aParams.filter(oElem => {
 					return oElem.depth === undefined;
 				});
 				aParams.forEach(function (element, index, array) {
@@ -1427,19 +1110,15 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 			var sReturn;
 
 			switch (defaultValue) {
-				case null:
-				case undefined:
-					sReturn = '';
-					break;
-				case '':
-					sReturn = 'empty string';
-					break;
-				default:
-					if (Object.keys(defaultValue).length === 0 && defaultValue.constructor === Object) {
-						sReturn = 'empty object';
-					} else {
-						sReturn = defaultValue;
-					}
+			case null:
+			case undefined:
+				sReturn = '';
+				break;
+			case '':
+				sReturn = 'empty string';
+				break;
+			default:
+				sReturn = defaultValue;
 			}
 
 			return Array.isArray(sReturn) ? sReturn.join(', ') : sReturn;
@@ -1452,7 +1131,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 		 * @returns string - The code needed to create an object of that class
 		 */
 		formatConstructor: function (name, params) {
-			var result = '<pre>new ';
+			var result = '<pre class="prettyprint">new ';
 
 			if (name) {
 				result += name + '(';
@@ -1580,16 +1259,13 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 
 		},
 
-		formatUrlToLink: function(sTarget, sText, bSAPHosted){
-			return `<a target="_blank" rel="noopener noreferrer" href="${sTarget}">${sText}</a>
-			<img src="./resources/sap/ui/documentation/sdk/images/${bSAPHosted ? 'link-sap' : 'link-external'}.png"
-			title="Information published on ${bSAPHosted ? '' : 'non '}SAP site" class="sapUISDKExternalLink"/>`;
-		},
-
 		handleExternalUrl: function (sTarget, sText) {
 			// Check if the external domain is SAP hosted
-			const bSAPHosted = /^https?:\/\/([\w.]*\.)?(?:sap|hana\.ondemand|sapfioritrial)\.com/.test(sTarget);
-			return this.formatUrlToLink(sTarget, sText, bSAPHosted);
+			let bSAPHosted = /^https?:\/\/(?:www.)?[\w.]*(?:sap|hana\.ondemand|sapfioritrial)\.com/.test(sTarget);
+
+			return `<a target="_blank" href="${sTarget}">${sText}</a>
+<img src="./resources/sap/ui/documentation/sdk/images/${bSAPHosted ? 'link-sap' : 'link-external'}.png"
+title="Information published on ${bSAPHosted ? '' : 'non '}SAP site" class="sapUISDKExternalLink"/>`;
 		},
 
 		/**
@@ -1626,13 +1302,6 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 					return oEntity.events.find(({name}) => name === sName);
 				}
 
-				function findAnnotation(oEntity, sName) {
-					if (!oEntity || !oEntity.annotations) {
-						return;
-					}
-					return oEntity.annotations.find(({name}) => name === sName);
-				}
-
 				if (oSymbol.name === target) {
 					sResult = this.createLink({
 						name: oSymbol.name,
@@ -1641,15 +1310,15 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 					return true;
 				}
 				if (oSymbol.name === className) {
-					const oProperty = findProperty(oSymbol, methodName, target);
+					let oProperty = findProperty(oSymbol, methodName, target);
 					if (oProperty) {
 						sResult = this.createLink({
-							name: className,
+							name: oProperty.name,
 							text: text
 						});
 						return true;
 					}
-					const oMethod = findMethod(oSymbol, methodName, target);
+					let oMethod = findMethod(oSymbol, methodName, target);
 					if (oMethod) {
 						sResult = this.createLink({
 							name: oMethod.static ? target : oMethod.name,
@@ -1660,22 +1329,11 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 						return true;
 					}
 
-					const oEvent = findEvent(oSymbol, methodName);
+					let oEvent = findEvent(oSymbol, methodName);
 					if (oEvent) {
 						sResult = this.createLink({
 							name: oEvent.name,
 							type: "events",
-							text: text,
-							className: className
-						});
-						return true;
-					}
-
-					const oAnnotation = findAnnotation(oSymbol, methodName);
-					if (oAnnotation) {
-						sResult = this.createLink({
-							name: oAnnotation.name,
-							type: "annotations",
 							text: text,
 							className: className
 						});
@@ -1696,40 +1354,39 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 
 			// Own methods search
 			if (self.name === className && self.methods) {
-				const oResult = self.methods.find(({name}) => name === methodName);
+				let oResult = self.methods.find(({name}) => name === methodName);
 				if (oResult) {
 					return this.createLink({
 						name: oResult.static ? [self.name, oResult.name].join(".") : oResult.name,
 						type: "methods",
 						className: className,
-						text: text
+						text: text,
+						local: true
 					});
 				}
 			}
 
 			// Local library symbols
-			ownLibrary.symbols.find((oSymbol) => {
+			ownLibrary.symbols.find(oSymbol => {
 				return searchInSymbol.call(this, oSymbol);
 			});
 
-			if (sResult) {return sResult;}
+			if (sResult) return sResult;
 
 			// Dependent library symbols
-			if (dependencyLibs) {
-				Object.keys(dependencyLibs).find((sLib) => {
-					if (sLib === target) {
-						sResult = this.createLink({
-							name: sLib,
-							text: text
-						});
-						return true;
-					}
-					const oLib = dependencyLibs[sLib];
-					return oLib && oLib.find((oSymbol) => {
-						return searchInSymbol.call(this, oSymbol);
+			dependencyLibs && Object.keys(dependencyLibs).find(sLib => {
+				if (sLib === target) {
+					sResult = this.createLink({
+						name: sLib,
+						text: text
 					});
+					return true;
+				}
+				let oLib = dependencyLibs[sLib];
+				return oLib && oLib.find(oSymbol => {
+					return searchInSymbol.call(this, oSymbol);
 				});
-			}
+			});
 
 			return sResult;
 		},
@@ -1744,7 +1401,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 		 * @param {string} [hrefAppend=""]
 		 * @returns {string} link
 		 */
-		createLink: function ({name, type, className, text = name, hrefAppend = ""}) {
+		createLink: function ({name, type, className, text=name, local=false, hrefAppend=""}) {
 			let sLink;
 
 			// handling module's
@@ -1752,14 +1409,21 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 				name = name.replace(/^module:/, "");
 			}
 
+			name = encodeURIComponent(name);
+			className = encodeURIComponent(className);
+
 			// Build the link
-			sLink = type ? `${className}#${type}/${name}` : name;
+			sLink = type ? `${className}/${type}/${name}` : name;
 
 			if (hrefAppend) {
 				sLink += hrefAppend;
 			}
 
-			return `<a target="_self" href="api/${sLink}">${text}</a>`;
+			if (local) {
+				return `<a target="_self" class="jsdoclink scrollTo${type === `events` ? `Event` : `Method`}" data-sap-ui-target="${name}" href="#/api/${sLink}">${text}</a>`;
+			}
+
+			return `<a target="_self" class="jsdoclink" href="#/api/${sLink}">${text}</a>`;
 		},
 
 		/**
@@ -1770,12 +1434,13 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 		 * @private
 		 */
 		_preProcessLinksInTextBlock: function (sText, bSkipParagraphs) {
-			const oSelf = this._oTopicData,
+			let oSelf = this._oTopicData,
 				oOwnLibrary = this._oOwnLibrary,
 				oDependencyLibs = oChainObject.oDependentAPIs,
 				oOptions = {
 					linkFormatter: function (sTarget, sText) {
-						let aMatch;
+						let aMatch,
+							aTarget;
 
 						// keep the full target in the fallback text
 						sText = sText || sTarget;
@@ -1786,15 +1451,9 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 						}
 
 						// topic:xxx Topic
-						aMatch = sTarget.match(/^topic:(\w{32}(?:#\w*)?(?:\/\w*)?)$/);
+						aMatch = sTarget.match(/^topic:(\w{32})$/);
 						if (aMatch) {
-							return '<a target="_self" href="topic/' + aMatch[1] + '">' + sText + '</a>';
-						}
-
-						// demo:xxx Demo, open the demonstration page in a new window
-						aMatch = sTarget.match(/^demo:([a-zA-Z0-9\/.]*)$/);
-						if (aMatch) {
-							return this.formatUrlToLink("test-resources/" + aMatch[1], sText, true);
+							return '<a target="_self" href="#/topic/' + aMatch[1] + '">' + sText + '</a>';
 						}
 
 						// sap.x.Xxx.prototype.xxx - In case of prototype we have a link to method
@@ -1813,7 +1472,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 						// module:sap/x/Xxx.extend
 						aMatch = sTarget.match(/^(module:)?([a-zA-Z0-9.$_\/]+?)\.extend$/);
 						if (aMatch) {
-							const [, sModule, sClass] = aMatch;
+							let [, sModule, sClass] = aMatch;
 							return this.createLink({
 								name: sTarget.replace(/^module:/, ""),
 								type: "methods",
@@ -1829,18 +1488,18 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 						// #constructor
 						aMatch = sTarget.match(/^(module:)?([a-zA-Z0-9.$_\/]+?)?[\.#]constructor$/i);
 						if (aMatch) {
-							const [, sModule, sClass] = aMatch;
+							let [, sModule, sClass] = aMatch,
+								sName;
 
-							let sName;
 							if (sClass) {
 								sName = (sModule ? sModule : "") + sClass;
 							} else {
-								sName = oSelf.name;
+								sName = oSelf.name
 							}
 
 							return this.createLink({
 								name: sName,
-								hrefAppend: "#constructor",
+								hrefAppend: "/constructor",
 								text: sText
 							});
 						}
@@ -1854,32 +1513,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 								name: aMatch[1] ? `${oSelf.name}.${aMatch[2]}` : aMatch[2],
 								type: "methods",
 								className: oSelf.name,
-								text: sText
-							});
-						}
-
-						// #annotation:TextArrangement - local annotation
-						aMatch = sTarget.match(/^#annotation:([a-zA-Z0-9$_]+)$/);
-						if (aMatch) {
-							return this.createLink({
-								name: aMatch[1],
-								type: "annotations",
-								className: oSelf.name,
-								text: sText
-							});
-						}
-						// Annotation links
-						// sap.ui.comp.smartfield.SmartField#annotation:TextArrangement
-						// sap.ui.comp.smartfield.SmartField.annotation:TextArrangement
-						// module:sap/ui/comp/smartfield/SmartField.annotation:TextArrangement
-						// module:sap/ui/comp/smartfield/SmartField#annotation:TextArrangement
-						aMatch = sTarget.match(/^(module:)?([a-zA-Z0-9.$_\/]+?)[.#]annotation:([a-zA-Z0-9$_]+)$/);
-						if (aMatch) {
-							const [, sModule, sClass, sAnnotation] = aMatch;
-							return this.createLink({
-								name: sAnnotation,
-								type: "annotations",
-								className: (sModule ? sModule : "") + sClass,
+								local: true,
 								text: sText
 							});
 						}
@@ -1891,6 +1525,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 								name: aMatch[1],
 								type: "events",
 								className: oSelf.name,
+								local: true,
 								text: sText
 							});
 						}
@@ -1901,7 +1536,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 						// module:sap/m/Button#event:press
 						aMatch = sTarget.match(/^(module:)?([a-zA-Z0-9.$_\/]+?)[.#]event:([a-zA-Z0-9$_]+)$/);
 						if (aMatch) {
-							const [, sModule, sClass, sEvent] = aMatch;
+							let [, sModule, sClass, sEvent] = aMatch;
 							return this.createLink({
 								name: sEvent,
 								type: "events",
@@ -1914,7 +1549,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 						// module:sap/m/Button#setText
 						aMatch = sTarget.match(/^(module:)?([a-zA-Z0-9.$_\/]+)#([a-zA-Z0-9.$_]+)$/);
 						if (aMatch) {
-							const [, sModule, sClass, sMethod] = aMatch;
+							let [, sModule, sClass, sMethod] = aMatch;
 							return this.createLink({
 								name: sMethod,
 								type: "methods",
@@ -1927,8 +1562,8 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 						// sap.x.Xxx.xxx
 						// module:sap/x/Xxx.xxx
 						if (/^(?:module:)?([a-zA-Z0-9.$_\/]+?)\.([a-zA-Z0-9$_]+)$/.test(sTarget)) {
-							const [,sClass, sName] = sTarget.match(/^((?:module:)?[a-zA-Z0-9.$_\/]+?)\.([a-zA-Z0-9$_]+)$/);
-							const sResult = this.createLinkFromTargetType({
+							let [,sClass, sName] = sTarget.match(/^((?:module:)?[a-zA-Z0-9.$_\/]+?)\.([a-zA-Z0-9$_]+)$/),
+								sResult = this.createLinkFromTargetType({
 									className: sClass,
 									methodName: sName,
 									target: sTarget,
@@ -1943,9 +1578,9 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 						}
 
 						// Possible nested functions discovery - currently we do this only for regular symbols
-						const aTarget = sTarget.split(".");
+						aTarget = sTarget.split(".");
 						if (aTarget.length >= 3) {
-							const sResult = this.createLinkFromTargetType({
+							let sResult = this.createLinkFromTargetType({
 								methodName: aTarget.splice(-2).join("."),
 								className: aTarget.join("."),
 								target: sTarget,
@@ -2074,7 +1709,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 			var bHeaderDocuLinkFound = false,
 				bUXGuidelinesLinkFound = false,
 				aReferences = [],
-				entity = bCalledOnConstructor ? oSymbol.constructor.references : oSymbol.references;
+				entity = bCalledOnConstructor? oSymbol.constructor.references : oSymbol.references;
 
 			const UX_GUIDELINES_BASE_URL = "https://experience.sap.com/fiori-design-web/";
 
@@ -2118,7 +1753,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 					aParts = sReference.match(/^(?:{@link\s)?fiori:(?:https:\/\/experience\.sap\.com\/fiori-design-web\/)?\/?(\S+\b)\/?\s?(.*[^\s}])?}?$/);
 
 					if (aParts) {
-						const [, sTarget, sTargetName] = aParts;
+						let [, sTarget, sTargetName] = aParts;
 
 						if (bCalledOnConstructor && !bUXGuidelinesLinkFound) {
 							// Extract first found UX Guidelines link as primary
@@ -2134,11 +1769,9 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 
 					aReferences.push(sReference);
 				});
-			}
-			if (bCalledOnConstructor) {
-				oSymbol.constructor.references = aReferences;
+				bCalledOnConstructor? oSymbol.constructor.references = aReferences : oSymbol.references = aReferences;
 			} else {
-				oSymbol.references = aReferences;
+				bCalledOnConstructor? oSymbol.constructor.references = [] : oSymbol.references = [];
 			}
 		},
 
@@ -2149,13 +1782,8 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 		 */
 		formatReferencesInDescription: function(oEntity) {
 			if (oEntity.references && Array.isArray(oEntity.references)) {
-				oEntity.references = oEntity.references.map((sReference) => {
-					if (/{@link.*}/.test(sReference)) {
-						return "<li>" + sReference + "</li>";
-					} else {
-						return "<li>{@link " + sReference + "}</li>";
-
-					}
+				oEntity.references = oEntity.references.map(sReference => {
+					return `<li>${sReference}</li>`;
 				});
 				if (!oEntity.description) {
 					// If there is no method description - references should be the first line of it
@@ -2169,13 +1797,18 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 	};
 
 	/* Methods direct copy from API Detail */
-	const methods = {
+	let methods = {
 
 		/**
 		 * Adjusts methods info so that it can be easily displayed in a table
 		 * @param aMethods - the methods array initially coming from the server
 		 */
 		buildMethodsModel: function (aMethods) {
+			var fnCreateTypesArr = function (sTypes) {
+				return sTypes.split("|").map(function (sType) {
+					return {value: sType}
+				});
+			};
 			var fnExtractParameterProperties = function (oParameter, aParameters, iDepth, aPhoneName) {
 				if (oParameter.parameterProperties) {
 					Object.keys(oParameter.parameterProperties).forEach(function (sProperty) {
@@ -2185,9 +1818,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 
 						// Handle types
 						if (oProperty.type) {
-							oProperty.typeInfo = parseUI5Types(oProperty.type);
-							// Keep file size in check
-							delete oProperty.type;
+							oProperty.types = fnCreateTypesArr(oProperty.type);
 						}
 
 						// Phone name - available only for parameters
@@ -2208,8 +1839,6 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 				}
 			};
 			aMethods.forEach(function (oMethod) {
-				oMethod = resolveTypeParameters(oMethod);
-
 				// New array to hold modified parameters
 				var aParameters = [];
 
@@ -2217,10 +1846,11 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 				if (oMethod.parameters) {
 					oMethod.parameters.forEach(function (oParameter) {
 						if (oParameter.type) {
-							oParameter.typeInfo = parseUI5Types(oParameter.type);
-							// Keep file size in check
-							delete oParameter.type;
+							oParameter.types = fnCreateTypesArr(oParameter.type);
 						}
+
+						// Keep file size in check
+						delete oParameter.type;
 
 						// Add the parameter before the properties
 						aParameters.push(oParameter);
@@ -2238,7 +1868,7 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 				// Handle return values
 				if (oMethod.returnValue && oMethod.returnValue.type) {
 					// Handle types
-					oMethod.returnValue.typeInfo = parseUI5Types(oMethod.returnValue.type);
+					oMethod.returnValue.types = fnCreateTypesArr(oMethod.returnValue.type);
 				}
 
 			});
@@ -2330,48 +1960,12 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 			return aNodes;
 		},
 
-		buildPropertiesModel: function(aOrigProperties) {
-			const aProperties = [];
-
-			const fnEmbedNestedProperties = (oParentProperty, iDepth, aPhoneName) => {
-				if (oParentProperty.properties) {
-					Object.values(oParentProperty.properties).forEach((oProperty) => {
-
-						oProperty.depth = iDepth;
-
-						// Phone name - available only for parameters
-						oProperty.phoneName = [aPhoneName.join("."), oProperty.name].join(".");
-
-						// Description (no deprecation etc. possible in JSDoc)
-						oProperty.description = formatters.formatDescription(oProperty.description);
-
-						// Add property to parameter array as we need a simple structure
-						aProperties.push(oProperty);
-
-						// Handle child parameterProperties
-						fnEmbedNestedProperties(oProperty, (iDepth + 1), aPhoneName.concat([oProperty.name]));
-
-					});
-
-					// Keep file size in check
-					delete oParentProperty.properties;
-				}
-			};
-
-			aOrigProperties.forEach((oProperty) => {
-				aProperties.push(oProperty);
-				fnEmbedNestedProperties(oProperty, 1, [oProperty.name]);
-			});
-
-			return aProperties;
-		},
-
 		oLibsData: {},
 
 	};
 
 	// Create the chain object
-	const oChainObject = {
+	let oChainObject = {
 		inputFile: sInputFile,
 		outputFile: sOutputFile,
 		libraryFile: sLibraryFile,
@@ -2379,19 +1973,18 @@ function transformer(sInputFile, sOutputFile, sLibraryFile, vDependencyAPIFiles,
 	};
 
 	// Start the work here
-	const p = getLibraryPromise(oChainObject)
-		.then(extractComponentAndDocuindexUrl)
-		.then(flattenComponents)
-		.then(extractSamplesFromDocuIndex)
-		.then(getDependencyLibraryFilesList)
-		.then(getAPIJSONPromise)
-		.then(loadDependencyLibraryFiles)
-		.then(transformApiJson)
-		.then(addFlagsForFAQData)
-		.then(createApiRefApiJson);
+	let p = getLibraryPromise(oChainObject)
+	.then(extractComponentAndDocuindexUrl)
+	.then(flattenComponents)
+	.then(extractSamplesFromDocuIndex)
+	.then(getDependencyLibraryFilesList)
+	.then(getAPIJSONPromise)
+	.then(loadDependencyLibraryFiles)
+	.then(transformApiJson)
+	.then(createApiRefApiJson);
 	return p;
 
-}
+};
 
 module.exports = transformer;
 
