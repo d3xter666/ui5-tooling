@@ -1,8 +1,7 @@
 /*!
  * Some fancy copyright
  */
-
-sap.ui.define(["./library"], (_library) => {
+(function() {
 	var someNonUglifiedVariable = "World";
 	console.log('Hello ' + someNonUglifiedVariable);
-});
+})();
