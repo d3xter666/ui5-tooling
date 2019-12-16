@@ -1,4 +1,4 @@
 /*!
  * Some fancy copyright
  */
-console.log("HelloWorld");
+(function(){var o="World";console.log("Hello "+o)})();
