@@ -1,5 +1,5 @@
-import test from "ava";
-import ResourceFilterList, {negateFilters} from "../../../../lib/lbt/resources/ResourceFilterList.js";
+const test = require("ava");
+const ResourceFilterList = require("../../../../lib/lbt/resources/ResourceFilterList");
 
 test("single string matcher", (t) => {
 	const filterList = new ResourceFilterList([
@@ -180,43 +180,6 @@ test("fromString: empty", (t) => {
 	t.true(filterList.matches("foo/bar.js"));
 	t.true(filterList.matches("bar.js"));
 	t.true(filterList.matches("foobar"));
-});
-
-
-test("negateFilters", (t) => {
-	const res = negateFilters([
-		"pattern",
-		"+pattern",
-		"!pattern",
-		"-pattern",
-		" pattern",
-		"!!",
-		"++",
-		"--",
-		" ",
-		"+!",
-		"!+",
-		"+-",
-		"! ",
-		undefined
-	]);
-
-	t.deepEqual(res, [
-		"!pattern",
-		"!pattern",
-		"+pattern",
-		"+pattern",
-		"! pattern",
-		"+!", // "!!"
-		"!+", // "++"
-		"+-", // "--"
-		"! ", // " "
-		"!!", // "+!"
-		"++", // "!+"
-		"!-", // "+-"
-		"+ ", // "! "
-		"!undefined"
-	], "Patterns negated as expected");
 });
 
 test("error handling", (t) => {
