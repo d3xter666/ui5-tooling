@@ -1,14 +1,12 @@
-import {promisify} from "node:util";
-import fs from "graceful-fs";
+const {promisify} = require("util");
+const fs = require("graceful-fs");
 const readFile = promisify(fs.readFile);
-import {fileURLToPath} from "node:url";
-import mime from "mime-types";
-import parseurl from "parseurl";
-import {getLogger} from "@ui5/logger";
-const log = getLogger("server:middleware:testRunner");
+const path = require("path");
+const mime = require("mime-types");
+const log = require("@ui5/logger").getLogger("server:middleware:testRunner");
 
 const testRunnerResourceRegEx = /\/test-resources\/sap\/ui\/qunit\/(testrunner\.(html|css)|TestRunner.js)$/;
-const resourceCache = Object.create(null);
+const resourceCache = {};
 
 function serveResource(res, resourcePath, resourceContent) {
 	const type = mime.lookup(resourcePath) || "application/octet-stream";
@@ -33,7 +31,7 @@ function serveResource(res, resourcePath, resourceContent) {
 function createMiddleware({resources}) {
 	return async function(req, res, next) {
 		try {
-			const pathname = parseurl(req).pathname;
+			const pathname = req.path; // TODO: Other middlewares use the parseurl module here but I don't get why
 			const parts = testRunnerResourceRegEx.exec(pathname);
 			const resourceName = parts && parts[1];
 
@@ -41,8 +39,7 @@ function createMiddleware({resources}) {
 				log.verbose(`Serving ${pathname}`);
 				let pResource;
 				if (!resourceCache[pathname]) {
-					const filePath = fileURLToPath(new URL(`./testRunner/${resourceName}`, import.meta.url));
-					pResource = readFile(filePath, {encoding: "utf8"});
+					pResource = readFile(path.join(__dirname, "testRunner", resourceName), {encoding: "utf8"});
 					resourceCache[pathname] = pResource;
 				} else {
 					pResource = resourceCache[pathname];
@@ -59,4 +56,4 @@ function createMiddleware({resources}) {
 	};
 }
 
-export default createMiddleware;
+module.exports = createMiddleware;
