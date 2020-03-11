@@ -1,29 +1,29 @@
-import test from "ava";
-import sinon from "sinon";
-import esmock from "esmock";
-import path from "node:path";
-import fs from "graceful-fs";
-import {fileURLToPath} from "node:url";
+const test = require("ava");
+const sinon = require("sinon");
+const mock = require("mock-require");
+const path = require("path");
+const fs = require("graceful-fs");
 
 let testRunnerMiddleware;
-const baseResourcePath = fileURLToPath(new URL("../../../../lib/middleware/testRunner", import.meta.url));
+const baseResourcePath = path.join(__dirname, "..", "..", "..", "..", "lib", "middleware", "testRunner");
 
-test.beforeEach(async (t) => {
+test.beforeEach((t) => {
 	t.context.readFileStub = sinon.stub(fs, "readFile").yieldsAsync(null, "👮");
 
 	// Re-require to ensure that mocked modules are used
-	testRunnerMiddleware = await esmock("../../../../lib/middleware/testRunner.js");
+	testRunnerMiddleware = mock.reRequire("../../../../lib/middleware/testRunner");
 });
 
 test.afterEach.always(() => {
 	sinon.restore();
+	mock.stopAll();
 });
 
 function callMiddleware(reqPath) {
 	const middleware = testRunnerMiddleware({resources: {}});
 	return new Promise((resolve, reject) => {
 		const req = {
-			url: `http://localhost${reqPath}`
+			path: reqPath
 		};
 		const res = {
 			setHeader: function() {},
@@ -118,5 +118,5 @@ test.serial("Request path variations that should *not* work", async (t) => {
 test.serial("Error should be thrown correctly", async (t) => {
 	t.context.readFileStub.yieldsAsync(new Error("My Error"));
 	const error = await t.throwsAsync(callMiddleware("/test-resources/sap/ui/qunit/testrunner.html"));
-	t.is(error.message, "My Error");
+	t.deepEqual(error.message, "My Error");
 });
