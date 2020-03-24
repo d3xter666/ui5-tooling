@@ -1,7 +1,8 @@
-import test from "ava";
-import sinon from "sinon";
-import chalk from "chalk";
-import ValidationError from "../../../lib/validation/ValidationError.js";
+const test = require("ava");
+const sinon = require("sinon");
+const chalk = require("chalk");
+
+const ValidationError = require("../../../lib/validation/ValidationError");
 
 test.afterEach.always((t) => {
 	sinon.restore();
@@ -796,7 +797,7 @@ test.serial("ValidationError.formatMessage: keyword=type dataPath=", (t) => {
 		schemaPath: "#/type",
 	};
 
-	const expectedErrorMessage = "Configuration must be of type 'object'";
+	const expectedErrorMessage = "Configuration should be of type 'object'";
 
 	const errorMessage = ValidationError.formatMessage(error);
 	t.is(errorMessage, expectedErrorMessage);
@@ -813,7 +814,7 @@ test.serial("ValidationError.formatMessage: keyword=type", (t) => {
 		schemaPath: "#/type",
 	};
 
-	const expectedErrorMessage = `Configuration ${chalk.underline(chalk.red("foo"))} must be of type 'object'`;
+	const expectedErrorMessage = `Configuration ${chalk.underline(chalk.red("foo"))} should be of type 'object'`;
 
 	const errorMessage = ValidationError.formatMessage(error);
 	t.is(errorMessage, expectedErrorMessage);
@@ -830,7 +831,7 @@ test.serial("ValidationError.formatMessage: keyword=required w/o dataPath", (t) 
 		schemaPath: "#/required",
 	};
 
-	const expectedErrorMessage = "Configuration must have required property 'specVersion'";
+	const expectedErrorMessage = "Configuration should have required property 'specVersion'";
 
 	const errorMessage = ValidationError.formatMessage(error);
 	t.is(errorMessage, expectedErrorMessage);
@@ -840,13 +841,12 @@ test.serial("ValidationError.formatMessage: keyword=required", (t) => {
 	const error = {
 		keyword: "required",
 		dataPath: "/metadata",
-		schemaPath: "#/definitions/metadata/required",
+		schemaPath: "../ui5.json#/definitions/metadata/required",
 		params: {missingProperty: "name"},
 		message: "should have required property 'name'"
 	};
 
-	const expectedErrorMessage =
-		`Configuration ${chalk.underline(chalk.red("metadata"))} must have required property 'name'`;
+	const expectedErrorMessage = `Configuration ${chalk.underline(chalk.red("metadata"))} should have required property 'name'`;
 
 	const errorMessage = ValidationError.formatMessage(error);
 	t.is(errorMessage, expectedErrorMessage);
@@ -860,7 +860,7 @@ test.serial("ValidationError.formatMessage: keyword=errorMessage", (t) => {
 `Unsupported "specVersion"
 Your UI5 CLI installation might be outdated.
 Supported specification versions: "2.0", "1.1", "1.0", "0.1"
-For details, see: https://ui5.github.io/cli/pages/Configuration/#specification-versions`,
+For details see: https://sap.github.io/ui5-tooling/pages/Configuration/#specification-versions`,
 		params: {
 			errors: [
 				{
@@ -886,7 +886,7 @@ For details, see: https://ui5.github.io/cli/pages/Configuration/#specification-v
 `Unsupported "specVersion"
 Your UI5 CLI installation might be outdated.
 Supported specification versions: "2.0", "1.1", "1.0", "0.1"
-For details, see: https://ui5.github.io/cli/pages/Configuration/#specification-versions`;
+For details see: https://sap.github.io/ui5-tooling/pages/Configuration/#specification-versions`;
 
 	const errorMessage = ValidationError.formatMessage(error, {});
 	t.is(errorMessage, expectedErrorMessage);
@@ -902,8 +902,7 @@ test.serial("ValidationError.formatMessage: keyword=additionalProperties", (t) =
 	};
 
 	const expectedErrorMessage =
-		`Configuration ${chalk.underline(chalk.red("resources/configuration"))} ` +
-		`property propertiesFileEncoding must not be provided here`;
+`Configuration ${chalk.underline(chalk.red("resources/configuration"))} property propertiesFileEncoding is not expected to be here`;
 
 	const errorMessage = ValidationError.formatMessage(error);
 	t.is(errorMessage, expectedErrorMessage);
@@ -921,7 +920,7 @@ test.serial("ValidationError.formatMessage: keyword=enum", (t) => {
 	};
 
 	const expectedErrorMessage =
-`Configuration ${chalk.underline(chalk.red("type"))} must be equal to one of the allowed values
+`Configuration ${chalk.underline(chalk.red("type"))} should be equal to one of the allowed values
 Allowed values: application, library, theme-library, module`;
 
 	const errorMessage = ValidationError.formatMessage(error);
