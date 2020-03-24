@@ -1,9 +1,7 @@
-import test from "ava";
-import Ajv from "ajv";
-import ajvErrors from "ajv-errors";
-import AjvCoverage from "../../../utils/AjvCoverage.js";
-import {_Validator as Validator} from "../../../../lib/validation/validator.js";
-import ValidationError from "../../../../lib/validation/ValidationError.js";
+const test = require("ava");
+const AjvCoverage = require("../../../utils/AjvCoverage");
+const {_Validator: Validator} = require("../../../../lib/validation/validator");
+const ValidationError = require("../../../../lib/validation/ValidationError");
 
 async function assertValidation(t, config, expectedErrors = undefined) {
 	const validation = t.context.validator.validate({config, project: {id: "my-project"}});
@@ -12,14 +10,6 @@ async function assertValidation(t, config, expectedErrors = undefined) {
 			instanceOf: ValidationError,
 			name: "ValidationError"
 		});
-		validationError.errors.forEach((error) => {
-			delete error.schemaPath;
-			if (error.params && Array.isArray(error.params.errors)) {
-				error.params.errors.forEach(($) => {
-					delete $.schemaPath;
-				});
-			}
-		});
 		t.deepEqual(validationError.errors, expectedErrors);
 	} else {
 		await t.notThrowsAsync(validation);
@@ -27,7 +17,7 @@ async function assertValidation(t, config, expectedErrors = undefined) {
 }
 
 test.before((t) => {
-	t.context.validator = new Validator({Ajv, ajvErrors, schemaName: "ui5"});
+	t.context.validator = new Validator();
 	t.context.ajvCoverage = new AjvCoverage(t.context.validator.ajv, {
 		includes: ["schema/ui5.json"]
 	});
@@ -51,11 +41,12 @@ test("Undefined", async (t) => {
 		message: "should be object",
 		params: {
 			type: "object",
-		}
+		},
+		schemaPath: "#/type",
 	}]);
 });
 
-test("Missing specVersion, type", async (t) => {
+test("Missing specVersion, type, metadata", async (t) => {
 	await assertValidation(t, {}, [
 		{
 			dataPath: "",
@@ -63,7 +54,17 @@ test("Missing specVersion, type", async (t) => {
 			message: "should have required property 'specVersion'",
 			params: {
 				missingProperty: "specVersion",
-			}
+			},
+			schemaPath: "#/required",
+		},
+		{
+			dataPath: "",
+			keyword: "required",
+			message: "should have required property 'metadata'",
+			params: {
+				missingProperty: "metadata",
+			},
+			schemaPath: "#/required",
 		},
 		{
 			dataPath: "",
@@ -71,23 +72,34 @@ test("Missing specVersion, type", async (t) => {
 			message: "should have required property 'type'",
 			params: {
 				missingProperty: "type",
-			}
+			},
+			schemaPath: "#/required",
 		}
 
 	]);
 });
 
-test("Missing type", async (t) => {
+test("Missing type, metadata", async (t) => {
 	await assertValidation(t, {
 		"specVersion": "2.0"
 	}, [
 		{
 			dataPath: "",
 			keyword: "required",
+			message: "should have required property 'metadata'",
+			params: {
+				missingProperty: "metadata",
+			},
+			schemaPath: "#/required",
+		},
+		{
+			dataPath: "",
+			keyword: "required",
 			message: "should have required property 'type'",
 			params: {
 				missingProperty: "type",
-			}
+			},
+			schemaPath: "#/required",
 		}
 	]);
 });
@@ -100,11 +112,10 @@ test("Invalid specVersion", async (t) => {
 			dataPath: "/specVersion",
 			keyword: "errorMessage",
 			message:
-"Unsupported \"specVersion\"\n" +
-"Your UI5 CLI installation might be outdated.\n" +
-"Supported specification versions: \"4.0\", \"3.2\", \"3.1\", \"3.0\", \"2.6\", " +
-"\"2.5\", \"2.4\", \"2.3\", \"2.2\", \"2.1\", \"2.0\", \"1.1\", \"1.0\", \"0.1\"\n" +
-"For details, see: https://ui5.github.io/cli/pages/Configuration/#specification-versions",
+`Unsupported "specVersion"
+Your UI5 CLI installation might be outdated.
+Supported specification versions: "2.0", "1.1", "1.0", "0.1"
+For details see: https://sap.github.io/ui5-tooling/pages/Configuration/#specification-versions`,
 			params: {
 				errors: [
 					{
@@ -113,25 +124,17 @@ test("Invalid specVersion", async (t) => {
 						message: "should be equal to one of the allowed values",
 						params: {
 							allowedValues: [
-								"4.0",
-								"3.2",
-								"3.1",
-								"3.0",
-								"2.6",
-								"2.5",
-								"2.4",
-								"2.3",
-								"2.2",
-								"2.1",
 								"2.0",
 								"1.1",
 								"1.0",
 								"0.1",
 							],
-						}
+						},
+						schemaPath: "#/properties/specVersion/enum",
 					},
 				],
-			}
+			},
+			schemaPath: "#/properties/specVersion/errorMessage",
 		}
 	]);
 });
@@ -139,7 +142,10 @@ test("Invalid specVersion", async (t) => {
 test("Invalid type", async (t) => {
 	await assertValidation(t, {
 		"specVersion": "2.0",
-		"type": "foo"
+		"type": "foo",
+		"metadata": {
+			"name": "foo"
+		}
 	}, [
 		{
 			dataPath: "/type",
@@ -152,7 +158,8 @@ test("Invalid type", async (t) => {
 					"theme-library",
 					"module"
 				]
-			}
+			},
+			schemaPath: "#/properties/type/enum",
 		}
 	]);
 });
@@ -160,7 +167,10 @@ test("Invalid type", async (t) => {
 test("Invalid kind", async (t) => {
 	await assertValidation(t, {
 		"specVersion": "2.0",
-		"kind": "foo"
+		"kind": "foo",
+		"metadata": {
+			"name": "foo"
+		}
 	}, [
 		{
 			dataPath: "/kind",
@@ -172,7 +182,70 @@ test("Invalid kind", async (t) => {
 					"extension",
 					null
 				],
-			}
+			},
+			schemaPath: "#/properties/kind/enum",
+		}
+	]);
+});
+
+test("Invalid metadata.name", async (t) => {
+	await assertValidation(t, {
+		"specVersion": "2.0",
+		"type": "application",
+		"metadata": {
+			"name": {}
+		}
+	}, [
+		{
+			dataPath: "/metadata/name",
+			keyword: "type",
+			message: "should be string",
+			params: {
+				type: "string"
+			},
+			schemaPath: "../ui5.json#/definitions/metadata/properties/name/type",
+		}
+	]);
+});
+
+test("Invalid metadata.copyright", async (t) => {
+	await assertValidation(t, {
+		"specVersion": "2.0",
+		"type": "application",
+		"metadata": {
+			"name": "foo",
+			"copyright": 123
+		}
+	}, [
+		{
+			dataPath: "/metadata/copyright",
+			keyword: "type",
+			message: "should be string",
+			params: {
+				type: "string"
+			},
+			schemaPath: "../ui5.json#/definitions/metadata/properties/copyright/type",
+		}
+	]);
+});
+
+test("Additional metadata property", async (t) => {
+	await assertValidation(t, {
+		"specVersion": "2.0",
+		"type": "application",
+		"metadata": {
+			"name": "foo",
+			"copyrihgt": "typo"
+		}
+	}, [
+		{
+			dataPath: "/metadata",
+			keyword: "additionalProperties",
+			message: "should NOT have additional properties",
+			params: {
+				additionalProperty: "copyrihgt"
+			},
+			schemaPath: "../ui5.json#/definitions/metadata/additionalProperties",
 		}
 	]);
 });
