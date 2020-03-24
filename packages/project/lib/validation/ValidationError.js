@@ -1,14 +1,14 @@
-import chalk from "chalk";
-import escapeStringRegExp from "escape-string-regexp";
+const chalk = require("chalk");
+const escapeStringRegExp = require("escape-string-regexp");
+const matchAll = require("string.prototype.matchall");
 
 /**
  * Error class for validation of project configuration.
  *
  * @public
- * @class
- * @alias @ui5/project/validation/ValidationError
- * @extends Error
  * @hideconstructor
+ * @extends Error
+ * @memberof module:@ui5/project.validation
  */
 class ValidationError extends Error {
 	constructor({errors, project, yaml}) {
@@ -17,7 +17,7 @@ class ValidationError extends Error {
 		/**
 		 * ValidationError
 		 *
-		 * @constant
+		 * @const
 		 * @default
 		 * @type {string}
 		 * @readonly
@@ -49,14 +49,7 @@ class ValidationError extends Error {
 			separator += chalk.grey.dim("\u2500".repeat(process.stdout.columns || 80));
 		}
 		separator += "\n\n";
-		let message;
-
-		if (this.project) { // ui5-workspace.yaml is project independent, so in that case, no project is available
-			message = chalk.red(`Invalid ui5.yaml configuration for project ${this.project.id}`) + "\n\n";
-		} else {
-			message = chalk.red(`Invalid workspace configuration.`) + "\n\n";
-		}
-
+		let message = chalk.red(`Invalid ui5.yaml configuration for project ${this.project.id}`) + "\n\n";
 		message += this.errors.map((error) => {
 			return this.formatError(error);
 		}).join(separator);
@@ -86,16 +79,13 @@ class ValidationError extends Error {
 
 		switch (error.keyword) {
 		case "additionalProperties":
-			message += `property ${error.params.additionalProperty} must not be provided here`;
+			message += `property ${error.params.additionalProperty} is not expected to be here`;
 			break;
 		case "type":
-			message += `must be of type '${error.params.type}'`;
-			break;
-		case "required":
-			message += `must have required property '${error.params.missingProperty}'`;
+			message += `should be of type '${error.params.type}'`;
 			break;
 		case "enum":
-			message += "must be equal to one of the allowed values\n";
+			message += error.message + "\n";
 			message += "Allowed values: " + error.params.allowedValues.join(", ");
 			break;
 		default:
@@ -147,9 +137,9 @@ class ValidationError extends Error {
 		let currentIndex;
 		if (yaml.documentIndex) {
 			const matchDocumentSeparator = /^---/gm;
+			const documents = matchAll(yaml.source, matchDocumentSeparator);
 			let currentDocumentIndex = 0;
-			let document;
-			while ((document = matchDocumentSeparator.exec(yaml.source)) !== null) {
+			for (const document of documents) {
 				// If the first separator is not at the beginning of the file
 				// we are already at document index 1
 				// Using String#trim() to remove any whitespace characters
@@ -175,6 +165,8 @@ class ValidationError extends Error {
 			currentSubstring = yaml.source;
 		}
 
+
+		const matchArrayElement = /(^|\r?\n)([ ]*-[^\r\n]*)/g;
 		const matchArrayElementIndentation = /([ ]*)-/;
 
 		for (let i = 0; i < objectPath.length; i++) {
@@ -198,12 +190,11 @@ class ValidationError extends Error {
 				// This currently only works for arrays defined with "-" in multiple lines.
 				// Arrays using square brackets are not supported.
 
-				const matchArrayElement = /(^|\r?\n)([ ]*-[^\r\n]*)/g;
 				const arrayIndex = parseInt(property);
+				const arrayIndicators = matchAll(currentSubstring, matchArrayElement);
 				let a = 0;
 				let firstIndentation = -1;
-				let match;
-				while ((match = matchArrayElement.exec(currentSubstring)) !== null) {
+				for (const match of arrayIndicators) {
 					const indentationMatch = match[2].match(matchArrayElementIndentation);
 					if (!indentationMatch) {
 						return {line: -1, column: -1};
@@ -280,4 +271,4 @@ class ValidationError extends Error {
 	}
 }
 
-export default ValidationError;
+module.exports = ValidationError;
