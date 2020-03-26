@@ -1,46 +1,60 @@
-import test from "ava";
-import path from "node:path";
-import sinon from "sinon";
-import {directoryDeepEqual, fileEqual, findFiles} from "../../../utils/fshelper.js";
-import {graphFromObject} from "@ui5/project/graph";
-import * as taskRepository from "../../../../lib/tasks/taskRepository.js";
-
-const __dirname = import.meta.dirname;
-const applicationBPath = path.join(__dirname, "..", "..", "..", "fixtures", "application.b");
-const applicationNPath = path.join(__dirname, "..", "..", "..", "fixtures", "application.n");
-const sapUiCorePath = path.join(__dirname, "..", "..", "..", "fixtures", "sap.ui.core");
+const test = require("ava");
+const path = require("path");
+const chai = require("chai");
+chai.use(require("chai-fs"));
+const assert = chai.assert;
+const sinon = require("sinon");
+const mock = require("mock-require");
 
 test.afterEach.always((t) => {
+	mock.stopAll();
 	sinon.restore();
 });
 
-test.serial("integration: build application.b standalone", async (t) => {
+const recursive = require("recursive-readdir");
+const ui5Builder = require("../../../../");
+const builder = ui5Builder.builder;
+const applicationBPath = path.join(__dirname, "..", "..", "..", "fixtures", "application.b");
+const sapUiCorePath = path.join(__dirname, "..", "..", "..", "fixtures", "sap.ui.core");
+
+const findFiles = (folder) => {
+	return new Promise((resolve, reject) => {
+		recursive(folder, (err, files) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve(files);
+			}
+		});
+	});
+};
+
+test("integration: build application.b standalone", async (t) => {
+	// beforeEach mocks do not apply to this test as all modules have already been required via ui5Builder require above
 	const destPath = "./test/tmp/build/application.b/standalone";
 	const expectedPath = "./test/expected/build/application.b/standalone";
 	const excludedTasks = ["*"];
-	const includedTasks = ["minify", "generateStandaloneAppBundle"];
+	const includedTasks = ["generateStandaloneAppBundle"];
 
-	const graph = await graphFromObject({
-		dependencyTree: applicationBTree
-	});
-
-	graph.setTaskRepository(taskRepository);
-	await graph.build({
+	return builder.build({
+		tree: applicationBTree,
 		destPath,
 		excludedTasks,
 		includedTasks
+	}).then(() => {
+		return findFiles(expectedPath);
+	}).then((expectedFiles) => {
+		// Check for all directories and files
+		assert.directoryDeepEqual(destPath, expectedPath, "Result directory structure correct");
+
+		// Check for all file contents
+		t.deepEqual(expectedFiles.length, 11, "11 files are expected");
+		expectedFiles.forEach((expectedFile) => {
+			const relativeFile = path.relative(expectedPath, expectedFile);
+			const destFile = path.join(destPath, relativeFile);
+			assert.fileEqual(destFile, expectedFile, "Correct file content");
+		});
 	});
-	const expectedFiles = await findFiles(expectedPath);
-
-	// Check for all directories and files
-	await directoryDeepEqual(t, destPath, expectedPath);
-
-	// Check for all file contents
-	await Promise.all(expectedFiles.map(async (expectedFile) => {
-		const relativeFile = path.relative(expectedPath, expectedFile);
-		const destFile = path.join(destPath, relativeFile);
-		await fileEqual(t, destFile, expectedFile);
-	}));
 });
 
 const applicationBTree = {
@@ -53,86 +67,98 @@ const applicationBTree = {
 			"version": "1.0.0",
 			"path": sapUiCorePath,
 			"dependencies": [],
-			"configuration": {
-				"specVersion": "2.0",
-				"type": "library",
-				"metadata": {
-					"name": "sap.ui.core",
-					"copyright": "Some fancy copyright"
-				},
-				"resources": {
-					"configuration": {
-						"paths": {
-							"src": "main/src",
-							"test": "main/test"
-						}
-					}
-				}
+			"_level": 1,
+			"specVersion": "0.1",
+			"type": "library",
+			"metadata": {
+				"name": "sap.ui.core",
+				"copyright": "Some fancy copyright"
 			},
+			"resources": {
+				"configuration": {
+					"paths": {
+						"src": "main/src",
+						"test": "main/test"
+					}
+				},
+				"pathMappings": {
+					"/resources/": "main/src",
+					"/test-resources/": "main/test"
+				}
+			}
 		},
 		{
 			"id": "library.d",
 			"version": "1.0.0",
 			"path": path.join(applicationBPath, "..", "library.d"),
 			"dependencies": [],
-			"configuration": {
-				"specVersion": "2.0",
-				"type": "library",
-				"metadata": {
-					"name": "library.d",
-					"copyright": "Some fancy copyright"
-				},
-				"resources": {
-					"configuration": {
-						"paths": {
-							"src": "main/src",
-							"test": "main/test"
-						}
-					}
-				}
+			"_level": 1,
+			"specVersion": "0.1",
+			"type": "library",
+			"metadata": {
+				"name": "library.d",
+				"copyright": "Some fancy copyright"
 			},
+			"resources": {
+				"configuration": {
+					"paths": {
+						"src": "main/src",
+						"test": "main/test"
+					}
+				},
+				"pathMappings": {
+					"/resources/": "main/src",
+					"/test-resources/": "main/test"
+				}
+			}
 		},
 		{
 			"id": "library.a",
 			"version": "1.0.0",
 			"path": path.join(applicationBPath, "..", "collection", "library.a"),
 			"dependencies": [],
-			"configuration": {
-				"specVersion": "2.0",
-				"type": "library",
-				"metadata": {
-					"name": "library.a",
-					"copyright": "${copyright}"
-				},
-				"resources": {
-					"configuration": {
-						"paths": {
-							"src": "src",
-							"test": "test"
-						}
-					}
-				}
+			"_level": 1,
+			"specVersion": "0.1",
+			"type": "library",
+			"metadata": {
+				"name": "library.a",
+				"copyright": "${copyright}"
 			},
+			"resources": {
+				"configuration": {
+					"paths": {
+						"src": "src",
+						"test": "test"
+					}
+				},
+				"pathMappings": {
+					"/resources/": "src",
+					"/test-resources/": "test"
+				}
+			}
 		},
 		{
 			"id": "library.b",
 			"version": "1.0.0",
 			"path": path.join(applicationBPath, "..", "collection", "library.b"),
 			"dependencies": [],
-			"configuration": {
-				"specVersion": "2.0",
-				"type": "library",
-				"metadata": {
-					"name": "library.b",
-					"copyright": "${copyright}"
-				},
-				"resources": {
-					"configuration": {
-						"paths": {
-							"src": "src",
-							"test": "test"
-						}
+			"_level": 1,
+			"specVersion": "0.1",
+			"type": "library",
+			"metadata": {
+				"name": "library.b",
+				"copyright": "${copyright}"
+			},
+			"resources": {
+				"configuration": {
+					"paths": {
+						"src": "src",
+						"test": "test"
 					}
+				},
+				"pathMappings": {
+					"/resources/": "src",
+					"/test-resources/": "test"
 				}
 			}
 		},
@@ -141,124 +167,44 @@ const applicationBTree = {
 			"version": "1.0.0",
 			"path": path.join(applicationBPath, "..", "collection", "library.c"),
 			"dependencies": [],
-			"configuration": {
-				"specVersion": "2.0",
-				"type": "library",
-				"metadata": {
-					"name": "library.c",
-					"copyright": "${copyright}"
-				},
-				"resources": {
-					"configuration": {
-						"paths": {
-							"src": "src",
-							"test": "test"
-						}
-					}
-				}
+			"_level": 1,
+			"specVersion": "0.1",
+			"type": "library",
+			"metadata": {
+				"name": "library.c",
+				"copyright": "${copyright}"
 			},
-		}
-	],
-	"configuration": {
-		"builder": {},
-		"specVersion": "2.0",
-		"type": "application",
-		"metadata": {
-			"name": "application.b"
-		},
-		"resources": {
-			"configuration": {
-				"paths": {
-					"webapp": "webapp"
+			"resources": {
+				"configuration": {
+					"paths": {
+						"src": "src",
+						"test": "test"
+					}
 				},
-				"propertiesFileSourceEncoding": "ISO-8859-1"
+				"pathMappings": {
+					"/resources/": "src",
+					"/test-resources/": "test"
+				}
 			}
 		}
+	],
+	"builder": {},
+	"_level": 0,
+	"specVersion": "0.1",
+	"type": "application",
+	"metadata": {
+		"name": "application.b",
+		"namespace": "id1"
 	},
-};
-
-test("integration: build application.n standalone without enabled string bundling", async (t) => {
-	const destPath = "./test/tmp/build/application.n/dest";
-	const expectedPath = "./test/expected/build/application.n/dest";
-	const excludedTasks = ["*"];
-	const includedTasks = ["minify", "generateStandaloneAppBundle"];
-
-	const graph = await graphFromObject({
-		dependencyTree: applicationNTree
-	});
-
-	graph.setTaskRepository(taskRepository);
-	await graph.build({
-		destPath,
-		excludedTasks,
-		includedTasks
-	});
-	const expectedFiles = await findFiles(expectedPath);
-
-	// Check for all directories and files
-	await directoryDeepEqual(t, destPath, expectedPath, "Result directory structure correct");
-
-	// Check for all file contents
-	await Promise.all(expectedFiles.map(async (expectedFile) => {
-		const relativeFile = path.relative(expectedPath, expectedFile);
-		const destFile = path.join(destPath, relativeFile);
-		await fileEqual(t, destFile, expectedFile, "Correct file content");
-	}));
-});
-
-const applicationNTree = {
-	"id": "application.n",
-	"version": "1.0.0",
-	"path": applicationNPath,
-	"dependencies": [],
-	"configuration": {
-		"specVersion": "4.0",
-		"type": "application",
-		"metadata": {
-			"name": "application.n"
-		}
-	}
-};
-
-test("integration: build application.n standalone with enabled string bundling", async (t) => {
-	const destPath = "./test/tmp/build/application.n/legacy";
-	const expectedPath = "./test/expected/build/application.n/legacy";
-	const excludedTasks = ["*"];
-	const includedTasks = ["minify", "generateStandaloneAppBundle"];
-
-	const graph = await graphFromObject({
-		dependencyTree: applicationNTreeLegacy
-	});
-
-	graph.setTaskRepository(taskRepository);
-	await graph.build({
-		destPath,
-		excludedTasks,
-		includedTasks
-	});
-	const expectedFiles = await findFiles(expectedPath);
-
-	// Check for all directories and files
-	await directoryDeepEqual(t, destPath, expectedPath, "Result directory structure correct");
-
-	// Check for all file contents
-	await Promise.all(expectedFiles.map(async (expectedFile) => {
-		const relativeFile = path.relative(expectedPath, expectedFile);
-		const destFile = path.join(destPath, relativeFile);
-		await fileEqual(t, destFile, expectedFile, "Correct file content");
-	}));
-});
-
-const applicationNTreeLegacy = {
-	"id": "application.n",
-	"version": "1.0.0",
-	"path": applicationNPath,
-	"dependencies": [],
-	"configuration": {
-		"specVersion": "3.1",
-		"type": "application",
-		"metadata": {
-			"name": "application.n"
+	"resources": {
+		"configuration": {
+			"paths": {
+				"webapp": "webapp"
+			},
+			"propertiesFileSourceEncoding": "ISO-8859-1"
+		},
+		"pathMappings": {
+			"/": "webapp"
 		}
 	}
 };
