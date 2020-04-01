@@ -1,30 +1,36 @@
-import path from "node:path";
-import {readFile, writeFile} from "node:fs/promises";
-import {loadAll, dump} from "js-yaml";
-import {fromYaml, getPosition, getValue, getKind} from "data-with-position";
-import {getLogger} from "@ui5/logger";
+const path = require("path");
+const log = require("@ui5/logger").getLogger("cli:framework:updateYaml");
+const {loadAll, safeDump, DEFAULT_SAFE_SCHEMA} = require("js-yaml");
+const {fromYaml, getPosition, getValue} = require("data-with-position");
 
-const log = getLogger("cli:framework:updateYaml");
+function safeLoadAll({configFile, configPath}) {
+	// Using loadAll with DEFAULT_SAFE_SCHEMA instead of safeLoadAll to pass "filename".
+	// safeLoadAll doesn't handle its parameters properly.
+	// See https://github.com/nodeca/js-yaml/issues/456 and https://github.com/nodeca/js-yaml/pull/381
+	return loadAll(configFile, undefined, {
+		filename: configPath,
+		schema: DEFAULT_SAFE_SCHEMA
+	});
+}
 
 function getProjectYamlDocument({project, configFile, configPath}) {
-	const configs = loadAll(configFile, undefined, {
-		filename: configPath
-	});
+	const configs = safeLoadAll({configFile, configPath});
 
 	const projectDocumentIndex = configs.findIndex((config) => {
-		return config.metadata && config.metadata.name === project.getName();
+		return config.metadata && config.metadata.name === project.metadata.name;
 	});
 	if (projectDocumentIndex === -1) {
 		throw new Error(
-			`Could not find project with name ${project.getName()} in YAML: ${configPath}`
+			`Could not find project with name ${project.metadata.name} in YAML: ${configPath}`
 		);
 	}
 
+	const matchAll = require("string.prototype.matchall");
 	const matchDocumentSeparator = /^---/gm;
+	const documents = matchAll(configFile, matchDocumentSeparator);
 	let currentDocumentIndex = 0;
 	let currentIndex = 0;
-	let document;
-	while ((document = matchDocumentSeparator.exec(configFile)) !== null) {
+	for (const document of documents) {
 		// If the first separator is not at the beginning of the file
 		// we are already at document index 1
 		// Using String#trim() to remove any whitespace characters
@@ -66,21 +72,14 @@ function applyChanges(string, changes) {
 				value: change.value
 			};
 		} else if (change.type === "insert") {
-			let startIndex = positionToIndex(change.parentPosition.end);
-			if (change.parentPosition.end.column > 1) {
-				// When end.column is not 1 we expect it to be the end of the line
-				// so the index needs to be increased by 1 to insert into the next line
-				startIndex++;
-			}
-			const endIndex = startIndex;
 			return {
-				startIndex,
-				endIndex,
+				startIndex: positionToIndex(change.parentPosition.end) + 1,
+				endIndex: positionToIndex(change.parentPosition.end) + 1,
 				value: change.value
 			};
 		}
 	}).sort((a, b) => {
-		// Sort descending by endIndex
+		// Sort decending by endIndex
 		// This means replacements are done from bottom to top to not affect length/index of upcoming replacements
 
 		if (a.endIndex < b.endIndex) {
@@ -110,28 +109,12 @@ function getValueFromPath(data, path) {
 }
 
 function getPositionFromPath(positionData, path) {
-	const data = getValueFromPath(positionData, path);
-	const position = getPosition(data);
-	const kind = getKind(data);
-	if ((kind === "array" && data.length) || kind === "object") {
-		// data-with-position treats arrays and objects different from primitives:
-		// The end index of such nodes always reaches up to the beginning of the following node, instead of the end
-		// of the contained data.
-		// For example, if an array has entries, the end position of the array is *directly* at the beginning of
-		// the next node instead of at the end of the last entry.
-		// Typically this means one line and multiple columns *after* the array ended.
-		// However, if an array has no entries (e.g. "[]"), the end is directly after the end of that data and
-		// *not* in the next line (this appears to be an inconsistency).
-		// Therefore, in case we encounter an array *with entries*, or an object, we reset the end column to "1"
-		// to prevent replacing (i.e. removing) the indentation of the following node.
-		position.end.column = 1;
-	}
-	return position;
+	return getPosition(getValueFromPath(positionData, path));
 }
 
 function formatValue(value, indent) {
 	if (typeof value === "string") {
-		// TODO: Use better logic?
+		// TOOD: Use better logic?
 		if (value.includes(".")) {
 			return ` "${value}"`; // Put quotes around versions
 		} else {
@@ -149,25 +132,20 @@ function formatValue(value, indent) {
 		return string;
 	} else if (Array.isArray(value)) {
 		const indentString = " ".repeat(indent);
-		const string = dump(value);
+		const string = safeDump(value);
 		const arr = string.split("\n");
 		arr.pop();
-		return "\n" + indentString + arr.join("\n" + indentString) + "\n";
+		return "\n" + indentString + arr.join("\n" + indentString);
 	}
 }
 
-export default async function({project, configPathOverride, data}) {
-	let configPath;
-	if (configPathOverride) {
-		if (path.isAbsolute(configPathOverride)) {
-			configPath = configPathOverride;
-		} else {
-			configPath = path.join(project.getRootPath(), configPathOverride);
-		}
-	} else {
-		configPath = path.join(project.getRootPath(), "ui5.yaml");
-	}
+module.exports = async function({project, data}) {
+	const {promisify} = require("util");
+	const fs = require("fs");
+	const readFile = promisify(fs.readFile);
+	const writeFile = promisify(fs.writeFile);
 
+	const configPath = project.configPath || path.join(project.path, "ui5.yaml");
 	const configFile = await readFile(configPath, {encoding: "utf8"});
 
 	let {
@@ -196,14 +174,10 @@ export default async function({project, configPathOverride, data}) {
 			const firstSiblingPosition = getPosition(parentData[siblings[0]]);
 			indent = firstSiblingPosition.start.column - 1;
 		}
-		let value = `${" ".repeat(indent)}${entryPath[entryPath.length - 1]}:${formatValue(newValue, indent + 2)}`;
-		if (!value.endsWith("\n")) {
-			value += "\n";
-		}
 		changes.push({
 			type: "insert",
 			parentPosition,
-			value
+			value: `${" ".repeat(indent)}${entryPath[entryPath.length - 1]}:${formatValue(newValue, indent + 2)}\n`
 		});
 	}
 
@@ -213,20 +187,8 @@ export default async function({project, configPathOverride, data}) {
 		const indent = position.start.column - 1;
 		changes.push({
 			type: "update",
-			position,
+			position: getPositionFromPath(positionData, entryPath),
 			value: `${entryPath[entryPath.length - 1]}:${formatValue(newValue, indent + 2)}`
-		});
-	}
-
-	function addRemove(entryPath) {
-		const position = getPositionFromPath(positionData, entryPath);
-		const copyPosition = JSON.parse(JSON.stringify(position));
-		// set copyPosition to 1 to remove the indent
-		copyPosition.start.column = 1;
-		changes.push({
-			type: "update",
-			position: copyPosition,
-			value: ``
 		});
 	}
 
@@ -250,11 +212,8 @@ export default async function({project, configPathOverride, data}) {
 		if (data.framework.libraries) {
 			if (!positionData.framework.libraries) {
 				addInsert(["framework", "libraries"], data.framework.libraries);
-			} else if (Array.isArray(data.framework.libraries) && data.framework.libraries.length > 0) {
-				addUpdate(["framework", "libraries"], data.framework.libraries);
 			} else {
-				// remove empty array
-				addRemove(["framework", "libraries"]);
+				addUpdate(["framework", "libraries"], data.framework.libraries);
 			}
 		}
 	}
@@ -277,7 +236,7 @@ export default async function({project, configPathOverride, data}) {
 
 	// Validate content before writing
 	try {
-		loadAll(adoptedYaml);
+		safeLoadAll({configFile: adoptedYaml});
 	} catch (err) {
 		const error = new Error("Failed to update YAML file: " + err.message);
 		error.name = "FrameworkUpdateYamlFailed";
@@ -288,4 +247,4 @@ export default async function({project, configPathOverride, data}) {
 	}
 
 	await writeFile(configPath, adoptedYaml);
-}
+};

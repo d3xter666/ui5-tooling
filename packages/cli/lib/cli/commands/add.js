@@ -1,9 +1,8 @@
 // Add
-import base from "../middlewares/base.js";
 const addCommand = {
 	command: "add [--development] [--optional] <framework-libraries..>",
 	describe: "Add SAPUI5/OpenUI5 framework libraries to the project configuration.",
-	middlewares: [base]
+	middlewares: [require("../middlewares/base.js")]
 };
 
 addCommand.builder = function(cli) {
@@ -42,9 +41,9 @@ addCommand.handler = async function(argv) {
 		throw new Error("Options 'development' and 'optional' cannot be combined");
 	}
 
-	const projectGraphOptions = {
-		dependencyDefinition: argv.dependencyDefinition,
-		config: argv.config
+	const normalizerOptions = {
+		translatorName: argv.translator,
+		configPath: argv.config
 	};
 
 	const libraries = libraryNames.map((name) => {
@@ -57,9 +56,8 @@ addCommand.handler = async function(argv) {
 		return library;
 	});
 
-	const {default: add} = await import("../../framework/add.js");
-	const {yamlUpdated} = await add({
-		projectGraphOptions,
+	const {yamlUpdated} = await require("../../framework/add")({
+		normalizerOptions,
 		libraries
 	});
 
@@ -75,8 +73,7 @@ addCommand.handler = async function(argv) {
 			);
 		}
 	} else {
-		process.stdout.write(`Updated configuration written to ${argv.config || "ui5.yaml"}`);
-		process.stdout.write("\n");
+		console.log(`Updated configuration written to ${argv.config || "ui5.yaml"}`);
 		let logMessage = `Added framework ${library} ${libraryNames.join(" ")} as`;
 		if (development) {
 			logMessage += " development";
@@ -84,9 +81,8 @@ addCommand.handler = async function(argv) {
 			logMessage += " optional";
 		}
 		logMessage += libraries.length === 1 ? " dependency": " dependencies";
-		process.stdout.write(logMessage);
-		process.stdout.write("\n");
+		console.log(logMessage);
 	}
 };
 
-export default addCommand;
+module.exports = addCommand;
