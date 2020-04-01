@@ -1,60 +1,67 @@
-import test from "ava";
-import sinon from "sinon";
-import esmock from "esmock";
+const test = require("ava");
+const sinon = require("sinon");
+const mock = require("mock-require");
 
-async function createMock(t, yamlUpdated = true) {
-	t.context.frameworkAddStub = sinon.stub().resolves({yamlUpdated});
-	t.context.addCommand = await esmock.p("../../../../lib/cli/commands/add.js", {
-		"../../../../lib/framework/add.js": t.context.frameworkAddStub
-	});
-}
+const addCommand = require("../../../../lib/cli/commands/add");
 
 async function assertAddHandler(t, {argv, expectedLibraries, expectedConsoleLog}) {
-	await createMock(t);
-	await t.context.addCommand.handler(argv);
+	const frameworkAddStub = sinon.stub().resolves({
+		yamlUpdated: true
+	});
+	mock("../../../../lib/framework/add", frameworkAddStub);
 
-	t.is(t.context.frameworkAddStub.callCount, 1, "Add function should be called once");
-	t.deepEqual(t.context.frameworkAddStub.getCall(0).args, [
+	await addCommand.handler(argv);
+
+	t.is(frameworkAddStub.callCount, 1, "Add function should be called once");
+	t.deepEqual(frameworkAddStub.getCall(0).args, [
 		{
 			libraries: expectedLibraries,
-			projectGraphOptions: {
-				dependencyDefinition: undefined,
-				config: undefined
+			normalizerOptions: {
+				configPath: undefined,
+				translatorName: undefined
 			}
 		}],
 	"Add function should be called with expected args");
 
-	t.is(t.context.processStdoutStub.callCount, expectedConsoleLog.length,
+	t.is(t.context.consoleLogStub.callCount, expectedConsoleLog.length,
 		"console.log should be called " + expectedConsoleLog.length + " times");
 	expectedConsoleLog.forEach((expectedLog, i) => {
-		t.deepEqual(t.context.processStdoutStub.getCall(i).args, [expectedLog],
+		t.deepEqual(t.context.consoleLogStub.getCall(i).args, [expectedLog],
 			"console.log should be called with expected string on call index " + i);
 	});
 }
 
 async function assertFailingAddHandler(t, {argv, expectedMessage}) {
-	await createMock(t);
-	const exception = await t.throwsAsync(t.context.addCommand.handler(argv));
+	const frameworkAddStub = sinon.stub().resolves({
+		yamlUpdated: true
+	});
+	mock("../../../../lib/framework/add", frameworkAddStub);
+
+	const exception = await t.throwsAsync(addCommand.handler(argv));
 
 	t.is(exception.message, expectedMessage, "Add handler should throw expected error");
-	t.is(t.context.frameworkAddStub.callCount, 0, "Add function should not be called");
+	t.is(frameworkAddStub.callCount, 0, "Add function should not be called");
 }
 
 async function assertFailingYamlUpdateAddHandler(t, {argv, expectedMessage}) {
-	await createMock(t, false);
-	const exception = await t.throwsAsync(t.context.addCommand.handler(argv));
+	const frameworkAddStub = sinon.stub().resolves({
+		yamlUpdated: false
+	});
+	mock("../../../../lib/framework/add", frameworkAddStub);
+
+	const exception = await t.throwsAsync(addCommand.handler(argv));
 
 	t.is(exception.message, expectedMessage, "Add handler should throw expected error");
-	t.is(t.context.frameworkAddStub.callCount, 1, "Add function should be called once");
+	t.is(frameworkAddStub.callCount, 1, "Add function should be called once");
 }
 
 test.beforeEach((t) => {
-	t.context.processStdoutStub = sinon.stub(process.stdout, "write");
+	t.context.consoleLogStub = sinon.stub(console, "log");
 });
 
-test.afterEach.always((t) => {
+test.afterEach.always(() => {
+	mock.stopAll();
 	sinon.restore();
-	esmock.purge(t.context.addCommand);
 });
 
 test.serial("Accepts single library", async (t) => {
@@ -63,9 +70,7 @@ test.serial("Accepts single library", async (t) => {
 		expectedLibraries: [{name: "sap.ui.lib1"}],
 		expectedConsoleLog: [
 			"Updated configuration written to ui5.yaml",
-			"\n",
-			"Added framework library sap.ui.lib1 as dependency",
-			"\n",
+			"Added framework library sap.ui.lib1 as dependency"
 		]
 	});
 });
@@ -76,9 +81,7 @@ test.serial("Accepts multiple libraries", async (t) => {
 		expectedLibraries: [{name: "sap.ui.lib1"}, {name: "sap.ui.lib2"}],
 		expectedConsoleLog: [
 			"Updated configuration written to ui5.yaml",
-			"\n",
-			"Added framework libraries sap.ui.lib1 sap.ui.lib2 as dependencies",
-			"\n",
+			"Added framework libraries sap.ui.lib1 sap.ui.lib2 as dependencies"
 		]
 	});
 });
@@ -104,9 +107,7 @@ test.serial("Accepts multiple libraries (--development)", async (t) => {
 		],
 		expectedConsoleLog: [
 			"Updated configuration written to ui5.yaml",
-			"\n",
-			"Added framework libraries sap.ui.lib1 sap.ui.lib2 as development dependencies",
-			"\n"
+			"Added framework libraries sap.ui.lib1 sap.ui.lib2 as development dependencies"
 		]
 	});
 });
@@ -132,9 +133,7 @@ test.serial("Accepts multiple libraries (--optional)", async (t) => {
 		],
 		expectedConsoleLog: [
 			"Updated configuration written to ui5.yaml",
-			"\n",
-			"Added framework libraries sap.ui.lib1 sap.ui.lib2 as optional dependencies",
-			"\n"
+			"Added framework libraries sap.ui.lib1 sap.ui.lib2 as optional dependencies"
 		]
 	});
 });
