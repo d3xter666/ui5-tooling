@@ -1,42 +1,33 @@
-import {getRootProjectConfiguration, createFrameworkResolverInstance} from "./utils.js";
+const {getRootProjectConfiguration, getFrameworkResolver, isValidSpecVersion} = require("./utils");
 
-/**
- * Adds the given set of libraries to the framework libraries section in the ui5.yaml
- *
- * @param {object} parameters Parameters
- * @param {object} parameters.projectGraphOptions
- * @param {object} parameters.libraries
- */
-export default async function({projectGraphOptions, libraries}) {
-	const project = await getRootProjectConfiguration(projectGraphOptions);
+module.exports = async function({normalizerOptions, libraries}) {
+	const project = await getRootProjectConfiguration({normalizerOptions});
 
-	if (project.getSpecVersion().lt("2.0")) {
+	if (!isValidSpecVersion(project.specVersion)) {
 		throw new Error(
 			`ui5 add command requires specVersion "2.0" or higher. ` +
-			`Project ${project.getName()} uses specVersion "${project.getSpecVersion().toString()}"`
+			`Project ${project.metadata.name} uses specVersion "${project.specVersion}"`
 		);
 	}
 
-	const frameworkName = project.getFrameworkName();
-	const frameworkVersion = project.getFrameworkVersion();
-
-	if (!frameworkName) {
+	if (!project.framework) {
 		throw new Error(
-			`Project ${project.getName()} is missing a framework configuration. ` +
+			`Project ${project.metadata.name} is missing a framework configuration. ` +
 			`Please use "ui5 use" to configure a framework and version.`
 		);
 	}
-	if (!frameworkVersion) {
+	if (!project.framework.version) {
 		throw new Error(
-			`Project ${project.getName()} does not define a framework version configuration. ` +
+			`Project ${project.metadata.name} does not define a framework version configuration. ` +
 			`Please use "ui5 use" to configure a version.`
 		);
 	}
 
-	const resolver = await createFrameworkResolverInstance({
-		frameworkName, frameworkVersion
-	}, {
-		cwd: project.getRootPath()
+	const Resolver = getFrameworkResolver(project.framework.name);
+
+	const resolver = new Resolver({
+		cwd: project.path,
+		version: project.framework.version
 	});
 
 	// Get metadata of all libraries to verify that they can be installed
@@ -44,20 +35,21 @@ export default async function({projectGraphOptions, libraries}) {
 		try {
 			await resolver.getLibraryMetadata(name);
 		} catch (err) {
-			throw new Error(`Failed to find ${frameworkName} framework library ${name}: ` + err.message);
+			throw new Error(`Failed to find ${project.framework.name} framework library ${name}: ` + err.message);
 		}
 	}));
 
 	// Shallow copy of given libraries to not modify the input parameter when pushing other libraries
 	const allLibraries = [...libraries];
 
-	project.getFrameworkDependencies().forEach((library) => {
-		// Don't add libraries twice!
-		if (allLibraries.findIndex(($) => $.name === library.name) === -1) {
-			allLibraries.push(library);
-		}
-	});
-
+	if (project.framework.libraries) {
+		project.framework.libraries.forEach((library) => {
+			// Don't add libraries twice!
+			if (allLibraries.findIndex(($) => $.name === library.name) === -1) {
+				allLibraries.push(library);
+			}
+		});
+	}
 	allLibraries.sort((a, b) => {
 		return a.name.localeCompare(b.name);
 	});
@@ -65,10 +57,8 @@ export default async function({projectGraphOptions, libraries}) {
 	// Try to update YAML file but still return with name and resolved version in case it failed
 	let yamlUpdated = false;
 	try {
-		const {default: updateYaml} = await import("./updateYaml.js");
-		await updateYaml({
+		await require("./updateYaml")({
 			project,
-			configPathOverride: projectGraphOptions.config,
 			data: {
 				framework: {
 					libraries: allLibraries
@@ -84,4 +74,4 @@ export default async function({projectGraphOptions, libraries}) {
 	return {
 		yamlUpdated
 	};
-}
+};
