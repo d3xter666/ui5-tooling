@@ -1,15 +1,16 @@
-import test from "ava";
-import sinon from "sinon";
-import esmock from "esmock";
+const test = require("ava");
+const sinon = require("sinon");
+const mock = require("mock-require");
+
+const useCommand = require("../../../../lib/cli/commands/use");
 
 async function assertUseHandler(t, {argv, expectedFrameworkOptions}) {
-	const {useCommand, frameworkUseStub} = t.context;
-
-	frameworkUseStub.resolves({
+	const frameworkUseStub = sinon.stub().resolves({
 		usedFramework: undefined, // not required for this test
 		usedVersion: undefined, // not required for this test
 		yamlUpdated: true
 	});
+	mock("../../../../lib/framework/use", frameworkUseStub);
 
 	await useCommand.handler(argv);
 
@@ -17,21 +18,20 @@ async function assertUseHandler(t, {argv, expectedFrameworkOptions}) {
 	t.deepEqual(frameworkUseStub.getCall(0).args, [
 		{
 			frameworkOptions: expectedFrameworkOptions,
-			projectGraphOptions: {
-				dependencyDefinition: undefined,
-				config: undefined
+			normalizerOptions: {
+				configPath: undefined,
+				translatorName: undefined
 			}
 		}],
 	"Use function should be called with expected args");
 }
 
 async function assertFailingUseHandler(t, {argv, expectedMessage}) {
-	const {useCommand, frameworkUseStub} = t.context;
-
-	frameworkUseStub.resolves({
+	const frameworkUseStub = sinon.stub().resolves({
 		usedFramework: undefined, // not required for this test
 		usedVersion: undefined // not required for this test
 	});
+	mock("../../../../lib/framework/use", frameworkUseStub);
 
 	const exception = await t.throwsAsync(useCommand.handler(argv));
 
@@ -40,13 +40,12 @@ async function assertFailingUseHandler(t, {argv, expectedMessage}) {
 }
 
 async function assertFailingYamlUpdateUseHandler(t, {argv, expectedMessage}) {
-	const {useCommand, frameworkUseStub} = t.context;
-
-	frameworkUseStub.resolves({
+	const frameworkUseStub = sinon.stub().resolves({
 		usedFramework: "SAPUI5",
 		usedVersion: "1.76.0",
 		yamlUpdated: false
 	});
+	mock("../../../../lib/framework/use", frameworkUseStub);
 
 	const exception = await t.throwsAsync(useCommand.handler(argv));
 
@@ -54,19 +53,9 @@ async function assertFailingYamlUpdateUseHandler(t, {argv, expectedMessage}) {
 	t.is(frameworkUseStub.callCount, 1, "Use function should be called once");
 }
 
-test.beforeEach(async (t) => {
-	t.context.processStdoutStub = sinon.stub(process.stdout, "write");
-
-	t.context.frameworkUseStub = sinon.stub();
-
-	t.context.useCommand = await esmock.p("../../../../lib/cli/commands/use.js", {
-		"../../../../lib/framework/use": t.context.frameworkUseStub
-	});
-});
-
-test.afterEach.always((t) => {
+test.afterEach.always(() => {
+	mock.stopAll();
 	sinon.restore();
-	esmock.purge(t.context.useCommand);
 });
 
 test.serial("Accepts framework name and version (SAPUI5@1.76.0)", async (t) => {
@@ -109,26 +98,6 @@ test.serial("Accepts framework name and version (OpenUI5@1.76)", async (t) => {
 	});
 });
 
-test.serial("Accepts framework name and version (SAPUI5@1.79.0-SNAPSHOT)", async (t) => {
-	await assertUseHandler(t, {
-		argv: {"framework-info": "SAPUI5@1.79.0-SNAPSHOT"},
-		expectedFrameworkOptions: {
-			name: "SAPUI5",
-			version: "1.79.0-SNAPSHOT"
-		}
-	});
-});
-
-test.serial("Accepts framework name and version (OpenUI5@1.79.0-SNAPSHOT)", async (t) => {
-	await assertUseHandler(t, {
-		argv: {"framework-info": "OpenUI5@1.79.0-SNAPSHOT"},
-		expectedFrameworkOptions: {
-			name: "OpenUI5",
-			version: "1.79.0-SNAPSHOT"
-		}
-	});
-});
-
 test.serial("Accepts framework name and version (SAPUI5@latest)", async (t) => {
 	await assertUseHandler(t, {
 		argv: {"framework-info": "SAPUI5@latest"},
@@ -149,32 +118,32 @@ test.serial("Accepts framework name and version (OpenUI5@latest)", async (t) => 
 	});
 });
 
-test.serial("Accepts framework name and uses latest (SAPUI5)", async (t) => {
+test.serial("Accepts framework name (SAPUI5)", async (t) => {
 	await assertUseHandler(t, {
 		argv: {"framework-info": "SAPUI5"},
 		expectedFrameworkOptions: {
 			name: "SAPUI5",
-			version: "latest"
+			version: null
 		}
 	});
 });
 
-test.serial("Accepts framework name and uses latest (sapui5)", async (t) => {
+test.serial("Accepts framework name (sapui5)", async (t) => {
 	await assertUseHandler(t, {
 		argv: {"framework-info": "sapui5"},
 		expectedFrameworkOptions: {
 			name: "sapui5",
-			version: "latest"
+			version: null
 		}
 	});
 });
 
-test.serial("Accepts framework name and uses latest (OpenUI5)", async (t) => {
+test.serial("Accepts framework name (OpenUI5)", async (t) => {
 	await assertUseHandler(t, {
 		argv: {"framework-info": "OpenUI5"},
 		expectedFrameworkOptions: {
 			name: "OpenUI5",
-			version: "latest"
+			version: null
 		}
 	});
 });
@@ -255,57 +224,5 @@ test.serial("Rejects when YAML could not be updated (with config path)", async (
 	await assertFailingYamlUpdateUseHandler(t, {
 		argv: {"framework-info": "SAPUI5@1.76.0", "config": "/path/to/ui5.yaml"},
 		expectedMessage: "Internal error while updating config at /path/to/ui5.yaml to SAPUI5 version 1.76.0"
-	});
-});
-
-test.serial("Logs framework name, version and default config path when updating config", async (t) => {
-	const {useCommand, frameworkUseStub} = t.context;
-
-	frameworkUseStub.resolves({
-		usedFramework: "SAPUI5",
-		usedVersion: "1.76.0",
-		yamlUpdated: true
-	});
-
-	await useCommand.handler({"framework-info": "SAPUI5@1.76.0"});
-
-	const expectedConsoleLog = [
-		"Updated configuration written to ui5.yaml",
-		"\n",
-		"This project is now using SAPUI5 version 1.76.0",
-		"\n"
-	];
-
-	t.is(t.context.processStdoutStub.callCount, expectedConsoleLog.length,
-		"console.log should be called " + expectedConsoleLog.length + " times");
-	expectedConsoleLog.forEach((expectedLog, i) => {
-		t.deepEqual(t.context.processStdoutStub.getCall(i).args, [expectedLog],
-			"console.log should be called with expected string on call index " + i);
-	});
-});
-
-test.serial("Logs framework name, version and custom config path when updating config", async (t) => {
-	const {useCommand, frameworkUseStub} = t.context;
-
-	frameworkUseStub.resolves({
-		usedFramework: "SAPUI5",
-		usedVersion: "1.76.0",
-		yamlUpdated: true
-	});
-
-	await useCommand.handler({"framework-info": "SAPUI5@1.76.0", "config": "/path/to/ui5.yaml"});
-
-	const expectedConsoleLog = [
-		"Updated configuration written to /path/to/ui5.yaml",
-		"\n",
-		"This project is now using SAPUI5 version 1.76.0",
-		"\n"
-	];
-
-	t.is(t.context.processStdoutStub.callCount, expectedConsoleLog.length,
-		"console.log should be called " + expectedConsoleLog.length + " times");
-	expectedConsoleLog.forEach((expectedLog, i) => {
-		t.deepEqual(t.context.processStdoutStub.getCall(i).args, [expectedLog],
-			"console.log should be called with expected string on call index " + i);
 	});
 });
