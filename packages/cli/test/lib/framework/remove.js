@@ -1,114 +1,124 @@
-import test from "ava";
-import sinon from "sinon";
-import esmock from "esmock";
+const test = require("ava");
+const sinon = require("sinon");
+const mock = require("mock-require");
+const log = require("@ui5/logger");
 
-function createMockProject(attr) {
-	return {
-		getName: () => attr.name,
-		getSpecVersion: () => {
-			return {
-				toString: () => attr.specVersion,
-				lt: () => attr.specVersion === "1.0",
-			};
-		},
-		getRootPath: () => attr.path,
-		getFrameworkName: () => attr.frameworkName,
-		getFrameworkVersion: () => attr.frameworkVersion,
-		getFrameworkDependencies: () => attr.frameworkLibraries || [],
-	};
-}
+const ui5Project = require("@ui5/project");
 
-test.beforeEach(async (t) => {
-	t.context.getRootProjectConfigurationStub = sinon.stub();
+let removeFramework;
+
+test.beforeEach((t) => {
+	t.context.generateDependencyTreeStub = sinon.stub(ui5Project.normalizer, "generateDependencyTree");
+	t.context.processTreeStub = sinon.stub(ui5Project.projectPreprocessor, "processTree");
 
 	t.context.updateYamlStub = sinon.stub();
 
 	t.context.logWarnStub = sinon.stub();
-
-	t.context.removeFramework = await esmock.p("../../../lib/framework/remove.js", {
-		"../../../lib/framework/updateYaml.js": t.context.updateYamlStub,
-		"../../../lib/framework/utils.js": {
-			getRootProjectConfiguration: t.context.getRootProjectConfigurationStub
-		},
-		"@ui5/logger": {
-			getLogger: sinon.stub().returns({
-				warn: t.context.logWarnStub
-			})
-		}
+	sinon.stub(log, "getLogger").returns({
+		warn: t.context.logWarnStub
 	});
+
+
+	mock("../../../lib/framework/updateYaml", t.context.updateYamlStub);
+
+	removeFramework = mock.reRequire("../../../lib/framework/remove");
 });
 
-test.afterEach.always((t) => {
+test.afterEach.always(() => {
+	mock.stopAll();
 	sinon.restore();
-	esmock.purge(t.context.removeFramework);
 });
 
 test.serial("Remove with existing libraries in config", async (t) => {
-	const {removeFramework, getRootProjectConfigurationStub, updateYamlStub} = t.context;
+	const {generateDependencyTreeStub, processTreeStub,
+		updateYamlStub} = t.context;
 
-	const projectGraphOptions = {
-		fakeProjectGraphOptions: true
+	const normalizerOptions = {
+		"fakeNormalizerOption": true
 	};
 
-	const project = createMockProject({
+	const tree = {
+		dependencies: [{id: "fake-dependency"}]
+	};
+	const project = {
 		specVersion: "2.0",
-		name: "my-project",
-		frameworkName: "OpenUI5",
-		frameworkVersion: "1.76.0",
-		frameworkLibraries: [{
-			name: "sap.ui.lib2"
-		}, {
-			name: "sap.ui.lib1"
-		}]
-	});
+		metadata: {
+			name: "my-project"
+		},
+		framework: {
+			name: "OpenUI5",
+			version: "1.76.0",
+			libraries: [{
+				name: "sap.ui.lib2"
+			}, {
+				name: "sap.ui.lib1"
+			}]
+		}
+	};
 
-	getRootProjectConfigurationStub.resolves(project);
+	generateDependencyTreeStub.resolves(tree);
+	processTreeStub.resolves(project);
 
 
 	const result = await removeFramework({
-		projectGraphOptions,
+		normalizerOptions,
 		libraries: [{name: "sap.ui.lib1"}]
 	});
 
 	t.deepEqual(result, {yamlUpdated: true}, "yamlUpdated should be true");
 
-	t.is(getRootProjectConfigurationStub.callCount, 1, "generateProjectGraph should be called once");
-	t.deepEqual(getRootProjectConfigurationStub.getCall(0).args, [{fakeProjectGraphOptions: true}],
-		"generateProjectGraph should be called with expected args");
+	t.is(generateDependencyTreeStub.callCount, 1, "normalizer.generateDependencyTree should be called once");
+	t.deepEqual(generateDependencyTreeStub.getCall(0).args, [{"fakeNormalizerOption": true}],
+		"normalizer.generateDependencyTree should be called with expected args");
+
+	t.is(processTreeStub.callCount, 1, "projectPreprocessor.processTree should be called once");
+	t.deepEqual(processTreeStub.getCall(0).args, [{
+		dependencies: []
+	}],
+	"projectPreprocessor.processTree should be called with expected args");
 
 	t.is(updateYamlStub.callCount, 1, "updateYaml should be called once");
 	t.deepEqual(updateYamlStub.getCall(0).args, [{
 		project,
-		configPathOverride: undefined,
 		data: {
 			framework: {libraries: [{name: "sap.ui.lib2"}]}
 		}
 	}], "updateYaml should be called with expected args");
 });
 
-test.serial("Remove with 2 existing libraries in config", async (t) => {
-	const {removeFramework, getRootProjectConfigurationStub, updateYamlStub} = t.context;
 
-	const projectGraphOptions = {
-		fakeProjectGraphOptions: true
+test.serial("Remove with 2 existing libraries in config", async (t) => {
+	const {generateDependencyTreeStub, processTreeStub,
+		updateYamlStub} = t.context;
+
+	const normalizerOptions = {
+		"fakeNormalizerOption": true
 	};
 
-	const project = createMockProject({
+	const tree = {
+		dependencies: [{id: "fake-dependency"}]
+	};
+	const project = {
 		specVersion: "2.0",
-		name: "my-project",
-		frameworkName: "OpenUI5",
-		frameworkVersion: "1.76.0",
-		frameworkLibraries: [{
-			name: "sap.ui.lib2"
-		}, {
-			name: "sap.ui.lib1"
-		}]
-	});
+		metadata: {
+			name: "my-project"
+		},
+		framework: {
+			name: "OpenUI5",
+			version: "1.76.0",
+			libraries: [{
+				name: "sap.ui.lib2"
+			}, {
+				name: "sap.ui.lib1"
+			}]
+		}
+	};
 
-	getRootProjectConfigurationStub.resolves(project);
+	generateDependencyTreeStub.resolves(tree);
+	processTreeStub.resolves(project);
 
 	const result = await removeFramework({
-		projectGraphOptions,
+		normalizerOptions,
 		libraries: [{
 			name: "sap.ui.lib1"
 		}, {
@@ -118,14 +128,19 @@ test.serial("Remove with 2 existing libraries in config", async (t) => {
 
 	t.deepEqual(result, {yamlUpdated: true}, "yamlUpdated should be true");
 
-	t.is(getRootProjectConfigurationStub.callCount, 1, "generateProjectGraph should be called once");
-	t.deepEqual(getRootProjectConfigurationStub.getCall(0).args, [{fakeProjectGraphOptions: true}],
-		"generateProjectGraph should be called with expected args");
+	t.is(generateDependencyTreeStub.callCount, 1, "normalizer.generateDependencyTree should be called once");
+	t.deepEqual(generateDependencyTreeStub.getCall(0).args, [{"fakeNormalizerOption": true}],
+		"normalizer.generateDependencyTree should be called with expected args");
+
+	t.is(processTreeStub.callCount, 1, "projectPreprocessor.processTree should be called once");
+	t.deepEqual(processTreeStub.getCall(0).args, [{
+		dependencies: []
+	}],
+	"projectPreprocessor.processTree should be called with expected args");
 
 	t.is(updateYamlStub.callCount, 1, "updateYaml should be called once");
 	t.deepEqual(updateYamlStub.getCall(0).args, [{
 		project,
-		configPathOverride: undefined,
 		data: {
 			framework: {libraries: []}
 		}
@@ -134,28 +149,37 @@ test.serial("Remove with 2 existing libraries in config", async (t) => {
 
 
 test.serial("Remove with non-existing library in config", async (t) => {
-	const {removeFramework, getRootProjectConfigurationStub, updateYamlStub, logWarnStub} = t.context;
+	const {generateDependencyTreeStub, processTreeStub,
+		updateYamlStub, logWarnStub} = t.context;
 
-	const projectGraphOptions = {
-		fakeProjectGraphOptions: true
+	const normalizerOptions = {
+		"fakeNormalizerOption": true
 	};
 
-	const project = createMockProject({
+	const tree = {
+		dependencies: [{id: "fake-dependency"}]
+	};
+	const project = {
 		specVersion: "2.0",
-		name: "my-project",
-		frameworkName: "OpenUI5",
-		frameworkVersion: "1.76.0",
-		frameworkLibraries: [{
-			name: "sap.ui.lib1"
-		}, {
-			name: "sap.ui.lib2"
-		}]
-	});
+		metadata: {
+			name: "my-project"
+		},
+		framework: {
+			name: "OpenUI5",
+			version: "1.76.0",
+			libraries: [{
+				name: "sap.ui.lib1"
+			}, {
+				name: "sap.ui.lib2"
+			}]
+		}
+	};
 
-	getRootProjectConfigurationStub.resolves(project);
+	generateDependencyTreeStub.resolves(tree);
+	processTreeStub.resolves(project);
 
 	await removeFramework({
-		projectGraphOptions,
+		normalizerOptions,
 		libraries: [{
 			name: "sap.ui.nonexisting"
 		}]
@@ -166,14 +190,19 @@ test.serial("Remove with non-existing library in config", async (t) => {
 	t.deepEqual(logWarnStub.getCall(0).args,
 		[`Failed to remove framework library sap.ui.nonexisting from project my-project because it is not present.`]);
 
-	t.is(getRootProjectConfigurationStub.callCount, 1, "generateProjectGraph should be called once");
-	t.deepEqual(getRootProjectConfigurationStub.getCall(0).args, [{fakeProjectGraphOptions: true}],
-		"generateProjectGraph should be called with expected args");
+	t.is(generateDependencyTreeStub.callCount, 1, "normalizer.generateDependencyTree should be called once");
+	t.deepEqual(generateDependencyTreeStub.getCall(0).args, [{"fakeNormalizerOption": true}],
+		"normalizer.generateDependencyTree should be called with expected args");
+
+	t.is(processTreeStub.callCount, 1, "projectPreprocessor.processTree should be called once");
+	t.deepEqual(processTreeStub.getCall(0).args, [{
+		dependencies: []
+	}],
+	"projectPreprocessor.processTree should be called with expected args");
 
 	t.is(updateYamlStub.callCount, 1, "updateYaml should be called");
 	t.deepEqual(updateYamlStub.getCall(0).args, [{
 		project,
-		configPathOverride: undefined,
 		data: {
 			framework: {
 				libraries: [{
@@ -187,131 +216,186 @@ test.serial("Remove with non-existing library in config", async (t) => {
 });
 
 test.serial("Remove with specVersion 1.0", async (t) => {
-	const {removeFramework, getRootProjectConfigurationStub, updateYamlStub} = t.context;
+	const {generateDependencyTreeStub, processTreeStub,
+		updateYamlStub} = t.context;
 
-	const projectGraphOptions = {
-		fakeProjectGraphOptions: true
+	const normalizerOptions = {
+		"fakeNormalizerOption": true
 	};
 
-	const project = createMockProject({
+	const tree = {
+		dependencies: [{id: "fake-dependency"}]
+	};
+	const project = {
 		specVersion: "1.0",
-		name: "my-project",
-	});
+		metadata: {
+			name: "my-project"
+		}
+	};
 
-	getRootProjectConfigurationStub.resolves(project);
+	generateDependencyTreeStub.resolves(tree);
+	processTreeStub.resolves(project);
 
 	const error = await t.throwsAsync(removeFramework({
-		projectGraphOptions
+		normalizerOptions
 	}));
 
 	t.is(error.message,
 		`ui5 remove command requires specVersion "2.0" or higher. Project my-project uses specVersion "1.0"`);
 
-	t.is(getRootProjectConfigurationStub.callCount, 1, "generateProjectGraph should be called once");
-	t.deepEqual(getRootProjectConfigurationStub.getCall(0).args, [{fakeProjectGraphOptions: true}],
-		"generateProjectGraph should be called with expected args");
+	t.is(generateDependencyTreeStub.callCount, 1, "normalizer.generateDependencyTree should be called once");
+	t.deepEqual(generateDependencyTreeStub.getCall(0).args, [{"fakeNormalizerOption": true}],
+		"normalizer.generateDependencyTree should be called with expected args");
+
+	t.is(processTreeStub.callCount, 1, "projectPreprocessor.processTree should be called once");
+	t.deepEqual(processTreeStub.getCall(0).args, [{
+		dependencies: []
+	}],
+	"projectPreprocessor.processTree should be called with expected args");
 
 
 	t.is(updateYamlStub.callCount, 0, "updateYaml should not be called");
 });
 
 test.serial("Remove without framework configuration", async (t) => {
-	const {removeFramework, getRootProjectConfigurationStub, updateYamlStub} = t.context;
+	const {generateDependencyTreeStub, processTreeStub,
+		updateYamlStub} = t.context;
 
-	const projectGraphOptions = {
-		fakeProjectGraphOptions: true
+	const normalizerOptions = {
+		"fakeNormalizerOption": true
 	};
 
-	const project = createMockProject({
+	const tree = {
+		dependencies: [{id: "fake-dependency"}]
+	};
+	const project = {
 		specVersion: "2.0",
-		name: "my-project",
-	});
+		metadata: {
+			name: "my-project"
+		}
+	};
 
-	getRootProjectConfigurationStub.resolves(project);
+	generateDependencyTreeStub.resolves(tree);
+	processTreeStub.resolves(project);
 
 	const error = await t.throwsAsync(removeFramework({
-		projectGraphOptions
+		normalizerOptions
 	}));
 
 	t.is(error.message, `Project my-project is missing a framework configuration. ` +
 		`Please use "ui5 use" to configure a framework and version.`);
 
-	t.is(getRootProjectConfigurationStub.callCount, 1, "generateProjectGraph should be called once");
-	t.deepEqual(getRootProjectConfigurationStub.getCall(0).args, [{fakeProjectGraphOptions: true}],
-		"generateProjectGraph should be called with expected args");
+	t.is(generateDependencyTreeStub.callCount, 1, "normalizer.generateDependencyTree should be called once");
+	t.deepEqual(generateDependencyTreeStub.getCall(0).args, [{"fakeNormalizerOption": true}],
+		"normalizer.generateDependencyTree should be called with expected args");
+
+	t.is(processTreeStub.callCount, 1, "projectPreprocessor.processTree should be called once");
+	t.deepEqual(processTreeStub.getCall(0).args, [{
+		dependencies: []
+	}],
+	"projectPreprocessor.processTree should be called with expected args");
 
 	t.is(updateYamlStub.callCount, 0, "updateYaml should not be called");
 });
 
 test.serial("Remove without framework version configuration", async (t) => {
-	const {removeFramework, getRootProjectConfigurationStub, updateYamlStub} = t.context;
+	const {generateDependencyTreeStub, processTreeStub,
+		updateYamlStub} = t.context;
 
-	const projectGraphOptions = {
-		fakeProjectGraphOptions: true
+	const normalizerOptions = {
+		"fakeNormalizerOption": true
 	};
 
-	const project = createMockProject({
+	const tree = {
+		dependencies: [{id: "fake-dependency"}]
+	};
+	const project = {
 		specVersion: "2.0",
-		name: "my-project",
-		frameworkName: "OpenUI5"
-	});
+		metadata: {
+			name: "my-project"
+		},
+		framework: {
+			name: "OpenUI5"
+		}
+	};
 
-	getRootProjectConfigurationStub.resolves(project);
+	generateDependencyTreeStub.resolves(tree);
+	processTreeStub.resolves(project);
 
 	const error = await t.throwsAsync(removeFramework({
-		projectGraphOptions
+		normalizerOptions
 	}));
 
 	t.is(error.message, `Project my-project does not define a framework version configuration. ` +
 		`Please use "ui5 use" to configure a version.`);
 
-	t.is(getRootProjectConfigurationStub.callCount, 1, "generateProjectGraph should be called once");
-	t.deepEqual(getRootProjectConfigurationStub.getCall(0).args, [{fakeProjectGraphOptions: true}],
-		"generateProjectGraph should be called with expected args");
+	t.is(generateDependencyTreeStub.callCount, 1, "normalizer.generateDependencyTree should be called once");
+	t.deepEqual(generateDependencyTreeStub.getCall(0).args, [{"fakeNormalizerOption": true}],
+		"normalizer.generateDependencyTree should be called with expected args");
+
+	t.is(processTreeStub.callCount, 1, "projectPreprocessor.processTree should be called once");
+	t.deepEqual(processTreeStub.getCall(0).args, [{
+		dependencies: []
+	}],
+	"projectPreprocessor.processTree should be called with expected args");
 
 	t.is(updateYamlStub.callCount, 0, "updateYaml should not be called");
 });
 
 test.serial("Remove with failing YAML update", async (t) => {
-	const {removeFramework, getRootProjectConfigurationStub, updateYamlStub} = t.context;
+	const {generateDependencyTreeStub, processTreeStub,
+		updateYamlStub} = t.context;
 
 	const yamlUpdateError = new Error("Failed to update YAML file");
 	yamlUpdateError.name = "FrameworkUpdateYamlFailed";
 	updateYamlStub.rejects(yamlUpdateError);
 
-	const projectGraphOptions = {
-		fakeProjectGraphOptions: true
+	const normalizerOptions = {
+		"fakeNormalizerOption": true
 	};
 
-	const project = createMockProject({
+	const tree = {
+		dependencies: [{id: "fake-dependency"}]
+	};
+	const project = {
 		specVersion: "2.0",
-		name: "my-project",
-		frameworkName: "OpenUI5",
-		frameworkVersion: "1.76.0",
-		frameworkLibraries: [{
-			name: "sap.ui.lib2"
-		}, {
-			name: "sap.ui.lib1"
-		}]
-	});
+		metadata: {
+			name: "my-project"
+		},
+		framework: {
+			name: "OpenUI5",
+			version: "1.76.0",
+			libraries: [{
+				name: "sap.ui.lib2"
+			}, {
+				name: "sap.ui.lib1"
+			}]
+		}
+	};
 
-	getRootProjectConfigurationStub.resolves(project);
+	generateDependencyTreeStub.resolves(tree);
+	processTreeStub.resolves(project);
 
 	const result = await removeFramework({
-		projectGraphOptions,
+		normalizerOptions,
 		libraries: [{name: "sap.ui.lib1"}]
 	});
 
 	t.deepEqual(result, {yamlUpdated: false}, "yamlUpdated should be false");
 
-	t.is(getRootProjectConfigurationStub.callCount, 1, "generateProjectGraph should be called once");
-	t.deepEqual(getRootProjectConfigurationStub.getCall(0).args, [{fakeProjectGraphOptions: true}],
-		"generateProjectGraph should be called with expected args");
+	t.is(generateDependencyTreeStub.callCount, 1, "normalizer.generateDependencyTree should be called once");
+	t.deepEqual(generateDependencyTreeStub.getCall(0).args, [{"fakeNormalizerOption": true}],
+		"normalizer.generateDependencyTree should be called with expected args");
+
+	t.is(processTreeStub.callCount, 1, "projectPreprocessor.processTree should be called once");
+	t.deepEqual(processTreeStub.getCall(0).args, [{
+		dependencies: []
+	}],
+	"projectPreprocessor.processTree should be called with expected args");
 
 	t.is(updateYamlStub.callCount, 1, "updateYaml should be called once");
 	t.deepEqual(updateYamlStub.getCall(0).args, [{
 		project,
-		configPathOverride: undefined,
 		data: {
 			framework: {
 				libraries: [{name: "sap.ui.lib2"}]
@@ -321,90 +405,61 @@ test.serial("Remove with failing YAML update", async (t) => {
 });
 
 test.serial("Remove with failing YAML update (unexpected error)", async (t) => {
-	const {removeFramework, getRootProjectConfigurationStub, updateYamlStub} = t.context;
+	const {generateDependencyTreeStub, processTreeStub,
+		updateYamlStub} = t.context;
 
 	updateYamlStub.rejects(new Error("Some unexpected error"));
 
-	const projectGraphOptions = {
-		fakeProjectGraphOptions: true
+	const normalizerOptions = {
+		"fakeNormalizerOption": true
 	};
 
-	const project = createMockProject({
+	const tree = {
+		dependencies: [{id: "fake-dependency"}]
+	};
+	const project = {
 		specVersion: "2.0",
-		name: "my-project",
-		frameworkName: "OpenUI5",
-		frameworkVersion: "1.76.0",
-		frameworkLibraries: [{
-			name: "sap.ui.lib2"
-		}, {
-			name: "sap.ui.lib1"
-		}]
-	});
+		metadata: {
+			name: "my-project"
+		},
+		framework: {
+			name: "OpenUI5",
+			version: "1.76.0",
+			libraries: [{
+				name: "sap.ui.lib2"
+			}, {
+				name: "sap.ui.lib1"
+			}]
+		}
+	};
 
-	getRootProjectConfigurationStub.resolves(project);
+	generateDependencyTreeStub.resolves(tree);
+	processTreeStub.resolves(project);
 
 	const error = await t.throwsAsync(removeFramework({
-		projectGraphOptions,
+		normalizerOptions,
 		libraries: [{name: "sap.ui.lib1"}]
 	}));
 
 	t.is(error.message, `Some unexpected error`);
 
-	t.is(getRootProjectConfigurationStub.callCount, 1, "generateProjectGraph should be called once");
-	t.deepEqual(getRootProjectConfigurationStub.getCall(0).args, [{fakeProjectGraphOptions: true}],
-		"generateProjectGraph should be called with expected args");
+	t.is(generateDependencyTreeStub.callCount, 1, "normalizer.generateDependencyTree should be called once");
+	t.deepEqual(generateDependencyTreeStub.getCall(0).args, [{"fakeNormalizerOption": true}],
+		"normalizer.generateDependencyTree should be called with expected args");
+
+	t.is(processTreeStub.callCount, 1, "projectPreprocessor.processTree should be called once");
+	t.deepEqual(processTreeStub.getCall(0).args, [{
+		dependencies: []
+	}],
+	"projectPreprocessor.processTree should be called with expected args");
 
 	t.is(updateYamlStub.callCount, 1, "updateYaml should be called once");
 	t.deepEqual(updateYamlStub.getCall(0).args, [{
 		project,
-		configPathOverride: undefined,
 		data: {
 			framework: {
 				libraries: [{name: "sap.ui.lib2"}]
 			}
-		}
-	}], "updateYaml should be called with expected args");
-});
-
-test.serial("Remove with projectGraphOptions.config", async (t) => {
-	const {removeFramework, getRootProjectConfigurationStub, updateYamlStub} = t.context;
-
-	const projectGraphOptions = {
-		config: "/path/to/ui5.yaml"
-	};
-
-	const project = createMockProject({
-		specVersion: "2.0",
-		name: "my-project",
-		frameworkName: "OpenUI5",
-		frameworkVersion: "1.76.0",
-		frameworkLibraries: [{
-			name: "sap.ui.lib2"
-		}, {
-			name: "sap.ui.lib1"
-		}]
-	});
-
-	getRootProjectConfigurationStub.resolves(project);
-
-
-	const result = await removeFramework({
-		projectGraphOptions,
-		libraries: [{name: "sap.ui.lib1"}]
-	});
-
-	t.deepEqual(result, {yamlUpdated: true}, "yamlUpdated should be true");
-
-	t.is(getRootProjectConfigurationStub.callCount, 1, "generateProjectGraph should be called once");
-	t.deepEqual(getRootProjectConfigurationStub.getCall(0).args, [{config: "/path/to/ui5.yaml"}],
-		"generateProjectGraph should be called with expected args");
-
-	t.is(updateYamlStub.callCount, 1, "updateYaml should be called once");
-	t.deepEqual(updateYamlStub.getCall(0).args, [{
-		project,
-		configPathOverride: "/path/to/ui5.yaml",
-		data: {
-			framework: {libraries: [{name: "sap.ui.lib2"}]}
 		}
 	}], "updateYaml should be called with expected args");
 });
