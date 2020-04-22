@@ -1,10 +1,8 @@
 // Remove
-import baseMiddleware from "../middlewares/base.js";
-
 const removeCommand = {
 	command: "remove <framework-libraries..>",
 	describe: "Remove SAPUI5/OpenUI5 framework libraries from the project configuration.",
-	middlewares: [baseMiddleware]
+	middlewares: [require("../middlewares/base.js")]
 };
 
 removeCommand.builder = function(cli) {
@@ -29,9 +27,9 @@ removeCommand.handler = async function(argv) {
 		return libraryNames.indexOf(libraryName) === index;
 	});
 
-	const projectGraphOptions = {
-		dependencyDefinition: argv.dependencyDefinition,
-		config: argv.config
+	const normalizerOptions = {
+		translatorName: argv.translator,
+		configPath: argv.config
 	};
 
 	const libraries = libraryNames.map((name) => {
@@ -39,10 +37,8 @@ removeCommand.handler = async function(argv) {
 		return library;
 	});
 
-	const {default: remove} = await import("../../framework/remove.js");
-
-	const {yamlUpdated} = await remove({
-		projectGraphOptions,
+	const {yamlUpdated} = await require("../../framework/remove")({
+		normalizerOptions,
 		libraries
 	});
 
@@ -50,8 +46,7 @@ removeCommand.handler = async function(argv) {
 	if (!yamlUpdated) {
 		if (argv.config) {
 			throw new Error(
-				`Internal error while removing framework ${library} ${libraryNames.join(" ")} ` +
-				`to config at ${argv.config}`
+				`Internal error while removing framework ${library} ${libraryNames.join(" ")} to config at ${argv.config}`
 			);
 		} else {
 			throw new Error(
@@ -59,13 +54,11 @@ removeCommand.handler = async function(argv) {
 			);
 		}
 	} else {
-		process.stdout.write(`Updated configuration written to ${argv.config || "ui5.yaml"}`);
-		process.stdout.write("\n");
+		console.log(`Updated configuration written to ${argv.config || "ui5.yaml"}`);
 		let logMessage = `Removed framework ${library} ${libraryNames.join(" ")} as`;
 		logMessage += libraries.length === 1 ? " dependency": " dependencies";
-		process.stdout.write(logMessage);
-		process.stdout.write("\n");
+		console.log(logMessage);
 	}
 };
 
-export default removeCommand;
+module.exports = removeCommand;
