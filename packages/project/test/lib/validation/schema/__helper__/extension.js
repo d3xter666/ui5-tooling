@@ -1,10 +1,9 @@
-import SpecificationVersion from "../../../../../lib/specifications/SpecificationVersion.js";
-import customConfiguration from "./customConfiguration.js";
+const customConfiguration = require("./customConfiguration");
 
 /**
  * Common test functionality to be able to run the same tests for different types of kind "extension"
  */
-export default {
+module.exports = {
 	/**
 	 * Executes the tests for different types of kind extension, e.g. "project-shim", "server-middleware" and "task"
 	 *
@@ -19,7 +18,7 @@ export default {
 
 		customConfiguration.defineTests(test, assertValidation, type, additionalConfiguration);
 
-		SpecificationVersion.getVersionsForRange(">=2.0").forEach((specVersion) => {
+		["2.0", "2.1"].forEach((specVersion) => {
 			test(`kind: extension / type: ${type} basic (${specVersion})`, async (t) => {
 				await assertValidation(t, Object.assign({
 					"specVersion": specVersion,
@@ -44,7 +43,8 @@ export default {
 					message: "should NOT have additional properties",
 					params: {
 						"additionalProperty": "resources"
-					}
+					},
+					schemaPath: specVersion === "2.1" ? "#/then/additionalProperties" : "#/else/additionalProperties"
 				}]);
 			});
 
@@ -63,61 +63,11 @@ export default {
 						message: "should NOT have additional properties",
 						params: {
 							additionalProperty: "notAllowed",
-						}
+						},
+						schemaPath:
+							specVersion === "2.1" ? "#/then/additionalProperties" : "#/else/additionalProperties"
 					}]);
 				});
-		});
-
-		SpecificationVersion.getVersionsForRange("2.0 - 2.6").forEach((specVersion) => {
-			test(`kind: extension / type: ${type}: Invalid metadata.name (${specVersion})`, async (t) => {
-				await assertValidation(t, Object.assign({
-					"specVersion": specVersion,
-					"type": type,
-					"metadata": {
-						"name": {}
-					}
-				}, additionalConfiguration), [{
-					dataPath: "/metadata/name",
-					keyword: "type",
-					message: "should be string",
-					params: {
-						type: "string"
-					}
-				}]);
-			});
-		});
-
-		SpecificationVersion.getVersionsForRange(">=3.0").forEach((specVersion) => {
-			test(`kind: extension / type: ${type}: Invalid metadata.name (${specVersion})`, async (t) => {
-				await assertValidation(t, Object.assign({
-					"specVersion": specVersion,
-					"type": type,
-					"metadata": {
-						"name": {}
-					}
-				}, additionalConfiguration), [{
-					dataPath: "/metadata/name",
-					keyword: "type",
-					message: "should be string",
-					params: {
-						type: "string",
-					},
-				}, {
-					dataPath: "/metadata/name",
-					keyword: "errorMessage",
-					message: `Not a valid extension name. It must consist of lowercase alphanumeric characters, dash, underscore, and period only. Additionally, it may contain an npm-style package scope. For details, see: https://ui5.github.io/cli/stable/pages/Configuration/#name`,
-					params: {
-						errors: [{
-							dataPath: "/metadata/name",
-							keyword: "type",
-							message: "should be string",
-							params: {
-								type: "string",
-							}
-						}]
-					},
-				}]);
-			});
 		});
 	}
 };
