@@ -1,12 +1,9 @@
-import SpecificationVersion from "../../../../../lib/specifications/SpecificationVersion.js";
-
 /**
  * Common test functionality for customConfiguration section in config
  */
-export default {
+module.exports = {
 	/**
-	 * Executes the tests for different kind of projects,
-	 * e.g. "application", "library", "theme-library" and "module"
+	 * Executes the tests for different kind of projects, e.g. "application", "library", "theme-library" and "module"
 	 *
 	 * @param {Function} test ava test
 	 * @param {Function} assertValidation assertion function
@@ -16,6 +13,7 @@ export default {
 	 */
 	defineTests: function(test, assertValidation, type, additionalConfiguration) {
 		additionalConfiguration = additionalConfiguration || {};
+
 		// version specific tests for customConfiguration
 		test(`${type}: Invalid customConfiguration (specVersion 2.0)`, async (t) => {
 			await assertValidation(t, Object.assign({
@@ -32,24 +30,23 @@ export default {
 					message: "should NOT have additional properties",
 					params: {
 						additionalProperty: "customConfiguration",
-					}
+					},
+					schemaPath: "#/else/additionalProperties",
 				}
 			]);
 		});
 
-		SpecificationVersion.getVersionsForRange(">=2.1").forEach((specVersion) => {
-			test(`${type}: Valid customConfiguration (specVersion ${specVersion})`, async (t) => {
-				await assertValidation(t, Object.assign( {
-					"specVersion": specVersion,
-					"type": type,
-					"metadata": {
-						"name": "my-" + type
-					},
-					"customConfiguration": {
-						"foo": "bar"
-					}
-				}, additionalConfiguration));
-			});
+		test(`${type}: Valid customConfiguration (specVersion 2.1)`, async (t) => {
+			await assertValidation(t, Object.assign( {
+				"specVersion": "2.1",
+				"type": type,
+				"metadata": {
+					"name": "my-" + type
+				},
+				"customConfiguration": {
+					"foo": "bar"
+				}
+			}, additionalConfiguration));
 		});
 	}
 };
