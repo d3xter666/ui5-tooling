@@ -1,19 +1,16 @@
-import SpecificationVersion from "../../../../../lib/specifications/SpecificationVersion.js";
-
 /**
  * Common test functionality for framework section in config
  */
-export default {
+module.exports = {
 	/**
-	 * Executes the tests for different types of kind project,
-	 * e.g. "application", library" and "theme-library"
+	 * Executes the tests for different types of kind project, e.g. "application", "library" and "theme-library"
 	 *
 	 * @param {Function} test ava test
 	 * @param {Function} assertValidation assertion function
-	 * @param {string} type one of "application", library" and "theme-library"
+	 * @param {string} type one of "application", "library" and "theme-library"
 	 */
 	defineTests: function(test, assertValidation, type) {
-		SpecificationVersion.getVersionsForRange(">=2.0").forEach((specVersion) => {
+		["2.0", "2.1"].forEach((specVersion) => {
 			test(`${type} (specVersion ${specVersion}): framework configuration: OpenUI5`, async (t) => {
 				const config = {
 					"specVersion": specVersion,
@@ -92,7 +89,8 @@ export default {
 								"OpenUI5",
 								"SAPUI5",
 							],
-						}
+						},
+						schemaPath: "../project.json#/definitions/framework/properties/name/enum",
 					},
 					{
 						dataPath: "/framework/version",
@@ -104,18 +102,19 @@ export default {
 									dataPath: "/framework/version",
 									keyword: "pattern",
 									message:
-										"should match pattern \"^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)" +
-										"(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*" +
-										"[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$\"",
+										"should match pattern \"^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*" +
+										"|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+(" +
+										"[0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$\"",
 									params: {
-										pattern:
-											"^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*" +
-											"[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-]" +
-											"[0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-									}
+										pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-]" +
+											"[0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(" +
+											"?:\\.[0-9a-zA-Z-]+)*))?$",
+									},
+									schemaPath: "../project.json#/definitions/framework/properties/version/pattern",
 								}
 							]
-						}
+						},
+						schemaPath: "../project.json#/definitions/framework/properties/version/errorMessage",
 					},
 					{
 						dataPath: "/framework/libraries/0",
@@ -123,7 +122,8 @@ export default {
 						message: "should be object",
 						params: {
 							type: "object",
-						}
+						},
+						schemaPath: "../project.json#/definitions/framework/properties/libraries/items/type"
 					},
 					{
 						dataPath: "/framework/libraries/1",
@@ -131,7 +131,8 @@ export default {
 						message: "should NOT have additional properties",
 						params: {
 							additionalProperty: "library",
-						}
+						},
+						schemaPath: "../project.json#/definitions/framework/properties/libraries/items/additionalProperties",
 					},
 					{
 						dataPath: "/framework/libraries/1",
@@ -139,7 +140,8 @@ export default {
 						message: "should have required property 'name'",
 						params: {
 							missingProperty: "name",
-						}
+						},
+						schemaPath: "../project.json#/definitions/framework/properties/libraries/items/required",
 					},
 					{
 						dataPath: "/framework/libraries/2/optional",
@@ -147,7 +149,8 @@ export default {
 						message: "should be boolean",
 						params: {
 							type: "boolean"
-						}
+						},
+						schemaPath: "../project.json#/definitions/framework/properties/libraries/items/properties/optional/type",
 					},
 					{
 						dataPath: "/framework/libraries/3/development",
@@ -155,7 +158,8 @@ export default {
 						message: "should be boolean",
 						params: {
 							type: "boolean"
-						}
+						},
+						schemaPath: "../project.json#/definitions/framework/properties/libraries/items/properties/development/type"
 					}
 				]);
 			});
@@ -175,80 +179,84 @@ export default {
 						message: "should have required property 'name'",
 						params: {
 							missingProperty: "name"
-						}
+						},
+						schemaPath: "../project.json#/definitions/framework/required",
 					}
 				]);
 			});
 
-			test(
-				`${type} (specVersion ${specVersion}): framework configuration: library with optional and development`,
-				async (t) => {
-					await assertValidation(t, {
-						"specVersion": specVersion,
-						"type": type,
-						"metadata": {
-							"name": "my-" + type
-						},
-						"framework": {
-							"name": "OpenUI5",
-							"libraries": [
+			test(`${type} (specVersion ${specVersion}): framework configuration: library with optional and development`, async (t) => {
+				await assertValidation(t, {
+					"specVersion": specVersion,
+					"type": type,
+					"metadata": {
+						"name": "my-" + type
+					},
+					"framework": {
+						"name": "OpenUI5",
+						"libraries": [
+							{
+								name: "sap.ui.lib1",
+								development: true,
+								optional: true
+							},
+							{
+								// This should only complain about wrong types, not that both are true
+								name: "sap.ui.lib2",
+								development: "true",
+								optional: "true"
+							}
+						]
+					}
+				}, [
+					{
+						dataPath: "/framework/libraries/0",
+						keyword: "errorMessage",
+						message: "Either \"development\" or \"optional\" can be true, but not both",
+						params: {
+							errors: [
 								{
-									name: "sap.ui.lib1",
-									development: true,
-									optional: true
+									dataPath: "/framework/libraries/0",
+									keyword: "additionalProperties",
+									message: "should NOT have additional properties",
+									params: {
+										additionalProperty: "development",
+									},
+									schemaPath: "../project.json#/definitions/framework/properties/libraries/items/then/additionalProperties",
 								},
 								{
-									// This should only complain about wrong types, not that both are true
-									name: "sap.ui.lib2",
-									development: "true",
-									optional: "true"
-								}
-							]
-						}
-					}, [
-						{
-							dataPath: "/framework/libraries/0",
-							keyword: "errorMessage",
-							message: "Either \"development\" or \"optional\" can be true, but not both",
-							params: {
-								errors: [
-									{
-										dataPath: "/framework/libraries/0",
-										keyword: "additionalProperties",
-										message: "should NOT have additional properties",
-										params: {
-											additionalProperty: "development",
-										}
+									dataPath: "/framework/libraries/0",
+									keyword: "additionalProperties",
+									message: "should NOT have additional properties",
+									params: {
+										additionalProperty: "optional",
 									},
-									{
-										dataPath: "/framework/libraries/0",
-										keyword: "additionalProperties",
-										message: "should NOT have additional properties",
-										params: {
-											additionalProperty: "optional",
-										}
-									},
-								],
-							}
+									schemaPath: "../project.json#/definitions/framework/properties/libraries/items/then/additionalProperties",
+								},
+							],
 						},
-						{
-							dataPath: "/framework/libraries/1/optional",
-							keyword: "type",
-							message: "should be boolean",
-							params: {
-								type: "boolean",
-							}
+						schemaPath: "../project.json#/definitions/framework/properties/libraries/items/then/errorMessage",
+					},
+					{
+						dataPath: "/framework/libraries/1/optional",
+						keyword: "type",
+						message: "should be boolean",
+						params: {
+							type: "boolean",
 						},
-						{
-							dataPath: "/framework/libraries/1/development",
-							keyword: "type",
-							message: "should be boolean",
-							params: {
-								type: "boolean",
-							}
+						schemaPath: "../project.json#/definitions/framework/properties/libraries/items/properties/optional/type",
+					},
+					{
+						dataPath: "/framework/libraries/1/development",
+						keyword: "type",
+						message: "should be boolean",
+						params: {
+							type: "boolean",
 						},
-					]);
-				});
+						schemaPath: "../project.json#/definitions/framework/properties/libraries/items/properties/development/type",
+					},
+				]);
+			});
 		});
 	}
 };
