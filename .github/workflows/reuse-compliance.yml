@@ -1,21 +1,11 @@
-name: REUSE
+name: REUSE Compliance Check
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-
-# No permissions are required for this workflow
-permissions: {}
+on: [push, pull_request]
 
 jobs:
-  compliance-check:
-    name: Compliance Check
+  test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Execute REUSE Compliance Check
-      uses: fsfe/reuse-action@v6
+    - uses: actions/checkout@v2
+    - name: REUSE Compliance Check
+      uses: fsfe/reuse-action@v1.1
