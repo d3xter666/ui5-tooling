@@ -1,5 +1,6 @@
+"use strict";
 
-import resourceListCreator from "../processors/resourceListCreator.js";
+const resourceListCreator = require("../processors/resourceListCreator");
 
 const DEFAULT_EXCLUDES = [
 	/*
@@ -14,7 +15,6 @@ const DEFAULT_EXCLUDES = [
 
 function getCreatorOptions(projectName) {
 	const creatorOptions = {};
-	// TODO: Move configuration into ui5.yaml
 	if ( projectName === "sap.ui.core" ) {
 		Object.assign(creatorOptions, {
 			externalResources: {
@@ -23,40 +23,39 @@ function getCreatorOptions(projectName) {
 					"sap/base/",
 					"sap/ui/"
 				]
-			}
-		});
-	} else if ( projectName === "sap.ui.integration" ) {
-		Object.assign(creatorOptions, {
-			externalResources: {
-				"sap/ui/integration": [
-					"sap-ui-integration*.js",
-				]
-			}
+			},
+			mergedResourcesFilters: [
+				"jquery-sap*.js",
+				"sap-ui-core*.js",
+				"**/Component-preload.js",
+				"**/library-preload.js",
+				"**/library-preload-dbg.js",
+				"**/library-preload.json",
+				"**/library-all.js",
+				"**/library-all-dbg.js",
+				"**/designtime/library-preload.designtime.js",
+				"**/library-preload.support.js"
+			]
 		});
 	}
 	return creatorOptions;
 }
 
 /**
- * @public
- * @module @ui5/builder/tasks/generateResourcesJson
- */
-
-/**
  * Task for creating a resources.json file, describing all productive build resources.
  *
  * <p>
  * The detailed structure can be found in the documentation:
- * {@link https://sdk.openui5.org/topic/adcbcf8b50924556ab3f321fcd9353ea}
+ * {@link https://openui5.hana.ondemand.com/#topic/adcbcf8b50924556ab3f321fcd9353ea}
  * </p>
  *
  * <p>
- * Not supported in combination with task {@link @ui5/builder/tasks/bundlers/generateStandaloneAppBundle}.
+ * Not supported in combination with task {@link module:@ui5/builder.tasks.generateStandaloneAppBundle}.
  * Therefore it is also not supported in combination with self-contained build.
  * </p>
  *
  * @example <caption>sample resources.json</caption>
- * const resourcesJson = {
+ * {
  * 	"_version": "1.1.0",
  * 	"resources": [
  * 		{
@@ -94,41 +93,23 @@ function getCreatorOptions(projectName) {
  * 			"support": true
  * 		}
  * 	]
- * };
+ * }
  *
  * @public
- * @function default
- * @static
- *
+ * @alias module:@ui5/builder.tasks.generateResourcesJson
  * @param {object} parameters Parameters
- * @param {@ui5/fs/DuplexCollection} parameters.workspace DuplexCollection to read and write files
- * @param {@ui5/fs/AbstractReader} parameters.dependencies Reader or Collection to read dependency files
- * @param {@ui5/project/build/helpers/TaskUtil|object} [parameters.taskUtil] TaskUtil
+ * @param {module:@ui5/fs.DuplexCollection} parameters.workspace DuplexCollection to read and write files
  * @param {object} parameters.options Options
  * @param {string} parameters.options.projectName Project name
  * @returns {Promise<undefined>} Promise resolving with <code>undefined</code> once data has been written
  */
-export default async function({workspace, dependencies, taskUtil, options: {projectName}}) {
-	let resources = await workspace.byGlob(["/resources/**/*"].concat(DEFAULT_EXCLUDES));
-	let dependencyResources =
-			await dependencies.byGlob("/resources/**/*.{js,json,xml,html,properties,library,js.map}");
-
-	if (taskUtil) {
-		// Filter out resources that will be omitted from the build results
-		resources = resources.filter((resource) => {
-			return !taskUtil.getTag(resource, taskUtil.STANDARD_TAGS.OmitFromBuildResult);
-		});
-		dependencyResources = dependencyResources.filter((resource) => {
-			return !taskUtil.getTag(resource, taskUtil.STANDARD_TAGS.OmitFromBuildResult);
-		});
-	}
+module.exports = async function({workspace, options: {projectName}}) {
+	const resources = await workspace.byGlob(["/resources/**/*.*"].concat(DEFAULT_EXCLUDES));
 
 	const resourceLists = await resourceListCreator({
-		resources,
-		dependencyResources,
-		options: getCreatorOptions(projectName),
-	});
+		resources
+	}, getCreatorOptions(projectName));
 	await Promise.all(
 		resourceLists.map((resourceList) => workspace.write(resourceList))
 	);
-}
+};
