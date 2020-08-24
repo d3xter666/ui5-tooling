@@ -1,8 +1,14 @@
-import Resource from "./Resource.js";
+const Resource = require("./Resource");
+
+
+function extractName(path) {
+	return path.slice( "/resources/".length);
+}
+
 
 class LocatorResource extends Resource {
-	constructor(pool, resource, moduleName) {
-		super(pool, moduleName, null, resource.getStatInfo());
+	constructor(pool, resource) {
+		super(pool, extractName(resource.getPath()), null, resource.getStatInfo());
 		this.resource = resource;
 	}
 
@@ -11,12 +17,8 @@ class LocatorResource extends Resource {
 	}
 
 	getProject() {
-		return this.resource.getProject();
-	}
-
-	getPath() {
-		return this.resource.getPath();
+		return this.resource._project;
 	}
 }
 
-export default LocatorResource;
+module.exports = LocatorResource;
