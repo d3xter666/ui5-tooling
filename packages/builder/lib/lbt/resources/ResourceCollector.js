@@ -1,11 +1,12 @@
-import ResourceInfoList from "./ResourceInfoList.js";
-import ResourceFilterList from "./ResourceFilterList.js";
-import ResourceInfo from "./ResourceInfo.js";
-import {getLogger} from "@ui5/logger";
-const log = getLogger("lbt:resources:ResourceCollector");
+const ResourceInfoList = require("./ResourceInfoList");
+const ResourceFilterList = require("./ResourceFilterList");
+const ResourceInfo = require("./ResourceInfo");
+
 
 const LOCALE = /^((?:[^/]+\/)*[^/]+?)_([A-Z]{2}(?:_[A-Z]{2}(?:_[A-Z0-9_]+)?)?)(\.properties|\.hdbtextbundle)$/i;
 const THEME = /^((?:[^/]+\/)*)themes\/([^/]+)\//;
+
+const log = require("@ui5/logger").getLogger("lbt:resources:ResourceCollector");
 
 /**
  * Collects all resources in a set of resource folders or from an archive
@@ -66,7 +67,7 @@ class ResourceCollector {
 	 *
 	 * If no component is given, orphans will only be reported but not added to any component (default).
 	 *
-	 * @param {Object<string, string[]>} list component to list of components
+	 * @param {object<string, string[]>} list component to list of components
 	 */
 	setExternalResources(list) {
 		this._externalResources = list;
@@ -75,12 +76,12 @@ class ResourceCollector {
 	/**
 	 * Processes a resource
 	 *
-	 * @param {@ui5/fs/Resource} resource
+	 * @param {module:@ui5/fs.Resource} resource
 	 */
 	async visitResource(resource) {
 		const virPath = resource.getPath();
 		if ( !virPath.startsWith("/resources/") ) {
-			log.warn(`Non-runtime resource ${virPath} ignored`);
+			log.warn(`non-runtime resource ${virPath} ignored`);
 			return;
 		}
 		const name = virPath.slice("/resources/".length);
@@ -92,32 +93,28 @@ class ResourceCollector {
 			const p = name.lastIndexOf("/");
 			const prefix = name.substring(0, p + 1);
 			const basename = name.substring(p + 1);
-			if ( basename.match("^([^/]*\\.library|Component\\.js|manifest\\.json)$") &&
-					!this._components.has(prefix)) {
+			if ( basename.match("[^/]*\\.library|Component\\.js|manifest\\.json") && !this._components.has(prefix) ) {
 				this._components.set(prefix, new ResourceInfoList(prefix));
 			}
 			// a .theme file within a theme folder indicates a library/theme package
 			// Note: ignores .theme files in library folders
 
 			// .theming files are not always present therefore this check is relevant for the library.source.less
-			if ( name.match("(?:[^/]+/)*themes/[^/]+/(?:\\.theming|library\\.source\\.less)") &&
-					!this._themePackages.has(prefix) ) {
-				// log.info("Found new theme package %s", prefix);
+			if ( name.match("(?:[^/]+/)*themes/[^/]+/(?:\\.theming|library\\.source\\.less)") && !this._themePackages.has(prefix) ) {
+				// log.info("found new theme package %s", prefix);
 				this._themePackages.set(prefix, new ResourceInfoList(prefix));
 			}
 		}
 	}
 
 	async enrichWithDependencyInfo(resourceInfo) {
-		return this._pool.getModuleInfo(resourceInfo.name, resourceInfo.module).then(async (moduleInfo) => {
-			if ( !resourceInfo.module && moduleInfo.name ) {
+		return this._pool.getModuleInfo(resourceInfo.name).then((moduleInfo) => {
+			if ( moduleInfo.name ) {
 				resourceInfo.module = moduleInfo.name;
 			}
-
 			if ( moduleInfo.dynamicDependencies ) {
 				resourceInfo.dynRequired = true;
 			}
-
 			if ( moduleInfo.dependencies.length > 0 ) {
 				resourceInfo.required = resourceInfo.required || new Set();
 				resourceInfo.condRequired = resourceInfo.condRequired || new Set();
@@ -129,51 +126,11 @@ class ResourceCollector {
 					}
 				});
 			}
-
 			if ( moduleInfo.subModules.length > 0 ) {
 				resourceInfo.included = resourceInfo.included || new Set();
 				moduleInfo.subModules.forEach((mod) => {
 					resourceInfo.included.add(mod);
 				});
-				await Promise.all(moduleInfo.subModules.map(async (subModule) => {
-					// Try to inherit dependency info
-					let subModuleInfo;
-					try {
-						subModuleInfo = await this._pool.getModuleInfo(subModule);
-					} catch {
-						log.verbose(`	Missing submodule ${subModule} included by ${moduleInfo.name}`);
-					}
-					if (subModuleInfo) {
-						// Inherit subModule dependencies
-						if ( subModuleInfo.dependencies.length > 0 ) {
-							resourceInfo.required = resourceInfo.required || new Set();
-							resourceInfo.condRequired = resourceInfo.condRequired || new Set();
-							subModuleInfo.dependencies.forEach((dep) => {
-								if (resourceInfo.included.has(dep)) {
-									// Don't add dependency if module is already listed as "included"
-									return;
-								}
-								if ( subModuleInfo.isConditionalDependency(dep) ) {
-									// Avoid having module listed in both required and condRequired
-									if (!resourceInfo.required.has(dep)) {
-										resourceInfo.condRequired.add(dep);
-									}
-								} else if ( !subModuleInfo.isImplicitDependency(dep) ) {
-									// Move module from condRequired to required
-									if (resourceInfo.condRequired.has(dep)) {
-										resourceInfo.condRequired.delete(dep);
-									}
-									resourceInfo.required.add(dep);
-								}
-							});
-						}
-
-						// Inherit dynamicDependencies flag
-						if ( moduleInfo.dynamicDependencies ) {
-							resourceInfo.dynRequired = true;
-						}
-					}
-				}));
 			}
 
 			if (moduleInfo.requiresTopLevelScope) {
@@ -192,9 +149,7 @@ class ResourceCollector {
 		});
 	}
 
-	async determineResourceDetails({
-		debugResources, mergedResources, designtimeResources, supportResources
-	}) {
+	async determineResourceDetails({pool, debugResources, mergedResources, designtimeResources, supportResources}) {
 		const baseNames = new Set();
 		const debugFilter = new ResourceFilterList(debugResources);
 		const mergeFilter = new ResourceFilterList(mergedResources);
@@ -202,19 +157,13 @@ class ResourceCollector {
 		const supportFilter = new ResourceFilterList(supportResources);
 
 		const promises = [];
-		const debugResourcesInfo = [];
 
 		for (const [name, info] of this._resources.entries()) {
-			if ( debugFilter.matches(name) ) {
-				info.isDebug = true;
-				log.verbose(`  Found potential debug resource '${name}'`);
-			}
-
 			// log.verbose(`  checking ${name}`);
 			let m;
 			if ( m = LOCALE.exec(name) ) {
 				const baseName = m[1] + m[3];
-				log.verbose(`  Found potential i18n resource '${name}', base name is '${baseName}', locale is ${m[2]}`);
+				log.verbose(`  found potential i18n resource '${name}', base name is '${baseName}', locale is ${m[2]}`);
 				info.i18nName = baseName; // e.g. "i18n.properties"
 				info.i18nLocale = m[2]; // e.g. "de"
 				baseNames.add(baseName);
@@ -225,20 +174,14 @@ class ResourceCollector {
 				if ( this._themePackages.has(m[0]) ) {
 					const theme = m[2];
 					info.theme = theme;
-					log.verbose(`  Found potential theme resource '${name}', theme ${theme}`);
+					log.verbose(`  found potential theme resource '${name}', theme ${theme}`);
 				}
 			}
 
 			if ( /(?:\.js|\.view\.xml|\.control\.xml|\.fragment\.xml)$/.test(name) ) {
-				if ( !info.isDebug ) {
-					// Only analyze non-dbg files in first run
-					promises.push(
-						this.enrichWithDependencyInfo(info)
-					);
-				} else {
-					// Collect dbg files to be handled in a second step (see below)
-					debugResourcesInfo.push(info);
-				}
+				promises.push(
+					this.enrichWithDependencyInfo(info)
+				);
 			}
 
 			// set the module name for .properties and .json
@@ -253,19 +196,24 @@ class ResourceCollector {
 				}));
 			}
 
+			if ( debugFilter.matches(name) ) {
+				info.isDebug = true;
+				log.verbose(`  found potential debug resource '${name}'`);
+			}
+
 			if ( mergeFilter.matches(name) ) {
 				info.merged = true;
-				log.verbose(`  Found potential merged resource '${name}'`);
+				log.verbose(`  found potential merged resource '${name}'`);
 			}
 
 			if ( designtimeFilter.matches(name) ) {
 				info.designtime = true;
-				log.verbose(`  Found potential designtime resource '${name}'`);
+				log.verbose(`  found potential designtime resource '${name}'`);
 			}
 
 			if ( supportFilter.matches(name) ) {
 				info.support = true;
-				log.verbose(`  Found potential support resource '${name}'`);
+				log.verbose(`  found potential support resource '${name}'`);
 			}
 		}
 
@@ -277,51 +225,12 @@ class ResourceCollector {
 			}
 		}
 
-		await Promise.all(promises);
-
-		await Promise.all(debugResourcesInfo.map(async (dbgInfo) => {
-			const debugName = dbgInfo.name;
-			const nonDebugName = ResourceInfoList.getNonDebugName(debugName);
-			const nonDbgInfo = this._resources.get(nonDebugName);
-
-			// FIXME: "merged" property is only calculated in ResourceInfo#copyFrom
-			// Therefore using the same logic here to compute it.
-
-			// TODO: Idea: Use IsDebugVariant tag to decide whether to analyze the resource
-			// If the tag is set, we don't expect different analysis results so we can copy the info (else-path)
-			// Only when the tag is not set, we analyze the resource with its name (incl. -dbg)
-
-			if (!nonDbgInfo || (nonDbgInfo.included != null && nonDbgInfo.included.size > 0)) {
-				// We need to analyze the dbg resource if there is no non-dbg variant or
-				// it is a bundle because we will (usually) have different content.
-
-				if (nonDbgInfo) {
-					// Always use the non-debug module name, if available
-					dbgInfo.module = nonDbgInfo.module;
-				}
-				await this.enrichWithDependencyInfo(dbgInfo);
-			} else {
-				// If the non-dbg resource is not a bundle, we can just copy over the info and skip
-				// analyzing the dbg variant as both should have the same info.
-
-				const newDbgInfo = new ResourceInfo(debugName);
-
-				// First copy info of analysis from non-dbg file (included, required, condRequired, ...)
-				newDbgInfo.copyFrom(null, nonDbgInfo);
-				// Then copy over info from dbg file to properly set name, isDebug, etc.
-				newDbgInfo.copyFrom(null, dbgInfo);
-				// Finally, set the module name to the non-dbg name
-				newDbgInfo.module = nonDbgInfo.module;
-
-				this._resources.set(debugName, newDbgInfo);
-			}
-		}));
+		return Promise.all(promises);
 	}
 
 	createOrphanFilters() {
 		log.verbose(
-			`  Configured external resources filters (resources outside the namespace): ` +
-			`${this._externalResources == null ? "(none)" : this._externalResources}`);
+			`  configured external resources filters (resources outside the namespace): ${this._externalResources == null ? "(none)" : this._externalResources}`);
 
 		const filtersByComponent = new Map();
 
@@ -333,26 +242,27 @@ class ResourceCollector {
 				} else if ( !component.endsWith("/") ) {
 					component += "/";
 				}
-				log.verbose(`	Resulting filter list for '${component}': '${packageFilters}'`);
+				log.verbose(`	resulting filter list for '${component}': '${packageFilters}'`);
 				filtersByComponent.set(component, packageFilters);
 			}
 		}
 		return filtersByComponent;
 	}
 
-	groupResourcesByComponents() {
+	groupResourcesByComponents(options) {
 		const orphanFilters = this.createOrphanFilters();
+		const debugBundlesFilter = new ResourceFilterList(options.debugBundles);
 		for (const resource of this._resources.values()) {
 			let contained = false;
 			for (const [prefix, list] of this._components.entries()) {
+				const isDebugBundle = debugBundlesFilter.matches(resource.name);
 				if ( resource.name.startsWith(prefix) ) {
-					list.add(resource);
+					list.add(resource, !isDebugBundle);
 					contained = true;
 				} else if ( orphanFilters.has(prefix) ) {
-					// log.verbose(`  checking '${resource.name}' against orphan filter ` +
-					// 	`'${orphanFilters.get(prefix)}' (${prefix})`);
+					// log.verbose(`  checking '${resource.name}' against orphan filter '${orphanFilters.get(prefix)}' (${prefix})`);
 					if ( orphanFilters.get(prefix).matches(resource.name) ) {
-						list.add(resource);
+						list.add(resource, !isDebugBundle);
 						contained = true;
 					}
 				}
@@ -399,4 +309,4 @@ class ResourceCollector {
 	}
 }
 
-export default ResourceCollector;
+module.exports = ResourceCollector;
