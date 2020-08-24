@@ -1,14 +1,15 @@
-import test from "ava";
-import ResourceInfo from "../../../../lib/lbt/resources/ResourceInfo.js";
+const test = require("ava");
 
-test("ResourceInfo: constructor", (t) => {
+const ResourceInfo = require("../../../../lib/lbt/resources/ResourceInfo");
+
+test("ResourceInfo: constructor", async (t) => {
 	const resourceInfo = new ResourceInfo("myName");
 	t.falsy(resourceInfo.module, "module not set");
 	t.falsy(resourceInfo.format, "format not set");
 	t.is(resourceInfo.size, -1, "size not set");
 });
 
-test("ResourceInfo: copyFrom", (t) => {
+test("ResourceInfo: copyFrom", async (t) => {
 	// setup
 	const resourceInfo = new ResourceInfo("myName");
 	const origResourceInfo = new ResourceInfo("origMyName");
@@ -51,7 +52,7 @@ test("ResourceInfo: copyFrom", (t) => {
 	t.is(resourceInfo.size, 13, "value is copied over");
 });
 
-test("ResourceInfo: toJSON", (t) => {
+test("ResourceInfo: toJSON", async (t) => {
 	const resourceInfo = new ResourceInfo("myName");
 	resourceInfo.i18nName = "i18nName";
 	resourceInfo.i18nLocale = "i18nLocale";

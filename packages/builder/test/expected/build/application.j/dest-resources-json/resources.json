@@ -2,30 +2,10 @@
 	"_version": "1.1.0",
 	"resources": [
 		{
-			"name": "Component-dbg.js",
-			"module": "application/j/Component.js",
-			"size": 184,
-			"isDebug": true,
-			"required": [
-				"sap/m/library.js",
-				"sap/ui/core/UIComponent.js",
-				"sap/ui/core/library.js",
-				"sap/ui/fl/library.js",
-				"sap/ui/layout/library.js"
-			]
-		},
-		{
 			"name": "Component-preload.js",
 			"module": "application/j/Component-preload.js",
-			"size": 3658,
+			"size": 3746,
 			"merged": true,
-			"required": [
-				"sap/m/library.js",
-				"sap/ui/core/UIComponent.js",
-				"sap/ui/core/library.js",
-				"sap/ui/fl/library.js",
-				"sap/ui/layout/library.js"
-			],
 			"included": [
 				"application/j/Component.js",
 				"application/j/changes/coding/MyExtension.js",
@@ -35,14 +15,9 @@
 			]
 		},
 		{
-			"name": "Component-preload.js.map",
-			"size": 790,
-			"isDebug": true
-		},
-		{
 			"name": "Component.js",
 			"module": "application/j/Component.js",
-			"size": 179,
+			"size": 141,
 			"required": [
 				"sap/m/library.js",
 				"sap/ui/core/UIComponent.js",
@@ -52,30 +27,14 @@
 			]
 		},
 		{
-			"name": "Component.js.map",
-			"size": 274,
-			"isDebug": true
-		},
-		{
-			"name": "changes/coding/MyExtension-dbg.js",
-			"module": "application/j/changes/coding/MyExtension.js",
-			"size": 47,
-			"isDebug": true
-		},
-		{
 			"name": "changes/coding/MyExtension.js",
 			"module": "application/j/changes/coding/MyExtension.js",
-			"size": 79
-		},
-		{
-			"name": "changes/coding/MyExtension.js.map",
-			"size": 178,
-			"isDebug": true
+			"size": 39
 		},
 		{
 			"name": "changes/flexibility-bundle.json",
 			"module": "application/j/changes/flexibility-bundle.json",
-			"size": 2800
+			"size": 2864
 		},
 		{
 			"name": "changes/fragments/MyFragment.fragment.xml",
@@ -83,17 +42,45 @@
 			"size": 13
 		},
 		{
-			"name": "fileWithoutExtension",
-			"size": 27
+			"name": "changes/id_111_appDescriptor.change",
+			"size": 464
+		},
+		{
+			"name": "changes/id_111_compVariants.variant",
+			"size": 466
+		},
+		{
+			"name": "changes/id_111_test.ctrl_variant",
+			"size": 432
+		},
+		{
+			"name": "changes/id_111_test.ctrl_variant_change",
+			"size": 439
+		},
+		{
+			"name": "changes/id_111_test.ctrl_variant_management_change",
+			"size": 450
+		},
+		{
+			"name": "changes/id_111_variantDependentControlChange.change",
+			"size": 489
+		},
+		{
+			"name": "changes/id_123_addField.change",
+			"size": 430
+		},
+		{
+			"name": "changes/id_456_addField.change",
+			"size": 430
 		},
 		{
 			"name": "manifest.json",
 			"module": "application/j/manifest.json",
-			"size": 424
+			"size": 423
 		},
 		{
 			"name": "resources.json",
-			"size": 2173
+			"size": 1870
 		}
 	]
 }
