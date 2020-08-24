@@ -1,11 +1,11 @@
+"use strict";
 
-import {getLogger} from "@ui5/logger";
-const log = getLogger("builder:processors:resourceListCreator");
-import ResourceCollector from "../lbt/resources/ResourceCollector.js";
-import LocatorResourcePool from "../lbt/resources/LocatorResourcePool.js";
-import ResourceInfo from "../lbt/resources/ResourceInfo.js";
-import Resource from "@ui5/fs/Resource";
+const log = require("@ui5/logger").getLogger("builder:processors:resourceListCreator");
+const ResourceCollector = require("../lbt/resources/ResourceCollector");
+const LocatorResourcePool = require("../lbt/resources/LocatorResourcePool");
+const ResourceInfo = require("../lbt/resources/ResourceInfo");
 
+const EvoResource = require("@ui5/fs").Resource;
 
 /**
  * List of resource patterns that describe all debug resources.
@@ -67,6 +67,16 @@ const DEFAULT_SUPPORT_RESOURCES_FILTER = [
 ];
 
 /**
+ * Hard coded debug bundle, to trigger separate analysis for this filename
+ * because sap-ui-core.js and sap-ui-core-dbg.js have different includes
+ *
+ * @type {string[]}
+ */
+const DEBUG_BUNDLES = [
+	"sap-ui-core-dbg.js"
+];
+
+/**
  * Creates and adds resources.json entry (itself) to the list.
  *
  * Retrieves the string content of the overall result and returns it.
@@ -97,8 +107,8 @@ function makeResourcesJSON(list, prefix) {
 	// Adjust size until it is correct
 	// This entry's size depends on the file size which depends on this entry's size,...
 	// Updating the number of the size in the content might influence the size of the file itself
-	// This is deterministic because e.g. in the content -> <code>"size": 1000</code> has the same
-	// amount of bytes as <code>"size": 9999</code> the difference might only come for:
+	// This is deterministic because e.g. in the content -> <code>"size": 1000</code> has the same amount of bytes as <code>"size": 9999</code>
+	// the difference might only come for:
 	// * adding the initial entry of resources.json
 	// * changes when the number of digits of the number changes, e.g. 100 -> 1000
 	while (resourcesJson.size !== newLength) {
@@ -111,34 +121,33 @@ function makeResourcesJSON(list, prefix) {
 }
 
 /**
- * Creates resources.json files
+ * Whether the detection of orphans should result in a build failure.
  *
- * @private
- * @param {object} parameters Parameters
- * @param {@ui5/fs/Resource[]} parameters.resources List of resources
- * @param {@ui5/fs/Resource[]} [parameters.dependencyResources=[]] List of dependency resources
- * @param {object} [parameters.options] Options
- * @returns {Promise<@ui5/fs/Resource[]>} Promise resolving with the resources.json resources
+ * @since 1.29.1
+ * @param {object} configuration
+ * @param {module:@ui5/fs.Resource[]} configuration.resources
+ * @param {object} [options] configuration options
+ * @returns {module:@ui5/fs.Resource[]} list of resources.json files
  */
-export default async function({resources, dependencyResources = [], options}) {
+module.exports = async function({resources}, options) {
 	options = Object.assign({
-		failOnOrphans: false,
+		failOnOrphans: true,
 		externalResources: undefined,
 		debugResources: DEFAULT_DEBUG_RESOURCES_FILTER,
 		mergedResources: DEFAULT_BUNDLE_RESOURCES_FILTER,
 		designtimeResources: DEFAULT_DESIGNTIME_RESOURCES_FILTER,
-		supportResources: DEFAULT_SUPPORT_RESOURCES_FILTER
+		supportResources: DEFAULT_SUPPORT_RESOURCES_FILTER,
+		debugBundles: DEBUG_BUNDLES
 	}, options);
 
 	const pool = new LocatorResourcePool();
 	await pool.prepare( resources );
-	await pool.prepare( dependencyResources );
 
 	const collector = new ResourceCollector(pool);
 	const visitPromises = resources.map((resource) => collector.visitResource(resource));
 
 	await Promise.all(visitPromises);
-	log.verbose(`	Found ${collector.resources.size} resources`);
+	log.verbose(`	found ${collector.resources.size} resources`);
 
 	// determine additional information for the found resources
 	if ( options && options.externalResources ) {
@@ -146,6 +155,7 @@ export default async function({resources, dependencyResources = [], options}) {
 	}
 
 	await collector.determineResourceDetails({
+		pool,
 		debugResources: options.debugResources,
 		mergedResources: options.mergedResources,
 		designtimeResources: options.designtimeResources,
@@ -153,27 +163,29 @@ export default async function({resources, dependencyResources = [], options}) {
 	});
 
 	// group resources by components and create ResourceInfoLists
-	collector.groupResourcesByComponents();
+	collector.groupResourcesByComponents({
+		debugBundles: options.debugBundles
+	});
 
 	const resourceLists = [];
 
 	// write out resources.json files
 	for (const [prefix, list] of collector.components.entries()) {
-		log.verbose(`	Writing '${prefix}resources.json'`);
+		log.verbose(`	writing '${prefix}resources.json'`);
 
 		const contentString = makeResourcesJSON(list, prefix);
 
-		resourceLists.push(new Resource({
+		resourceLists.push(new EvoResource({
 			path: `/resources/${prefix}resources.json`,
 			string: contentString
 		}));
 	}
 	for (const [prefix, list] of collector.themePackages.entries()) {
-		log.verbose(`	Writing '${prefix}resources.json'`);
+		log.verbose(`	writing '${prefix}resources.json'`);
 
 		const contentString = makeResourcesJSON(list, prefix);
 
-		resourceLists.push(new Resource({
+		resourceLists.push(new EvoResource({
 			path: `/resources/${prefix}resources.json`,
 			string: contentString
 		}));
@@ -181,10 +193,8 @@ export default async function({resources, dependencyResources = [], options}) {
 	const unassigned = collector.resources;
 	if ( unassigned.size > 0 && options.failOnOrphans ) {
 		log.error(`resources.json generation failed because of unassigned resources: ${[...unassigned].join(", ")}`);
-		throw new Error(
-			`resources.json generation failed with error: There are ${unassigned.size} ` +
-			`resources which could not be assigned to components.`);
+		throw new Error(`resources.json generation failed with error: There are ${unassigned.size} resources which could not be assigned to components.`);
 	}
 
 	return resourceLists;
-}
+};
