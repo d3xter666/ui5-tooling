@@ -1,5 +1,6 @@
-import test from "ava";
-import ResourceInfoList from "../../../../lib/lbt/resources/ResourceInfoList.js";
+const test = require("ava");
+
+const ResourceInfoList = require("../../../../lib/lbt/resources/ResourceInfoList");
 
 test("add: add new resources", (t) => {
 	const resourceInfoList = new ResourceInfoList("prefix");
@@ -15,29 +16,38 @@ test("add: add new resources", (t) => {
 	t.falsy(result.module, "module is not set");
 });
 
-test("add: add non-debug resource", (t) => {
+test("add: add source then debug resources", (t) => {
 	const resourceInfoList = new ResourceInfoList("prefix");
 
-	resourceInfoList.add({name: "myfile.js", module: "myfile.js", size: 13, required: new Set(["some-dep.js"])});
+	resourceInfoList.add({name: "myfile.js", module: "myfile.js", size: 13});
 
-	t.is(resourceInfoList.resources.length, 1, "one resource added");
+	const myInfo = {name: "myfile-dbg.js", size: 13};
+	resourceInfoList.add(myInfo);
+
+	t.is(resourceInfoList.resources.length, 2, "two entries");
 
 	const result = resourceInfoList.resourcesByName.get("../myfile.js");
 	t.is(result.module, "myfile.js", "module is set");
-	t.deepEqual(result.required, new Set(["some-dep.js"]), "module is set");
-});
-
-test("add: add debug resources", (t) => {
-	const resourceInfoList = new ResourceInfoList("prefix");
-
-	resourceInfoList.add({name: "myfile-dbg.js", size: 13, required: new Set(["some-dep.js"])});
-
-	t.is(resourceInfoList.resources.length, 1, "one resource added");
 
 	const resultDbg = resourceInfoList.resourcesByName.get("../myfile-dbg.js");
-	// Note: "module" will be set properly for debug resources within ResourceCollector#determineResourceDetails
-	t.is(resultDbg.module, undefined, "module is not set");
-	t.deepEqual(resultDbg.required, new Set(["some-dep.js"]), "module is set");
+	t.is(resultDbg.module, "myfile.js", "module is set");
+});
+
+test("add: add debug then source resources", (t) => {
+	const resourceInfoList = new ResourceInfoList("prefix");
+
+	resourceInfoList.add({name: "myfile-dbg.js", size: 13});
+
+	const myInfo = {name: "myfile.js", module: "myfile.js", size: 13};
+	resourceInfoList.add(myInfo);
+
+	t.is(resourceInfoList.resources.length, 2, "two entries");
+
+	const result = resourceInfoList.resourcesByName.get("../myfile.js");
+	t.is(result.module, "myfile.js", "module is set");
+
+	const resultDbg = resourceInfoList.resourcesByName.get("../myfile-dbg.js");
+	t.is(resultDbg.module, "myfile.js", "module is set");
 });
 
 test("add: add i18n resource", (t) => {
