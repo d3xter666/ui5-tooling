@@ -1,7 +1,8 @@
-import test from "ava";
-import ModuleInfo from "../../../../lib/lbt/resources/ModuleInfo.js";
+const test = require("ava");
 
-test("ModuleInfo: constructor", (t) => {
+const ModuleInfo = require("../../../../lib/lbt/resources/ModuleInfo");
+
+test("ModuleInfo: constructor", async (t) => {
 	const moduleInfo = new ModuleInfo("myName");
 	t.falsy(moduleInfo.exposedGlobals, "exposedGlobals is not set");
 	t.falsy(moduleInfo.format, "format is not set");
@@ -12,7 +13,7 @@ test("ModuleInfo: constructor", (t) => {
 	t.deepEqual(moduleInfo.subModules, [], "submodules are empty");
 });
 
-test("ModuleInfo: addSubModule", (t) => {
+test("ModuleInfo: addSubModule", async (t) => {
 	// setup
 	const moduleInfo = new ModuleInfo("myName");
 	moduleInfo.addDependency("otherModule", false);
@@ -29,7 +30,7 @@ test("ModuleInfo: addSubModule", (t) => {
 	t.deepEqual(moduleInfo.dependencies, ["unknownModule"], "unknownModule dependency is copied over");
 });
 
-test("ModuleInfo: name", (t) => {
+test("ModuleInfo: name", async (t) => {
 	// setup
 	const moduleInfo = new ModuleInfo("myName");
 
@@ -46,7 +47,7 @@ test("ModuleInfo: name", (t) => {
 	t.is(moduleInfo.name, "newName2", "name was set");
 });
 
-test("ModuleInfo: toString", (t) => {
+test("ModuleInfo: toString", async (t) => {
 	// setup
 	const moduleInfo = new ModuleInfo("myName");
 
@@ -59,15 +60,4 @@ test("ModuleInfo: toString", (t) => {
 
 	// expectation
 	t.is(stringContent, "ModuleInfo(myName, dependencies=dep1,dep2, includes=sub1,sub2)", "string value is correct");
-});
-
-test("ModuleInfo: removeIgnoredGlobalNames", (t) => {
-	// setup
-	const moduleInfo = new ModuleInfo("myName");
-	moduleInfo.exposedGlobals = ["supi", "dupi"];
-
-	moduleInfo.removeIgnoredGlobalNames(["hop", "supi"]);
-
-	// expectation
-	t.deepEqual(moduleInfo.exposedGlobals, ["dupi"], "exposedGlobals are correct");
 });
