@@ -1,11 +1,5 @@
 version: 2
 updates:
-- package-ecosystem: "github-actions"
-  directory: "/"
-  schedule:
-    interval: "weekly"
-  commit-message:
-    prefix: "ci(github-actions)"
 - package-ecosystem: npm
   directory: "/"
   schedule:
@@ -13,7 +7,6 @@ updates:
     day: sunday
     time: "10:00"
     timezone: Etc/UCT
-  versioning-strategy: increase
-  commit-message:
-    prefix: "deps"
-    prefix-development: "build(deps-dev)"
+  reviewers:
+  - matz3
+  - RandomByte
