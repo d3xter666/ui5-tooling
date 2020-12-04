@@ -1,11 +1,7 @@
-import test from "ava";
-import path from "node:path";
-import sinonGlobal from "sinon";
-
-const __dirname = import.meta.dirname;
-
+const test = require("ava");
+const path = require("path");
+const sinonGlobal = require("sinon");
 const applicationAPath = path.join(__dirname, "..", "..", "..", "fixtures", "application.a");
-const applicationAAliasesPath = path.join(__dirname, "..", "..", "..", "fixtures", "application.a.aliases");
 const applicationCPath = path.join(__dirname, "..", "..", "..", "fixtures", "application.c");
 const applicationC2Path = path.join(__dirname, "..", "..", "..", "fixtures", "application.c2");
 const applicationC3Path = path.join(__dirname, "..", "..", "..", "fixtures", "application.c3");
@@ -14,10 +10,9 @@ const applicationFPath = path.join(__dirname, "..", "..", "..", "fixtures", "app
 const applicationGPath = path.join(__dirname, "..", "..", "..", "fixtures", "application.g");
 const errApplicationAPath = path.join(__dirname, "..", "..", "..", "fixtures", "err.application.a");
 const cycleDepsBasePath = path.join(__dirname, "..", "..", "..", "fixtures", "cyclic-deps", "node_modules");
-const libraryDOverridePath = path.join(__dirname, "..", "..", "..", "fixtures", "library.d-adtl-deps");
 
-import projectGraphBuilder from "../../../../lib/graph/projectGraphBuilder.js";
-import NodePackageDependenciesProvider from "../../../../lib/graph/providers/NodePackageDependencies.js";
+const projectGraphBuilder = require("../../../../lib/graph/projectGraphBuilder");
+const NodePackageDependenciesProvider = require("../../../../lib/graph/providers/NodePackageDependencies");
 
 test.beforeEach((t) => {
 	t.context.sinon = sinonGlobal.createSandbox();
@@ -28,18 +23,18 @@ test.afterEach.always((t) => {
 });
 
 function testGraphCreationBfs(...args) {
-	return _testGraphCreation(true, ...args);
+	return _testGraphCreation(...args, true);
 }
 
 function testGraphCreationDfs(...args) {
-	return _testGraphCreation(false, ...args);
+	return _testGraphCreation(...args, false);
 }
 
-async function _testGraphCreation(bfs, t, npmProvider, expectedOrder, workspace) {
+async function _testGraphCreation(t, npmProvider, expectedOrder, bfs) {
 	if (bfs === undefined) {
 		throw new Error("Test error: Parameter 'bfs' must be specified");
 	}
-	const projectGraph = await projectGraphBuilder(npmProvider, workspace);
+	const projectGraph = await projectGraphBuilder(npmProvider);
 	const callbackStub = t.context.sinon.stub().resolves();
 	if (bfs) {
 		await projectGraph.traverseBreadthFirst(callbackStub);
@@ -66,54 +61,6 @@ test("AppA: project with collection dependency", async (t) => {
 		"library.c",
 		"application.a",
 	]);
-});
-
-test("AppA: project with an alias dependency", async (t) => {
-	const workspace = {
-		getName: () => "workspace name",
-		getModuleByNodeId: t.context.sinon.stub().resolves(undefined).onFirstCall().resolves({
-			getPath: () => path.join(applicationAAliasesPath, "node_modules", "extension.a.esm.alias"),
-			getVersion: () => "1.0.0",
-		})
-	};
-	const npmProvider = new NodePackageDependenciesProvider({
-		cwd: applicationAAliasesPath
-	});
-	await testGraphCreationDfs(t, npmProvider, [
-		"extension.a.esm.alias",
-		"application.a.aliases",
-	], workspace);
-});
-
-test("AppA: project with workspace overrides", async (t) => {
-	const workspace = {
-		getName: () => "workspace name",
-		getModuleByNodeId: t.context.sinon.stub().resolves(undefined).onFirstCall().resolves({
-			// This version of library.d has an additional dependency to library.f,
-			// which in turn has a dependency to library.g
-			getPath: () => libraryDOverridePath,
-			getVersion: () => "1.0.0",
-		})
-	};
-	const npmProvider = new NodePackageDependenciesProvider({
-		cwd: applicationAPath
-	});
-	const graph = await testGraphCreationDfs(t, npmProvider, [
-		"library.g", // Added through workspace override of library.d
-		"library.a",
-		"library.b",
-		"library.c",
-		"library.f", // Added through workspace override of library.d
-		"library.d",
-		"application.a",
-	], workspace);
-
-	t.is(workspace.getModuleByNodeId.callCount, 2, "Workspace#getModuleByNodeId got called twice");
-	t.is(workspace.getModuleByNodeId.getCall(0).args[0], "library.d",
-		"Workspace#getModuleByNodeId got called with correct argument on first call");
-	t.is(workspace.getModuleByNodeId.getCall(1).args[0], "collection",
-		"Workspace#getModuleByNodeId got called with correct argument on second call");
-	t.is(graph.getProject("library.d").getVersion(), "2.0.0", "Version from override is used");
 });
 
 test("AppC: project with dependency with optional dependency resolved through root project", async (t) => {
@@ -187,7 +134,7 @@ test("AppG: project with npm 'optionalDependencies' should not fail if optional 
 	});
 
 test("AppCycleA: cyclic dev deps", async (t) => {
-	const applicationCycleAPath = path.join(cycleDepsBasePath, "@ui5-internal/application.cycle.a");
+	const applicationCycleAPath = path.join(cycleDepsBasePath, "application.cycle.a");
 
 	const npmProvider = new NodePackageDependenciesProvider({
 		cwd: applicationCycleAPath
@@ -201,7 +148,7 @@ test("AppCycleA: cyclic dev deps", async (t) => {
 });
 
 test("AppCycleB: cyclic npm deps - Cycle via devDependency on second level", async (t) => {
-	const applicationCycleBPath = path.join(cycleDepsBasePath, "@ui5-internal/application.cycle.b");
+	const applicationCycleBPath = path.join(cycleDepsBasePath, "application.cycle.b");
 	const npmProvider = new NodePackageDependenciesProvider({
 		cwd: applicationCycleBPath
 	});
@@ -213,7 +160,7 @@ test("AppCycleB: cyclic npm deps - Cycle via devDependency on second level", asy
 });
 
 test("AppCycleC: cyclic npm deps - Cycle on third level (one indirection)", async (t) => {
-	const applicationCycleCPath = path.join(cycleDepsBasePath, "@ui5-internal/application.cycle.c");
+	const applicationCycleCPath = path.join(cycleDepsBasePath, "application.cycle.c");
 	const npmProvider = new NodePackageDependenciesProvider({
 		cwd: applicationCycleCPath
 	});
@@ -230,18 +177,18 @@ test("AppCycleC: cyclic npm deps - Cycle on third level (one indirection)", asyn
 });
 
 test("AppCycleD: cyclic npm deps - Cycles everywhere", async (t) => {
-	const applicationCycleDPath = path.join(cycleDepsBasePath, "@ui5-internal/application.cycle.d");
+	const applicationCycleDPath = path.join(cycleDepsBasePath, "application.cycle.d");
 	const npmProvider = new NodePackageDependenciesProvider({
 		cwd: applicationCycleDPath
 	});
 
 	const error = await t.throwsAsync(testGraphCreationDfs(t, npmProvider, []));
 	t.is(error.message,
-		`Detected cyclic dependency chain: application.cycle.d -> *module.h* -> module.i -> module.k -> *module.h*`);
+		`Detected cyclic dependency chain: application.cycle.d -> module.h* -> module.i -> module.k -> module.h*`);
 });
 
 test("AppCycleE: cyclic npm deps - Cycle via devDependency", async (t) => {
-	const applicationCycleEPath = path.join(cycleDepsBasePath, "@ui5-internal/application.cycle.e");
+	const applicationCycleEPath = path.join(cycleDepsBasePath, "application.cycle.e");
 	const npmProvider = new NodePackageDependenciesProvider({
 		cwd: applicationCycleEPath
 	});
