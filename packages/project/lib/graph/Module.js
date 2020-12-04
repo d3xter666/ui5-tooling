@@ -1,15 +1,13 @@
-import fs from "graceful-fs";
-import path from "node:path";
-import {promisify} from "node:util";
+const fs = require("graceful-fs");
+const path = require("path");
+const {promisify} = require("util");
 const readFile = promisify(fs.readFile);
-import jsyaml from "js-yaml";
-import {createReader} from "@ui5/fs/resourceFactory";
-import Specification from "../specifications/Specification.js";
-import {validate} from "../validation/validator.js";
+const jsyaml = require("js-yaml");
+const resourceFactory = require("@ui5/fs").resourceFactory;
+const Specification = require("../specifications/Specification");
+const {validate} = require("../validation/validator");
 
-import {getLogger} from "@ui5/logger";
-
-const log = getLogger("graph:Module");
+const log = require("@ui5/logger").getLogger("graph:Module");
 
 const DEFAULT_CONFIG_PATH = "ui5.yaml";
 const SAP_THEMES_NS_EXEMPTIONS = ["themelib_sap_fiori_3", "themelib_sap_bluecrystal", "themelib_sap_belize"];
@@ -20,25 +18,24 @@ function clone(obj) {
 /**
  * Raw representation of a UI5 Project. A module can contain zero to one projects and n extensions.
  * This class is intended for private use by the
- * [@ui5/project/graph/ProjectGraphBuilder]{@link @ui5/project/graph/ProjectGraphBuilder} module
+ * [@ui5/project.graph.projectGraphFromTree]{@link module:@ui5/project.graph.projectGraphFromTree} module
  *
  * @private
- * @class
- * @alias @ui5/project/graph/Module
+ * @memberof module:@ui5/project.graph
  */
 class Module {
 	/**
 	 * @param {object} parameters Module parameters
 	 * @param {string} parameters.id Unique ID for the module
 	 * @param {string} parameters.version Version of the module
-	 * @param {string} parameters.modulePath Absolute File System path of the module
+	 * @param {string} parameters.modulePath File System path to access the projects resources
 	 * @param {string} [parameters.configPath=ui5.yaml]
 	 *						Either a path relative to `modulePath` which will be resolved by @ui5/fs (default),
 	 *						or an absolute File System path to the configuration file.
 	 * @param {object|object[]} [parameters.configuration]
 	 * 						Configuration object or array of objects to use. If supplied, no configuration files
 	 * 						will be read and the `configPath` option must not be provided.
-	 * @param {@ui5/project/graph.ShimCollection} [parameters.shimCollection]
+	 * @param {@ui5/project.graph.ShimCollection} [parameters.shimCollection]
 	 *						Collection of shims that might be relevant for this module
 	 */
 	constructor({id, version, modulePath, configPath, configuration = [], shimCollection}) {
@@ -50,9 +47,6 @@ class Module {
 		}
 		if (!modulePath) {
 			throw new Error(`Could not create Module: Missing or empty parameter 'modulePath'`);
-		}
-		if (!path.isAbsolute(modulePath)) {
-			throw new Error(`Could not create Module: Parameter 'modulePath' must contain an absolute path`);
 		}
 		if (
 			(
@@ -69,7 +63,7 @@ class Module {
 		this._version = version;
 		this._modulePath = modulePath;
 		this._configPath = configPath || DEFAULT_CONFIG_PATH;
-		this._dependencies = Object.create(null);
+		this._dependencies = {};
 
 		if (!Array.isArray(configuration)) {
 			configuration = [configuration];
@@ -101,16 +95,17 @@ class Module {
 	/**
 	 * Specifications found in the module
 	 *
-	 * @private
-	 * @typedef {object} @ui5/project/graph/Module~SpecificationsResult
-	 * @property {@ui5/project/specifications/Project|null} Project found in the module (if one is found)
-	 * @property {@ui5/project/specifications/Extension[]} Array of extensions found in the module
+	 * @public
+	 * @typedef {object} SpecificationsResult
+	 * @property {@ui5/project.specifications.Project|undefined} Project found in the module (if one is found)
+	 * @property {@ui5/project.specifications.Extension[]} Array of extensions found in the module
+	 *
 	 */
 
 	/**
 	 * Get any available project and extensions of the module
 	 *
-	 * @returns {@ui5/project/graph/Module~SpecificationsResult} Project and extensions found in the module
+	 * @returns {SpecificationsResult} Project and extensions found in the module
 	 */
 	async getSpecifications() {
 		if (this._pGetSpecifications) {
@@ -143,19 +138,19 @@ class Module {
 			configs = configs.filter((configuration) => {
 				return configuration.kind !== "project";
 			});
-		} else {
-			// Patch configs
-			configs.forEach((configuration) => {
-				if (configuration.kind === "project" && configuration.type === "library" &&
-					configuration.metadata && configuration.metadata.name) {
-					const libraryName = configuration.metadata.name;
-					// Old theme-libraries where configured as type "library"
-					if (SAP_THEMES_NS_EXEMPTIONS.includes(libraryName)) {
-						configuration.type = "theme-library";
-					}
-				}
-			});
 		}
+
+		// Patch configs
+		configs.forEach((configuration) => {
+			if (configuration.kind === "project" && configuration.type === "library" &&
+				configuration.metadata && configuration.metadata.name) {
+				const libraryName = configuration.metadata.name;
+				// Old theme-libraries where configured as type "library"
+				if (SAP_THEMES_NS_EXEMPTIONS.includes(libraryName)) {
+					configuration.type = "theme-library";
+				}
+			}
+		});
 
 		const specs = await Promise.all(configs.map(async (configuration) => {
 			const buildManifest = configuration._buildManifest;
@@ -189,7 +184,7 @@ class Module {
 		}
 
 		return {
-			project: projects[0] || null,
+			project: projects[0],
 			extensions
 		};
 	}
@@ -217,7 +212,7 @@ class Module {
 	_normalizeAndApplyShims(config) {
 		this._normalizeConfig(config);
 
-		if (config.kind === "project") {
+		if (config.kind !== "project") { // TODO 3.0: Shouldn't this be '==='?
 			this._applyProjectShims(config);
 		}
 		return config;
@@ -290,14 +285,14 @@ class Module {
 			try {
 				configFile = await readFile(configPath, {encoding: "utf8"});
 			} catch (err) {
-				// TODO: Caller might wants to ignore exceptions for ENOENT errors for non-root projects
+				// TODO: Caller might want to ignore this exception for ENOENT errors if non-root projects
 				// However, this decision should not be made here
-				throw new Error("Failed to read configuration for module " +
+				throw new Error("Failed to read configuration for project " +
 						`${this.getId()} at '${configPath}'. Error: ${err.message}`);
 			}
 		} else {
 			// Handle relative file paths with the @ui5/fs (virtual) file system
-			const reader = this.getReader();
+			const reader = await this.getReader();
 			let configResource;
 			try {
 				configResource = await reader.byPath(path.posix.join("/", configPath));
@@ -340,8 +335,6 @@ class Module {
 		}
 
 		// Validate found configurations with schema
-		// Validation is done again in the Specification class. But here we can reference the YAML file
-		// which adds helpful information like the line number
 		const validationResults = await Promise.all(
 			configs.map(async (config, documentIndex) => {
 				// Catch validation errors to ensure proper order of rejections within Promise.all
@@ -371,7 +364,6 @@ class Module {
 			throw validationErrors[0];
 		}
 
-		log.verbose(`Configuration for module ${this.getId()} is provided in YAML file at ${configPath}`);
 		return configs;
 	}
 
@@ -382,7 +374,6 @@ class Module {
 			log.verbose(`Could not find any build manifest in module ${this.getId()}`);
 			return [];
 		}
-		log.verbose(`Configuration for module ${this.getId()} is provided in build manifest`);
 
 		// This function is expected to return the configuration of a project, so we add the buildManifest metadata
 		// to a temporary attribute of the project configuration and retrieve it later for Specification creation
@@ -392,7 +383,7 @@ class Module {
 	}
 
 	async _readBuildManifest() {
-		const reader = this.getReader();
+		const reader = await this.getReader();
 		const buildManifestResource = await reader.byPath("/.ui5/build-manifest.json");
 		if (buildManifestResource) {
 			return JSON.parse(await buildManifestResource.getString());
@@ -406,11 +397,45 @@ class Module {
 		return config;
 	}
 
+	_isConfigValid(project) {
+		if (!project.type) {
+			if (project._isRoot) {
+				throw new Error(`No type configured for root project ${project.id}`);
+			}
+			log.verbose(`No type configured for project ${project.id}`);
+			return false; // ignore this project
+		}
+
+		if (project.kind !== "project" && project._isRoot) {
+			// This is arguable. It is not the concern of ui5-project to define the entry point of a project tree
+			// On the other hand, there is no known use case for anything else right now and failing early here
+			//	makes sense in that regard
+			throw new Error(`Root project needs to be of kind "project". ${project.id} is of kind ${project.kind}`);
+		}
+
+		if (project.kind === "project" && project.type === "application") {
+			// There must be exactly one application project per dependency tree
+			// If multiple are found, all but the one closest to the root are rejected (ignored)
+			// If there are two projects equally close to the root, an error is being thrown
+			if (!this.qualifiedApplicationProject) {
+				this.qualifiedApplicationProject = project;
+			} else if (this.qualifiedApplicationProject._level === project._level) {
+				throw new Error(`Found at least two projects ${this.qualifiedApplicationProject.id} and ` +
+					`${project.id} of type application with the same distance to the root project. ` +
+					"Only one project of type application can be used. Failed to decide which one to ignore.");
+			} else {
+				return false; // ignore this project
+			}
+		}
+
+		return true;
+	}
+
 	/**
 	* Resource Access
 	*/
-	getReader() {
-		return createReader({
+	async getReader() {
+		return resourceFactory.createReader({
 			fsBasePath: this.getPath(),
 			virBasePath: "/",
 			name: `Reader for module ${this.getId()}`
@@ -418,4 +443,4 @@ class Module {
 	}
 }
 
-export default Module;
+module.exports = Module;

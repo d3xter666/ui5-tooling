@@ -1,9 +1,8 @@
-import path from "node:path";
-import Module from "./Module.js";
-import ProjectGraph from "./ProjectGraph.js";
-import ShimCollection from "./ShimCollection.js";
-import {getLogger} from "@ui5/logger";
-const log = getLogger("graph:projectGraphBuilder");
+const path = require("path");
+const Module = require("./Module");
+const ProjectGraph = require("./ProjectGraph");
+const ShimCollection = require("./ShimCollection");
+const log = require("@ui5/logger").getLogger("graph:projectGraphBuilder");
 
 function _handleExtensions(graph, shimCollection, extensions) {
 	extensions.forEach((extension) => {
@@ -28,27 +27,22 @@ function validateNode(node) {
 	if (node.specVersion) {
 		throw new Error(
 			`Provided node with ID ${node.id} contains a top-level 'specVersion' property. ` +
-			`With UI5 CLI 3.0, project configuration needs to be provided in a dedicated ` +
-			`'configuration' object`);
+			`With UI5 Tooling 3.0, project configuration needs to be provided in a dedicated` +
+			`'configuration' object.`);
 	}
 	if (node.metadata) {
 		throw new Error(
 			`Provided node with ID ${node.id} contains a top-level 'metadata' property. ` +
-			`With UI5 CLI 3.0, project configuration needs to be provided in a dedicated ` +
-			`'configuration' object`);
+			`With UI5 Tooling 3.0, project configuration needs to be provided in a dedicated` +
+			`'configuration' object.`);
 	}
 }
-
-/**
- * @public
- * @module @ui5/project/graph/ProjectGraphBuilder
- */
 
 /**
  * Dependency graph node representing a module
  *
  * @public
- * @typedef {object} @ui5/project/graph/ProjectGraphBuilder~Node
+ * @typedef {object} Node
  * @property {string} node.id Unique ID for the project
  * @property {string} node.version Version of the project
  * @property {string} node.path File System path to access the projects resources
@@ -64,47 +58,38 @@ function validateNode(node) {
 /**
  * Node Provider interface
  *
- * @public
- * @interface @ui5/project/graph/ProjectGraphBuilder~NodeProvider
+ * @interface NodeProvider
  */
 
 /**
  * Retrieve information on the root module
  *
- * @public
  * @function
- * @name @ui5/project/graph/ProjectGraphBuilder~NodeProvider#getRootNode
+ * @name NodeProvider#getRootNode
  * @returns {Node} The root node of the dependency graph
  */
 
 /**
  * Retrieve information on given a nodes dependencies
  *
- * @public
  * @function
- * @name @ui5/project/graph/ProjectGraphBuilder~NodeProvider#getDependencies
- * @param {Node} node The root node of the dependency graph
- * @param {@ui5/project/graph/Workspace} [workspace] workspace instance to use for overriding node resolution
+ * @name NodeProvider#getDependencies
+ * @param {Node} The root node of the dependency graph
  * @returns {Node[]} Array of nodes which are direct dependencies of the given node
  */
 
 /**
- * Generic helper module to create a [@ui5/project/graph/ProjectGraph]{@link @ui5/project/graph/ProjectGraph}.
+ * Generic helper module to create a [@ui5/project.graph.ProjectGraph]{@link module:@ui5/project.graph.ProjectGraph}.
  * For example from a dependency tree as returned by the legacy "translators".
  *
  * @public
- * @function default
- * @static
- * @param {@ui5/project/graph/ProjectGraphBuilder~NodeProvider} nodeProvider
- * 	Node provider instance to use for building the graph
- * @param {@ui5/project/graph/Workspace} [workspace]
- * 	Optional workspace instance to use for overriding project resolutions
- * @returns {@ui5/project/graph/ProjectGraph} A new project graph instance
+ * @alias module:@ui5/project.graph.projectGraphBuilder
+ * @param {NodeProvider} nodeProvider
+ * @returns {module:@ui5/project.graph.ProjectGraph} A new project graph instance
  */
-async function projectGraphBuilder(nodeProvider, workspace) {
+module.exports = async function(nodeProvider) {
 	const shimCollection = new ShimCollection();
-	const moduleCollection = Object.create(null);
-	const handledExtensions = new Set(); // Set containing the IDs of modules which' extensions have been handled
+	const moduleCollection = {};
 
 	const rootNode = await nodeProvider.getRootNode();
 	validateNode(rootNode);
@@ -143,45 +128,24 @@ async function projectGraphBuilder(nodeProvider, workspace) {
 	}
 
 	handleExtensions(rootExtensions);
-	handledExtensions.add(rootNode.id);
 
 	const queue = [];
 
-	const rootDependencies = await nodeProvider.getDependencies(rootNode, workspace);
+	const rootDependencies = await nodeProvider.getDependencies(rootNode);
 
-	if (rootDependencies && rootDependencies.length) {
+	if (rootDependencies.length) {
 		queue.push({
 			nodes: rootDependencies,
-			parentProject: rootProject
+			parentProjectName: rootProjectName
 		});
 	}
 
 	// Breadth-first search
 	while (queue.length) {
-		const {nodes, parentProject} = queue.shift(); // Get and remove first entry from queue
+		const {nodes, parentProjectName} = queue.shift(); // Get and remove first entry from queue
 		const res = await Promise.all(nodes.map(async (node) => {
 			let ui5Module = moduleCollection[node.id];
-
-			if (ui5Module) {
-				log.silly(
-					`Re-visiting module ${node.id} as a dependency of ${parentProject.getName()}`);
-
-				const {project, extensions} = await ui5Module.getSpecifications();
-				if (!project && !extensions.length) {
-					// Invalidate cache if the cached module is visited through another parent project and did not
-					// resolve to a project or extension(s) before.
-					// The module being visited now might be a different version containing for example
-					// UI5 CLI configuration, or one of the parent projects could have defined a
-					// relevant configuration shim meanwhile
-					log.silly(
-						`Cached module ${node.id} did not resolve to any projects or extensions. ` +
-						`Recreating module as a dependency of ${parentProject.getName()}...`);
-					ui5Module = null;
-				}
-			}
-
 			if (!ui5Module) {
-				log.silly(`Visiting Module ${node.id} as a dependency of ${parentProject.getName()}`);
 				log.verbose(`Creating module ${node.id}...`);
 				validateNode(node);
 				ui5Module = moduleCollection[node.id] = new Module({
@@ -194,12 +158,13 @@ async function projectGraphBuilder(nodeProvider, workspace) {
 				});
 			} else if (ui5Module.getPath() !== node.path) {
 				log.verbose(
-					`Warning - Dependency ${node.id} is available at multiple paths:` +
-					`\n  Location of the already processed module (this one will be used): ${ui5Module.getPath()}` +
-					`\n  Additional location (this one will be ignored): ${node.path}`);
+					`Inconsistency detected: Tree contains multiple nodes with ID ${node.id} and different paths:` +
+					`\nPath of already added node (this one will be used): ${ui5Module.getPath()}` +
+					`\nPath of additional node (this one will be ignored in favor of the other): ${node.path}`);
 			}
 
 			const {project, extensions} = await ui5Module.getSpecifications();
+
 			return {
 				node,
 				project,
@@ -216,18 +181,7 @@ async function projectGraphBuilder(nodeProvider, workspace) {
 				extensions // Any extensions found for this node
 			} = res[i];
 
-			if (extensions.length && (!node.optional || parentProject === rootProject)) {
-				// Only handle extensions in non-optional dependencies and any dependencies of the root project
-				if (handledExtensions.has(node.id)) {
-					// Do not handle extensions of the same module twice
-					log.verbose(`Extensions contained in module ${node.id} have already been handled`);
-				} else {
-					log.verbose(`Handling extensions for module ${node.id}...`);
-					// If a different module contains the same extension, we expect an error to be thrown by the graph
-					handleExtensions(extensions);
-					handledExtensions.add(node.id);
-				}
-			}
+			handleExtensions(extensions);
 
 			// Check for collection shims
 			const collectionShims = shimCollection.getCollectionShims(node.id);
@@ -244,19 +198,19 @@ async function projectGraphBuilder(nodeProvider, workspace) {
 						return {
 							id: shimModuleId,
 							version: node.version,
-							path: shimModulePath
+							path: shimModulePath,
+							configuration: project && project.getConfigurationObject()
 						};
 					});
 				});
 
 				queue.push({
 					nodes: Array.prototype.concat.apply([], shimmedNodes),
-					parentProject,
+					parentProjectName,
 				});
 				// Skip collection node
 				continue;
 			}
-
 			let skipDependencies = false;
 			if (project) {
 				const projectName = project.getName();
@@ -282,10 +236,6 @@ async function projectGraphBuilder(nodeProvider, workspace) {
 					}
 				}
 				if (projectGraph.getProject(projectName)) {
-					// Opposing to extensions, we are generally fine with the same project being contained in different
-					// modules. We simply ignore all but the first occurrence.
-					// This can happen for example if the same project is packaged in different ways/modules
-					// (e.g. one module containing the source and one containing the pre-built resources)
 					log.verbose(
 						`Project ${projectName} has already been added to the graph. ` +
 						`Skipping dependency resolution...`);
@@ -294,37 +244,25 @@ async function projectGraphBuilder(nodeProvider, workspace) {
 					projectGraph.addProject(project);
 				}
 
-				if (parentProject) {
+				// if (!node.deduped) {
+				// Even if not deduped, the node might occur multiple times in the tree (on separate branches).
+				// Therefore still supplying the ignore duplicates parameter here (true)
+				// }
+
+				if (parentProjectName) {
 					if (node.optional) {
-						projectGraph.declareOptionalDependency(parentProject.getName(), projectName);
+						projectGraph.declareOptionalDependency(parentProjectName, projectName);
 					} else {
-						projectGraph.declareDependency(parentProject.getName(), projectName);
-					}
-
-					if (project.isDeprecated() && parentProject === rootProject &&
-							parentProject.getName() !== "testsuite") {
-						// Only warn for direct dependencies of the root project
-						// No warning for testsuite projects
-						log.warn(
-							`Dependency ${project.getName()} is deprecated and should not be used for new projects!`);
-					}
-
-					if (project.isSapInternal() && parentProject === rootProject &&
-						!parentProject.getAllowSapInternal()) {
-						// Only warn for direct dependencies of the root project, except it defines "allowSapInternal"
-						log.warn(
-							`Dependency ${project.getName()} is restricted for use by SAP internal projects only! ` +
-							`If the project ${parentProject.getName()} is an SAP internal project, add the attribute ` +
-							`"allowSapInternal: true" to its metadata configuration`);
+						projectGraph.declareDependency(parentProjectName, projectName);
 					}
 				}
 			}
 
 			if (!project && !extensions.length) {
-				// Module provides neither a project nor an extension
+				// Module provided neither a project nor an extension
 				// => Do not follow its dependencies
 				log.verbose(
-					`Module ${node.id} neither provides a project nor an extension. Skipping dependency resolution`);
+					`Module ${node.id} neither provided a project nor an extension. Skipping dependency resolution.`);
 				skipDependencies = true;
 			}
 
@@ -333,11 +271,11 @@ async function projectGraphBuilder(nodeProvider, workspace) {
 			}
 
 			const nodeDependencies = await nodeProvider.getDependencies(node);
-			if (nodeDependencies && nodeDependencies.length) {
+			if (nodeDependencies) {
 				queue.push({
 					// copy array, so that the queue is stable while ignored project dependencies are removed
 					nodes: [...nodeDependencies],
-					parentProject: project ? project : parentProject,
+					parentProjectName: project ? project.getName() : parentProjectName,
 				});
 			}
 		}
@@ -381,6 +319,4 @@ async function projectGraphBuilder(nodeProvider, workspace) {
 	await projectGraph.resolveOptionalDependencies();
 
 	return projectGraph;
-}
-
-export default projectGraphBuilder;
+};

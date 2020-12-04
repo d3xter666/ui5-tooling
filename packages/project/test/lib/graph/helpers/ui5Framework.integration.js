@@ -1,10 +1,19 @@
-import test from "ava";
-import sinonGlobal from "sinon";
-import esmock from "esmock";
-import path from "node:path";
-import DependencyTreeProvider from "../../../../lib/graph/providers/DependencyTree.js";
+const test = require("ava");
+const sinon = require("sinon");
+const mock = require("mock-require");
+const path = require("path");
+const os = require("os");
+const fs = require("graceful-fs");
 
-const __dirname = import.meta.dirname;
+const pacote = require("pacote");
+const libnpmconfig = require("libnpmconfig");
+const lockfile = require("lockfile");
+const logger = require("@ui5/logger");
+const Module = require("../../../../lib/graph/Module");
+const ApplicationType = require("../../../../lib/specifications/types/Application");
+const LibraryType = require("../../../../lib/specifications/types/Library");
+const DependencyTreeProvider = require("../../../../lib/graph/providers/DependencyTree");
+const projectGraphBuilder = require("../../../../lib/graph/projectGraphBuilder");
 
 // Use path within project as mocking base directory to reduce chance of side effects
 // in case mocks/stubs do not work and real fs is used
@@ -12,157 +21,52 @@ const fakeBaseDir = path.join(__dirname, "fake-tmp");
 const ui5FrameworkBaseDir = path.join(fakeBaseDir, "homedir", ".ui5", "framework");
 const ui5PackagesBaseDir = path.join(ui5FrameworkBaseDir, "packages");
 
-test.beforeEach(async (t) => {
-	const sinon = t.context.sinon = sinonGlobal.createSandbox();
+test.before((t) => {
+	sinon.stub(fs, "rename").yieldsAsync();
+});
 
-	t.context.logStub = {
-		info: sinon.stub(),
-		verbose: sinon.stub(),
-		silly: sinon.stub(),
-		isLevelEnabled: sinon.stub().returns(false),
-		_getLogger: sinon.stub()
-	};
-	const ui5Logger = {
-		getLogger: sinon.stub().returns(t.context.logStub)
-	};
-
-	t.context.pacote = {
-		extract: sinon.stub(),
-		manifest: sinon.stub()
-	};
-
-	class Config {
-		static get typeDefs() {
-			return {};
-		}
-
-		async load() {}
-
-		get flat() {
-			return {};
-		}
-	}
-	sinon.stub(Config.prototype, "flat").value({
-		registry: "https://registry.fake",
-		proxy: ""
-	});
-
-	t.context.Registry = await esmock.p("../../../../lib/ui5Framework/npm/Registry.js", {
-		"@ui5/logger": ui5Logger,
-		"pacote": t.context.pacote,
-		"@npmcli/config": {
-			"default": Config
+test.beforeEach((t) => {
+	sinon.stub(libnpmconfig, "read").returns({
+		toJSON: () => {
+			return {
+				registry: "https://registry.fake",
+				cache: path.join(ui5FrameworkBaseDir, "cacache"),
+				proxy: ""
+			};
 		}
 	});
+	sinon.stub(os, "homedir").returns(path.join(fakeBaseDir, "homedir"));
 
-	const AbstractInstaller = await esmock.p("../../../../lib/ui5Framework/AbstractInstaller.js", {
-		"@ui5/logger": ui5Logger,
-		"../../../../lib/utils/fs.js": {
-			mkdirp: sinon.stub().resolves()
-		},
-		"lockfile": {
-			lock: sinon.stub().yieldsAsync(),
-			unlock: sinon.stub().yieldsAsync()
-		}
-	});
+	sinon.stub(lockfile, "lock").yieldsAsync();
+	sinon.stub(lockfile, "unlock").yieldsAsync();
 
-	t.context.Installer = await esmock.p("../../../../lib/ui5Framework/npm/Installer.js", {
-		"@ui5/logger": ui5Logger,
-		"graceful-fs": {
-			rename: sinon.stub().yieldsAsync(),
-		},
-		"../../../../lib/utils/fs.js": {
-			mkdirp: sinon.stub().resolves()
-		},
-		"../../../../lib/ui5Framework/npm/Registry.js": t.context.Registry,
-		"../../../../lib/ui5Framework/AbstractInstaller.js": AbstractInstaller
-	});
+	const testLogger = logger.getLogger();
+	sinon.stub(logger, "getLogger").returns(testLogger);
+	t.context.logInfoSpy = sinon.spy(testLogger, "info");
 
-	t.context.AbstractResolver = await esmock.p("../../../../lib/ui5Framework/AbstractResolver.js", {
-		"@ui5/logger": ui5Logger,
-		"node:os": {
-			homedir: sinon.stub().returns(path.join(fakeBaseDir, "homedir"))
-		},
-	});
-
-	t.context.Openui5Resolver = await esmock.p("../../../../lib/ui5Framework/Openui5Resolver.js", {
-		"@ui5/logger": ui5Logger,
-		"node:os": {
-			homedir: sinon.stub().returns(path.join(fakeBaseDir, "homedir"))
-		},
-		"../../../../lib/ui5Framework/AbstractResolver.js": t.context.AbstractResolver,
-		"../../../../lib/ui5Framework/npm/Installer.js": t.context.Installer
-	});
-
-	t.context.Sapui5Resolver = await esmock.p("../../../../lib/ui5Framework/Sapui5Resolver.js", {
-		"@ui5/logger": ui5Logger,
-		"node:os": {
-			homedir: sinon.stub().returns(path.join(fakeBaseDir, "homedir"))
-		},
-		"../../../../lib/ui5Framework/AbstractResolver.js": t.context.AbstractResolver,
-		"../../../../lib/ui5Framework/npm/Installer.js": t.context.Installer
-	});
-
-	t.context.Application = await esmock.p("../../../../lib/specifications/types/Application.js");
-	t.context.Library = await esmock.p("../../../../lib/specifications/types/Library.js");
+	mock("mkdirp", sinon.stub().resolves());
 
 	// Stub specification internal checks since none of the projects actually exist on disk
-	sinon.stub(t.context.Application.prototype, "_configureAndValidatePaths").resolves();
-	sinon.stub(t.context.Library.prototype, "_configureAndValidatePaths").resolves();
-	sinon.stub(t.context.Application.prototype, "_parseConfiguration").resolves();
-	sinon.stub(t.context.Library.prototype, "_parseConfiguration").resolves();
+	sinon.stub(ApplicationType.prototype, "_configureAndValidatePaths").resolves();
+	sinon.stub(LibraryType.prototype, "_configureAndValidatePaths").resolves();
+	sinon.stub(ApplicationType.prototype, "_parseConfiguration").resolves();
+	sinon.stub(LibraryType.prototype, "_parseConfiguration").resolves();
 
-	t.context.Specification = await esmock.p("../../../../lib/specifications/Specification.js", {
-		"@ui5/logger": ui5Logger,
-		"../../../../lib/specifications/types/Application.js": t.context.Application,
-		"../../../../lib/specifications/types/Library.js": t.context.Library
-	});
 
-	t.context.Module = await esmock.p("../../../../lib/graph/Module.js", {
-		"@ui5/logger": ui5Logger,
-		"../../../../lib/specifications/Specification.js": t.context.Specification
-	});
-
-	// Stub os homedir to prevent the actual ~/.ui5rc from being used in tests
-	t.context.Configuration = await esmock.p("../../../../lib/config/Configuration.js", {
-		"node:os": {
-			homedir: sinon.stub().returns(path.join(fakeBaseDir, "homedir"))
-		}
-	});
-
-	t.context.ui5Framework = await esmock.p("../../../../lib/graph/helpers/ui5Framework.js", {
-		"@ui5/logger": ui5Logger,
-		"../../../../lib/graph/Module.js": t.context.Module,
-		"../../../../lib/ui5Framework/Openui5Resolver.js": t.context.Openui5Resolver,
-		"../../../../lib/ui5Framework/Sapui5Resolver.js": t.context.Sapui5Resolver,
-		"../../../../lib/config/Configuration.js": t.context.Configuration
-	});
-
-	t.context.projectGraphBuilder = await esmock.p("../../../../lib/graph/projectGraphBuilder.js", {
-		"@ui5/logger": ui5Logger,
-		"../../../../lib/graph/Module.js": t.context.Module
-	});
+	// Re-require to ensure that mocked modules are used
+	t.context.ui5Framework = mock.reRequire("../../../../lib/graph/helpers/ui5Framework");
+	t.context.Installer = require("../../../../lib/ui5Framework/npm/Installer");
 });
 
 test.afterEach.always((t) => {
-	t.context.sinon.restore();
-	esmock.purge(t.context.Registry);
-	esmock.purge(t.context.Installer);
-	esmock.purge(t.context.AbstractResolver);
-	esmock.purge(t.context.Openui5Resolver);
-	esmock.purge(t.context.Sapui5Resolver);
-	esmock.purge(t.context.Application);
-	esmock.purge(t.context.Library);
-	esmock.purge(t.context.Specification);
-	esmock.purge(t.context.Module);
-	esmock.purge(t.context.ui5Framework);
-	esmock.purge(t.context.projectGraphBuilder);
+	sinon.restore();
+	mock.stopAll();
+	logger.setLevel("info"); // default log level
 });
 
 function defineTest(testName, {
 	frameworkName,
-	verbose = false,
-	librariesInWorkspace = null
+	verbose = false
 }) {
 	const npmScope = frameworkName === "SAPUI5" ? "@sapui5" : "@openui5";
 
@@ -208,12 +112,11 @@ function defineTest(testName, {
 	};
 
 	test.serial(`${frameworkName}: ${verbose ? "(verbose) " : ""}${testName}`, async (t) => {
-		const {sinon, ui5Framework, Installer, projectGraphBuilder, Module, pacote, logStub} = t.context;
-
 		// Enable verbose logging
 		if (verbose) {
-			logStub.isLevelEnabled.withArgs("verbose").returns(true);
+			logger.setLevel("verbose");
 		}
+		const {ui5Framework, Installer, logInfoSpy} = t.context;
 
 		const testDependency = {
 			id: "test-dependency-id",
@@ -303,7 +206,6 @@ function defineTest(testName, {
 
 		sinon.stub(Module.prototype, "_readConfigFile")
 			.callsFake(async function() {
-				// eslint-disable-next-line no-invalid-this
 				switch (this.getPath()) {
 				case path.join(ui5PackagesBaseDir, npmScope, "sap.ui.lib1",
 					frameworkName === "SAPUI5" ? "1.75.1" : "1.75.0"):
@@ -373,16 +275,15 @@ function defineTest(testName, {
 				default:
 					throw new Error(
 						"Module#_readConfigFile stub called with unknown project: " +
-						// eslint-disable-next-line no-invalid-this
 						(this.getId())
 					);
 				}
 			});
 
-		pacote.extract.resolves();
+		sinon.stub(pacote, "extract").resolves();
 
 		if (frameworkName === "OpenUI5") {
-			pacote.manifest
+			sinon.stub(pacote, "manifest")
 				.callsFake(async (spec) => {
 					throw new Error("pacote.manifest stub called with unknown spec: " + spec);
 				})
@@ -437,66 +338,7 @@ function defineTest(testName, {
 		const provider = new DependencyTreeProvider({dependencyTree});
 		const projectGraph = await projectGraphBuilder(provider);
 
-		if (librariesInWorkspace) {
-			const projectNameMap = new Map();
-			const moduleIdMap = new Map();
-			librariesInWorkspace.forEach((libName) => {
-				const libraryDistMetadata = distributionMetadata.libraries[libName];
-				const module = {
-					getSpecifications: sinon.stub().resolves({
-						project: {
-							getName: sinon.stub().returns(libName),
-							getVersion: sinon.stub().returns("1.76.0-SNAPSHOT"),
-							getRootPath: sinon.stub().returns(path.join(fakeBaseDir, "workspace", libName)),
-							isFrameworkProject: sinon.stub().returns(true),
-							getId: sinon.stub().returns(libraryDistMetadata.npmPackageName),
-							getRootReader: sinon.stub().returns({
-								byPath: sinon.stub().resolves({
-									getString: sinon.stub().resolves(JSON.stringify({dependencies: {}}))
-								})
-							}),
-							getFrameworkDependencies: sinon.stub().callsFake(() => {
-								const deps = [];
-								libraryDistMetadata.dependencies.forEach((dep) => {
-									deps.push({name: dep});
-								});
-								libraryDistMetadata.optionalDependencies.forEach((optDep) => {
-									deps.push({name: optDep, optional: true});
-								});
-								return deps;
-							}),
-							isDeprecated: sinon.stub().returns(false),
-							isSapInternal: sinon.stub().returns(false),
-							getAllowSapInternal: sinon.stub().returns(false),
-						}
-					}),
-					getVersion: sinon.stub().returns("1.76.0-SNAPSHOT"),
-					getPath: sinon.stub().returns(path.join(fakeBaseDir, "workspace", libName)),
-				};
-				projectNameMap.set(libName, module);
-				moduleIdMap.set(libraryDistMetadata.npmPackageName, module);
-			});
-
-			const getModuleByProjectName = sinon.stub().callsFake(
-				async (projectName) => projectNameMap.get(projectName)
-			);
-			const getModules = sinon.stub().callsFake(
-				async () => {
-					const sortedMap = new Map([...moduleIdMap].sort((a, b) => String(a[0]).localeCompare(b[0])));
-					return Array.from(sortedMap.values());
-				}
-			);
-
-			const workspace = {
-				getName: sinon.stub().returns("test"),
-				getModules,
-				getModuleByProjectName
-			};
-
-			await ui5Framework.enrichProjectGraph(projectGraph, {workspace});
-		} else {
-			await ui5Framework.enrichProjectGraph(projectGraph);
-		}
+		await ui5Framework.enrichProjectGraph(projectGraph);
 
 		const callbackStub = sinon.stub().resolves();
 		await projectGraph.traverseDepthFirst(callbackStub);
@@ -515,21 +357,7 @@ function defineTest(testName, {
 			"test-application",
 		], "Traversed graph in correct order");
 
-		t.deepEqual(projectGraph.getDependencies("test-application"), [
-			"test-dependency",
-			"test-dependency-no-framework",
-			"sap.ui.lib1",
-			"sap.ui.lib4",
-			"sap.ui.lib8",
-		], `Non-framework dependency has correct dependencies`);
-
-		t.deepEqual(projectGraph.getDependencies("test-dependency"), [
-			"sap.ui.lib1",
-			"sap.ui.lib2",
-			"sap.ui.lib8",
-		], `Non-framework dependency has correct dependencies`);
-
-		const frameworkLibAlreadyAddedInfoLogged = (logStub.info.getCalls()
+		const frameworkLibAlreadyAddedInfoLogged = (logInfoSpy.getCalls()
 			.map(($) => $.firstArg)
 			.findIndex(($) => $.includes("defines a dependency to the UI5 framework library")) !== -1);
 		t.false(frameworkLibAlreadyAddedInfoLogged, "No info regarding already added UI5 framework libraries logged");
@@ -551,15 +379,6 @@ defineTest("ui5Framework helper should enhance project graph with UI5 framework 
 	verbose: true
 });
 
-defineTest("ui5Framework helper should not cause install of libraries within workspace", {
-	frameworkName: "SAPUI5",
-	librariesInWorkspace: ["sap.ui.lib1", "sap.ui.lib2", "sap.ui.lib8"]
-});
-defineTest("ui5Framework helper should not cause install of libraries within workspace", {
-	frameworkName: "OpenUI5",
-	librariesInWorkspace: ["sap.ui.lib1", "sap.ui.lib2", "sap.ui.lib8"]
-});
-
 function defineErrorTest(testName, {
 	frameworkName,
 	failExtract = false,
@@ -567,7 +386,7 @@ function defineErrorTest(testName, {
 	expectedErrorMessage
 }) {
 	test.serial(testName, async (t) => {
-		const {sinon, ui5Framework, Installer, projectGraphBuilder, pacote} = t.context;
+		const {ui5Framework, Installer} = t.context;
 
 		const dependencyTree = {
 			id: "test-id",
@@ -596,32 +415,34 @@ function defineErrorTest(testName, {
 			}
 		};
 
-		pacote.extract.callsFake(async (spec) => {
+		const extractStub = sinon.stub(pacote, "extract");
+		extractStub.callsFake(async (spec) => {
 			throw new Error("pacote.extract stub called with unknown spec: " + spec);
 		});
 
-		pacote.manifest.callsFake(async (spec) => {
+		const manifestStub = sinon.stub(pacote, "manifest");
+		manifestStub.callsFake(async (spec) => {
 			throw new Error("pacote.manifest stub called with unknown spec: " + spec);
 		});
 
 		if (frameworkName === "SAPUI5") {
 			if (failExtract) {
-				pacote.extract
+				extractStub
 					.withArgs("@sapui5/sap.ui.lib1@1.75.1")
 					.rejects(new Error("404 - @sapui5/sap.ui.lib1"))
 					.withArgs("@openui5/sap.ui.lib4@1.75.4")
 					.rejects(new Error("404 - @openui5/sap.ui.lib4"));
 			} else {
-				pacote.extract
+				extractStub
 					.withArgs("@sapui5/sap.ui.lib1@1.75.1").resolves()
 					.withArgs("@openui5/sap.ui.lib4@1.75.4").resolves();
 			}
 			if (failMetadata) {
-				pacote.extract
+				extractStub
 					.withArgs("@sapui5/distribution-metadata@1.75.0")
 					.rejects(new Error("404 - @sapui5/distribution-metadata"));
 			} else {
-				pacote.extract
+				extractStub
 					.withArgs("@sapui5/distribution-metadata@1.75.0")
 					.resolves();
 				sinon.stub(Installer.prototype, "readJson")
@@ -667,26 +488,26 @@ function defineErrorTest(testName, {
 			}
 		} else if (frameworkName === "OpenUI5") {
 			if (failExtract) {
-				pacote.extract
+				extractStub
 					.withArgs("@openui5/sap.ui.lib1@1.75.0")
 					.rejects(new Error("404 - @openui5/sap.ui.lib1"))
 					.withArgs("@openui5/sap.ui.lib4@1.75.0")
 					.rejects(new Error("404 - @openui5/sap.ui.lib4"));
 			} else {
-				pacote.extract
+				extractStub
 					.withArgs("@openui5/sap.ui.lib1@1.75.0")
 					.resolves()
 					.withArgs("@openui5/sap.ui.lib4@1.75.0")
 					.resolves();
 			}
 			if (failMetadata) {
-				pacote.manifest
+				manifestStub
 					.withArgs("@openui5/sap.ui.lib1@1.75.0")
 					.rejects(new Error("Failed to read manifest of @openui5/sap.ui.lib1@1.75.0"))
 					.withArgs("@openui5/sap.ui.lib4@1.75.0")
 					.rejects(new Error("Failed to read manifest of @openui5/sap.ui.lib4@1.75.0"));
 			} else {
-				pacote.manifest
+				manifestStub
 					.withArgs("@openui5/sap.ui.lib1@1.75.0")
 					.resolves({
 						name: "@openui5/sap.ui.lib1",
@@ -713,17 +534,18 @@ defineErrorTest("SAPUI5: ui5Framework helper should throw a proper error when me
 	frameworkName: "SAPUI5",
 	failMetadata: true,
 	expectedErrorMessage: `Resolution of framework libraries failed with errors:
-  1. Failed to resolve library sap.ui.lib1: Failed to extract package @sapui5/distribution-metadata@1.75.0: ` +
+Failed to resolve library sap.ui.lib1: Failed to extract package @sapui5/distribution-metadata@1.75.0: ` +
 `404 - @sapui5/distribution-metadata
-  2. Failed to resolve library sap.ui.lib4: Error already logged`
+Failed to resolve library sap.ui.lib4: Failed to extract package @sapui5/distribution-metadata@1.75.0: ` +
+`404 - @sapui5/distribution-metadata` // TODO: should only be returned once?
 });
 defineErrorTest("SAPUI5: ui5Framework helper should throw a proper error when package extraction fails", {
 	frameworkName: "SAPUI5",
 	failExtract: true,
 	expectedErrorMessage: `Resolution of framework libraries failed with errors:
-  1. Failed to resolve library sap.ui.lib1: Failed to extract package @sapui5/sap.ui.lib1@1.75.1: ` +
+Failed to resolve library sap.ui.lib1: Failed to extract package @sapui5/sap.ui.lib1@1.75.1: ` +
 `404 - @sapui5/sap.ui.lib1
-  2. Failed to resolve library sap.ui.lib4: Failed to extract package @openui5/sap.ui.lib4@1.75.4: ` +
+Failed to resolve library sap.ui.lib4: Failed to extract package @openui5/sap.ui.lib4@1.75.4: ` +
 `404 - @openui5/sap.ui.lib4`
 });
 defineErrorTest(
@@ -732,9 +554,10 @@ defineErrorTest(
 		failMetadata: true,
 		failExtract: true,
 		expectedErrorMessage: `Resolution of framework libraries failed with errors:
-  1. Failed to resolve library sap.ui.lib1: Failed to extract package @sapui5/distribution-metadata@1.75.0: ` +
+Failed to resolve library sap.ui.lib1: Failed to extract package @sapui5/distribution-metadata@1.75.0: ` +
 `404 - @sapui5/distribution-metadata
-  2. Failed to resolve library sap.ui.lib4: Error already logged`
+Failed to resolve library sap.ui.lib4: Failed to extract package @sapui5/distribution-metadata@1.75.0: ` +
+`404 - @sapui5/distribution-metadata`
 	});
 
 
@@ -742,16 +565,16 @@ defineErrorTest("OpenUI5: ui5Framework helper should throw a proper error when m
 	frameworkName: "OpenUI5",
 	failMetadata: true,
 	expectedErrorMessage: `Resolution of framework libraries failed with errors:
-  1. Failed to resolve library sap.ui.lib1: Failed to read manifest of @openui5/sap.ui.lib1@1.75.0
-  2. Failed to resolve library sap.ui.lib4: Failed to read manifest of @openui5/sap.ui.lib4@1.75.0`
+Failed to resolve library sap.ui.lib1: Failed to read manifest of @openui5/sap.ui.lib1@1.75.0
+Failed to resolve library sap.ui.lib4: Failed to read manifest of @openui5/sap.ui.lib4@1.75.0`
 });
 defineErrorTest("OpenUI5: ui5Framework helper should throw a proper error when package extraction fails", {
 	frameworkName: "OpenUI5",
 	failExtract: true,
 	expectedErrorMessage: `Resolution of framework libraries failed with errors:
-  1. Failed to resolve library sap.ui.lib1: Failed to extract package @openui5/sap.ui.lib1@1.75.0: ` +
+Failed to resolve library sap.ui.lib1: Failed to extract package @openui5/sap.ui.lib1@1.75.0: ` +
 `404 - @openui5/sap.ui.lib1
-  2. Failed to resolve library sap.ui.lib4: Failed to extract package @openui5/sap.ui.lib4@1.75.0: ` +
+Failed to resolve library sap.ui.lib4: Failed to extract package @openui5/sap.ui.lib4@1.75.0: ` +
 `404 - @openui5/sap.ui.lib4`
 });
 defineErrorTest(
@@ -760,13 +583,11 @@ defineErrorTest(
 		failMetadata: true,
 		failExtract: true,
 		expectedErrorMessage: `Resolution of framework libraries failed with errors:
-  1. Failed to resolve library sap.ui.lib1: Failed to read manifest of @openui5/sap.ui.lib1@1.75.0
-  2. Failed to resolve library sap.ui.lib4: Failed to read manifest of @openui5/sap.ui.lib4@1.75.0`
+Failed to resolve library sap.ui.lib1: Failed to read manifest of @openui5/sap.ui.lib1@1.75.0
+Failed to resolve library sap.ui.lib4: Failed to read manifest of @openui5/sap.ui.lib4@1.75.0`
 	});
 
 test.serial("ui5Framework helper should not fail when no framework configuration is given", async (t) => {
-	const {ui5Framework, projectGraphBuilder} = t.context;
-
 	const dependencyTree = {
 		id: "test-id",
 		version: "1.2.3",
@@ -782,14 +603,12 @@ test.serial("ui5Framework helper should not fail when no framework configuration
 	};
 	const provider = new DependencyTreeProvider({dependencyTree});
 	const projectGraph = await projectGraphBuilder(provider);
-	await ui5Framework.enrichProjectGraph(projectGraph);
+	await t.context.ui5Framework.enrichProjectGraph(projectGraph);
 
 	t.is(projectGraph, projectGraph, "Returned same graph without error");
 });
 
 test.serial("ui5Framework translator should not try to install anything when no library is referenced", async (t) => {
-	const {ui5Framework, projectGraphBuilder, pacote} = t.context;
-
 	const dependencyTree = {
 		id: "test-id",
 		version: "1.2.3",
@@ -810,15 +629,16 @@ test.serial("ui5Framework translator should not try to install anything when no 
 	const provider = new DependencyTreeProvider({dependencyTree});
 	const projectGraph = await projectGraphBuilder(provider);
 
-	await ui5Framework.enrichProjectGraph(projectGraph);
+	const extractStub = sinon.stub(pacote, "extract");
+	const manifestStub = sinon.stub(pacote, "manifest");
 
-	t.is(pacote.extract.callCount, 0, "No package should be extracted");
-	t.is(pacote.manifest.callCount, 0, "No manifest should be requested");
+	await t.context.ui5Framework.enrichProjectGraph(projectGraph);
+
+	t.is(extractStub.callCount, 0, "No package should be extracted");
+	t.is(manifestStub.callCount, 0, "No manifest should be requested");
 });
 
-test.serial("ui5Framework helper shouldn't throw when framework version and libraries are not provided", async (t) => {
-	const {ui5Framework, projectGraphBuilder, logStub} = t.context;
-
+test.serial("ui5Framework translator should throw an error when framework version is not defined", async (t) => {
 	const dependencyTree = {
 		id: "test-id",
 		version: "1.2.3",
@@ -838,31 +658,14 @@ test.serial("ui5Framework helper shouldn't throw when framework version and libr
 	const provider = new DependencyTreeProvider({dependencyTree});
 	const projectGraph = await projectGraphBuilder(provider);
 
-	await ui5Framework.enrichProjectGraph(projectGraph);
-
-	t.is(logStub.verbose.callCount, 5);
-	t.deepEqual(logStub.verbose.getCall(0).args, [
-		"Configuration for module test-id has been supplied directly"
-	]);
-	t.deepEqual(logStub.verbose.getCall(1).args, [
-		"Module test-id contains project test-project"
-	]);
-	t.deepEqual(logStub.verbose.getCall(2).args, [
-		"Root project test-project qualified as application project for project graph"
-	]);
-	t.deepEqual(logStub.verbose.getCall(3).args, [
-		"Project test-project has no framework dependencies"
-	]);
-	t.deepEqual(logStub.verbose.getCall(4).args, [
-		"No SAPUI5 libraries referenced in project test-project or in any of its dependencies"
-	]);
+	await t.throwsAsync(async () => {
+		await t.context.ui5Framework.enrichProjectGraph(projectGraph);
+	}, {message: `No framework version defined for root project test-project`}, "Correct error message");
 });
 
 test.serial(
-	"SAPUI5: ui5Framework helper should throw error when using a library that is not part of the dist metadata",
+	"SAPUI5: ui5Framework translator should throw error when using a library that is not part of the dist metadata",
 	async (t) => {
-		const {sinon, ui5Framework, Installer, projectGraphBuilder} = t.context;
-
 		const dependencyTree = {
 			id: "test-id",
 			version: "1.2.3",
@@ -889,7 +692,9 @@ test.serial(
 		const provider = new DependencyTreeProvider({dependencyTree});
 		const projectGraph = await projectGraphBuilder(provider);
 
-		sinon.stub(Installer.prototype, "readJson")
+		sinon.stub(pacote, "extract").resolves();
+
+		sinon.stub(t.context.Installer.prototype, "readJson")
 			.callThrough()
 			.withArgs(path.join(fakeBaseDir,
 				"homedir", ".ui5", "framework", "packages",
@@ -915,9 +720,10 @@ test.serial(
 			});
 
 		await t.throwsAsync(async () => {
-			await ui5Framework.enrichProjectGraph(projectGraph);
+			await t.context.ui5Framework.enrichProjectGraph(projectGraph);
 		}, {
-			message: `Failed to resolve library does.not.exist: Could not find library "does.not.exist"`});
+			message: `Resolution of framework libraries failed with errors:
+Failed to resolve library does.not.exist: Could not find library "does.not.exist"`});
 	});
 
 // TODO test: Should not download packages again in case they are already installed
