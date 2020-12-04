@@ -1,17 +1,11 @@
-import {promisify} from "node:util";
-import Project from "./Project.js";
-import * as resourceFactory from "@ui5/fs/resourceFactory";
+const {promisify} = require("util");
+const Project = require("./Project");
+const resourceFactory = require("@ui5/fs").resourceFactory;
 
-/**
- * Subclass for projects potentially containing Components
- *
- * @public
- * @abstract
- * @class
- * @alias @ui5/project/specifications/ComponentProject
- * @extends @ui5/project/specifications/Project
- * @hideconstructor
- */
+/*
+* Subclass for projects potentially containing Components
+*/
+
 class ComponentProject extends Project {
 	constructor(parameters) {
 		super(parameters);
@@ -26,11 +20,8 @@ class ComponentProject extends Project {
 
 	/* === Attributes === */
 	/**
-	 * Get the project namespace
-	 *
-	 * @public
-	 * @returns {string} Project namespace in slash notation (e.g. <code>my/project/name</code>)
-	 */
+	* @public
+	*/
 	getNamespace() {
 		return this._namespace;
 	}
@@ -69,6 +60,13 @@ class ComponentProject extends Project {
 	/**
 	* @private
 	*/
+	getJsdocExcludes() {
+		return this._config.builder && this._config.builder.jsdoc && this._config.builder.jsdoc.excludes || [];
+	}
+
+	/**
+	* @private
+	*/
 	getMinificationExcludes() {
 		return this._config.builder && this._config.builder.minification &&
 			this._config.builder.minification.excludes || [];
@@ -92,69 +90,45 @@ class ComponentProject extends Project {
 	/* === Resource Access === */
 
 	/**
-	 * Get a [ReaderCollection]{@link @ui5/fs/ReaderCollection} for accessing all resources of the
-	 * project in the specified "style":
-	 *
-	 * <ul>
-	 * <li><b>buildtime:</b> Resource paths are always prefixed with <code>/resources/</code>
-	 *  or <code>/test-resources/</code> followed by the project's namespace.
-	 *  Any configured build-excludes are applied</li>
-	 * <li><b>dist:</b> Resource paths always match with what the UI5 runtime expects.
-	 *  This means that paths generally depend on the project type. Applications for example use a "flat"-like
-	 *  structure, while libraries use a "buildtime"-like structure.
-	 *  Any configured build-excludes are applied</li>
-	 * <li><b>runtime:</b> Resource paths always match with what the UI5 runtime expects.
-	 *  This means that paths generally depend on the project type. Applications for example use a "flat"-like
-	 *  structure, while libraries use a "buildtime"-like structure.
-	 *  This style is typically used for serving resources directly. Therefore, build-excludes are not applied
-	 * <li><b>flat:</b> Resource paths are never prefixed and namespaces are omitted if possible. Note that
-	 *  project types like "theme-library", which can have multiple namespaces, can't omit them.
-	 *  Any configured build-excludes are applied</li>
-	 * </ul>
-	 *
+	 * Get a resource reader for accessing the project resources in a given style.
 	 * If project resources have been changed through the means of a workspace, those changes
 	 * are reflected in the provided reader too.
 	 *
-	 * Resource readers always use POSIX-style paths.
-	 *
 	 * @public
 	 * @param {object} [options]
-	 * @param {string} [options.style=buildtime] Path style to access resources.
-	 *   Can be "buildtime", "dist", "runtime" or "flat"
-	 * @returns {@ui5/fs/ReaderCollection} A reader collection instance
+	 * @param {string} [options.style=buildtime] Path style to access resources. Can be "buildtime", "runtime" or "flat"
+	 * 												TODO: describe styles
+	 * @returns {module:@ui5/fs.ReaderCollection} A reader collection instance
 	 */
 	getReader({style = "buildtime"} = {}) {
 		// TODO: Additional style 'ABAP' using "sap.platform.abap".uri from manifest.json?
 
-		// Apply builder excludes to all styles but "runtime"
-		const excludes = style === "runtime" ? [] : this.getBuilderResourcesExcludes();
-
-		if ((style === "runtime" || style === "dist") && this._isRuntimeNamespaced) {
-			// If the project's type requires a namespace at runtime, the
-			// dist- and runtime-style paths are identical to buildtime-style paths
+		if (style === "runtime" && this._isRuntimeNamespaced) {
+			// If the project's runtime paths contains its namespace too,
+			// "runtime" style paths are identical to "buildtime" style paths
 			style = "buildtime";
 		}
-		let reader = this._getReader(excludes);
+		let reader;
 		switch (style) {
 		case "buildtime":
+			reader = this._getReader();
 			break;
 		case "runtime":
-		case "dist":
 			// Use buildtime reader and link it to /
 			// No test-resources for runtime resource access,
 			// unless runtime is namespaced
-			reader = resourceFactory.createFlatReader({
-				reader,
-				namespace: this._namespace
+			reader = this._getReader().link({
+				linkPath: `/`,
+				targetPath: `/resources/${this._namespace}/`
 			});
 			break;
 		case "flat":
 			// Use buildtime reader and link it to /
 			// No test-resources for runtime resource access,
 			// unless runtime is namespaced
-			reader = resourceFactory.createFlatReader({
-				reader,
-				namespace: this._namespace
+			reader = this._getReader().link({
+				linkPath: `/`,
+				targetPath: `/resources/${this._namespace}/`
 			});
 			break;
 		default:
@@ -168,7 +142,7 @@ class ComponentProject extends Project {
 	/**
 	* Get a resource reader for the resources of the project
 	*
-	* @returns {@ui5/fs/ReaderCollection} Reader collection
+	* @returns {module:@ui5/fs.ReaderCollection} Reader collection
 	*/
 	_getSourceReader() {
 		throw new Error(`_getSourceReader must be implemented by subclass ${this.constructor.name}`);
@@ -177,7 +151,7 @@ class ComponentProject extends Project {
 	/**
 	* Get a resource reader for the test resources of the project
 	*
-	* @returns {@ui5/fs/ReaderCollection} Reader collection
+	* @returns {module:@ui5/fs.ReaderCollection} Reader collection
 	*/
 	_getTestReader() {
 		throw new Error(`_getTestReader must be implemented by subclass ${this.constructor.name}`);
@@ -187,15 +161,13 @@ class ComponentProject extends Project {
 	 * Get a resource reader/writer for accessing and modifying a project's resources
 	 *
 	 * @public
-	 * @returns {@ui5/fs/ReaderCollection} A reader collection instance
+	 * @returns {module:@ui5/fs.ReaderCollection} A reader collection instance
 	 */
 	getWorkspace() {
 		// Workspace is always of style "buildtime"
-		// Therefore builder resource-excludes are always to be applied
-		const excludes = this.getBuilderResourcesExcludes();
 		return resourceFactory.createWorkspace({
 			name: `Workspace for project ${this.getName()}`,
-			reader: this._getReader(excludes),
+			reader: this._getReader(),
 			writer: this._getWriter().collection
 		});
 	}
@@ -231,9 +203,9 @@ class ComponentProject extends Project {
 		return this._writers;
 	}
 
-	_getReader(excludes) {
-		let reader = this._getSourceReader(excludes);
-		const testReader = this._getTestReader(excludes);
+	_getReader() {
+		let reader = this._getSourceReader();
+		const testReader = this._getTestReader();
 		if (testReader) {
 			reader = resourceFactory.createReaderCollection({
 				name: `Reader collection for project ${this.getName()}`,
@@ -246,36 +218,37 @@ class ComponentProject extends Project {
 	_addWriter(reader, style) {
 		const {namespaceWriter, generalWriter} = this._getWriter();
 
-		if ((style === "runtime" || style === "dist") && this._isRuntimeNamespaced) {
-			// If the project's type requires a namespace at runtime, the
-			// dist- and runtime-style paths are identical to buildtime-style paths
+		if (style === "runtime" && this._isRuntimeNamespaced) {
+			// If the project's runtime requires namespaces, "runtime" paths are identical to "buildtime" paths
 			style = "buildtime";
 		}
 		const readers = [];
 		switch (style) {
-		case "buildtime":
+		case "buildtime": {
 			// Writer already uses buildtime style
 			readers.push(namespaceWriter);
 			readers.push(generalWriter);
 			break;
-		case "runtime":
-		case "dist":
+		}
+		case "runtime": {
 			// Runtime is not namespaced: link namespace to /
-			readers.push(resourceFactory.createFlatReader({
-				reader: namespaceWriter,
-				namespace: this._namespace
+			readers.push(namespaceWriter.link({
+				linkPath: `/`,
+				targetPath: `/resources/${this._namespace}/`
 			}));
 			// Add general writer as is
 			readers.push(generalWriter);
 			break;
-		case "flat":
+		}
+		case "flat": {
 			// Rewrite paths from "flat" to "buildtime"
-			readers.push(resourceFactory.createFlatReader({
-				reader: namespaceWriter,
-				namespace: this._namespace
+			readers.push(namespaceWriter.link({
+				linkPath: `/`,
+				targetPath: `/resources/${this._namespace}/`
 			}));
 			// General writer resources can't be flattened, so they are not available
 			break;
+		}
 		default:
 			throw new Error(`Unknown path mapping style ${style}`);
 		}
@@ -322,7 +295,7 @@ class ComponentProject extends Project {
 		const parts = value && value.match(/^\$\{(.*)\}$/);
 		if (parts) {
 			this._log.verbose(
-				`"${value}" contains a maven placeholder "${parts[1]}". Resolving from projects pom.xml...`);
+				`"${value} contains a maven placeholder "${parts[1]}". Resolving from projects pom.xml...`);
 			const pom = await this._getPom();
 			let mvnValue;
 			if (pom.project && pom.project.properties && pom.project.properties[parts[1]]) {
@@ -361,9 +334,7 @@ class ComponentProject extends Project {
 						`Could not find pom.xml in project ${this.getName()}`);
 				}
 				const content = await resource.getString();
-				const {
-					default: xml2js
-				} = await import("xml2js");
+				const xml2js = require("xml2js");
 				const parser = new xml2js.Parser({
 					explicitArray: false,
 					ignoreAttrs: true
@@ -377,4 +348,4 @@ class ComponentProject extends Project {
 	}
 }
 
-export default ComponentProject;
+module.exports = ComponentProject;
