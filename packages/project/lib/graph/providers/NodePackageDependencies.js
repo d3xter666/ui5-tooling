@@ -1,23 +1,17 @@
-import path from "node:path";
-import {readPackageUp} from "read-package-up";
-import {readPackage} from "read-pkg";
-import {promisify} from "node:util";
-import fs from "graceful-fs";
+const path = require("path");
+const readPkgUp = require("read-pkg-up");
+const readPkg = require("read-pkg");
+const {promisify} = require("util");
+const fs = require("graceful-fs");
 const realpath = promisify(fs.realpath);
-import resolve from "resolve";
-const resolveModulePath = promisify(resolve);
-import {getLogger} from "@ui5/logger";
-const log = getLogger("graph:providers:NodePackageDependencies");
+const resolveModulePath = promisify(require("resolve"));
+const log = require("@ui5/logger").getLogger("graph:providers:NodePackageDependencies");
 
 // Packages to consider:
 // * https://github.com/npm/read-package-json-fast
 // * https://github.com/npm/name-from-folder ?
 
-/**
- * @public
- * @class
- * @alias @ui5/project/graph/providers/NodePackageDependencies
- */
+
 class NodePackageDependencies {
 	/**
 	 * Generates a project graph from npm modules
@@ -34,10 +28,12 @@ class NodePackageDependencies {
 		this._cwd = cwd;
 		this._rootConfiguration = rootConfiguration;
 		this._rootConfigPath = rootConfigPath;
+
+		// this._nodes = {};
 	}
 
 	async getRootNode() {
-		const rootPkg = await readPackageUp({
+		const rootPkg = await readPkgUp({
 			cwd: this._cwd,
 			normalize: false
 		});
@@ -46,15 +42,10 @@ class NodePackageDependencies {
 			throw new Error(
 				`Failed to locate package.json for directory ${path.resolve(this._cwd)}`);
 		}
-
 		const modulePath = path.dirname(rootPkg.path);
-		if (!rootPkg.packageJson.name) {
-			throw new Error(`Missing or empty 'name' attribute in package.json at ${modulePath}`);
-		}
-		if (!rootPkg.packageJson.version) {
-			throw new Error(`Missing or empty 'version' attribute in package.json at ${modulePath}`);
-		}
-
+		// this._nodes[rootPkg.packageJson.name] = {
+		// 	dependencies: Object.keys(rootPkg.packageJson.dependencies)
+		// };
 		return {
 			id: rootPkg.packageJson.name,
 			version: rootPkg.packageJson.version,
@@ -65,32 +56,19 @@ class NodePackageDependencies {
 		};
 	}
 
-	async getDependencies(node, workspace) {
+	async getDependencies(node) {
 		log.verbose(`Resolving dependencies of ${node.id}...`);
 		if (!node._dependencies) {
 			return [];
 		}
 		return Promise.all(node._dependencies.map(async ({name, optional}) => {
-			const modulePath = await this._resolveModulePath(node.path, name, workspace);
-			return this._getNode(modulePath, optional, name);
+			const modulePath = await this._resolveModulePath(node.path, name);
+			return this._getNode(modulePath, optional);
 		}));
 	}
 
-	async _resolveModulePath(baseDir, moduleName, workspace) {
+	async _resolveModulePath(baseDir, moduleName) {
 		log.verbose(`Resolving module path for '${moduleName}'...`);
-
-		if (workspace) {
-			// Check whether node can be resolved via the provided Workspace instance
-			// If yes, replace the node from NodeProvider with the one from Workspace
-			const workspaceNode = await workspace.getModuleByNodeId(moduleName);
-			if (workspaceNode) {
-				log.info(`Resolved module ${moduleName} via ${workspace.getName()} workspace ` +
-					`to version ${workspaceNode.getVersion()}`);
-				log.verbose(`  Resolved module ${moduleName} to path ${workspaceNode.getPath()}`);
-				return workspaceNode.getPath();
-			}
-		}
-
 		try {
 			let packageJsonPath = await resolveModulePath(moduleName + "/package.json", {
 				basedir: baseDir,
@@ -107,25 +85,15 @@ class NodePackageDependencies {
 		}
 	}
 
-	/**
-	 * Resolves a Node module by reading its package.json
-	 *
-	 * @param {string} modulePath Path to the module.
-	 * @param {boolean} optional Whether this dependency is optional.
-	 * @param {string} [nameAlias] The name of the module. It's usually the same as the name definfed
-	 * 	in package.json and could easily be skipped. Useful when defining dependency as an alias:
-	 * 	{@link https://github.com/npm/rfcs/blob/main/implemented/0001-package-aliases.md}
-	 * @returns {Promise<object>}
-	 */
-	async _getNode(modulePath, optional, nameAlias) {
+	async _getNode(modulePath, optional) {
 		log.verbose(`Reading package.json in directory ${modulePath}...`);
-		const packageJson = await readPackage({
+		const packageJson = await readPkg({
 			cwd: modulePath,
 			normalize: false
 		});
 
 		return {
-			id: nameAlias || packageJson.name,
+			id: packageJson.name,
 			version: packageJson.version,
 			path: modulePath,
 			optional,
@@ -159,7 +127,7 @@ class NodePackageDependencies {
 						name: depName,
 						optional: true
 					});
-				} catch {
+				} catch (err) {
 					// Ignore error since it's a development dependency of a non-root module
 				}
 			}));
@@ -172,7 +140,7 @@ class NodePackageDependencies {
 						name: depName,
 						optional: false
 					});
-				} catch {
+				} catch (err) {
 					// Ignore error since it's an optional dependency
 				}
 			}));
@@ -181,4 +149,4 @@ class NodePackageDependencies {
 	}
 }
 
-export default NodePackageDependencies;
+module.exports = NodePackageDependencies;
