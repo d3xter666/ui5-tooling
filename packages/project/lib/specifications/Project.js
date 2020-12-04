@@ -1,15 +1,12 @@
-import Specification from "./Specification.js";
-import ResourceTagCollection from "@ui5/fs/internal/ResourceTagCollection";
+const Specification = require("./Specification");
+
 
 /**
  * Project
  *
  * @public
- * @abstract
- * @class
- * @alias @ui5/project/specifications/Project
- * @extends @ui5/project/specifications/Specification
- * @hideconstructor
+ * @memberof module:@ui5/project.specifications
+ * @augments  module:@ui5/project.specifications.Specification
  */
 class Project extends Specification {
 	constructor(parameters) {
@@ -42,12 +39,8 @@ class Project extends Specification {
 
 	/* === Attributes === */
 	/**
-	 * Get the project namespace. Returns `null` for projects that have none or multiple namespaces,
-	 * for example Modules or Theme Libraries.
-	 *
-	 * @public
-	 * @returns {string|null} Project namespace in slash notation (e.g. <code>my/project/name</code>) or null
-	 */
+	* @public
+	*/
 	getNamespace() {
 		// Default namespace for general Projects:
 		// Their resources should be structured with globally unique paths, hence their namespace is undefined
@@ -55,199 +48,77 @@ class Project extends Specification {
 	}
 
 	/**
-	 * Check whether the project is a UI5-Framework project
-	 *
-	 * @public
-	 * @returns {boolean} True if the project is a framework project
-	 */
-	isFrameworkProject() {
-		const id = this.getId();
-		return id.startsWith("@openui5/") || id.startsWith("@sapui5/");
-	}
-
-	/**
-	 * Get the project's customConfiguration
-	 *
-	 * @public
-	 * @returns {object} Custom Configuration
-	 */
-	getCustomConfiguration() {
-		return this._config.customConfiguration;
-	}
-
-	/**
-	 * Get the path of the project's source directory. This might not be POSIX-style on some platforms.
-	 * Projects with multiple source paths will throw an error. For example Modules.
-	 *
-	 * @public
-	 * @returns {string} Absolute path to the source directory of the project
-	 * @throws {Error} In case a project has multiple source directories
-	 */
-	getSourcePath() {
-		throw new Error(`getSourcePath must be implemented by subclass ${this.constructor.name}`);
-	}
-
-	/**
-	 * Get the project's framework name configuration
-	 *
-	 * @public
-	 * @returns {string} Framework name configuration, either <code>OpenUI5</code> or <code>SAPUI5</code>
-	 */
+	* @private
+	*/
 	getFrameworkName() {
 		return this._config.framework?.name;
 	}
-
 	/**
-	 * Get the project's framework version configuration
-	 *
-	 * @public
-	 * @returns {string} Framework version configuration, e.g <code>1.110.0</code>
-	 */
+	* @private
+	*/
 	getFrameworkVersion() {
 		return this._config.framework?.version;
 	}
-
-
 	/**
-	 * Framework dependency entry of the project configuration.
-	 * Also see [Framework Configuration: Dependencies]{@link https://ui5.github.io/cli/stable/pages/Configuration/#dependencies}
-	 *
-	 * @public
-	 * @typedef {object} @ui5/project/specifications/Project~FrameworkDependency
-	 * @property {string} name Name of the framework library. For example <code>sap.ui.core</code>
-	 * @property {boolean} development Whether the dependency is meant for development purposes only
-	 * @property {boolean} optional Whether the dependency should be treated as optional
-	 */
-
-	/**
-	 * Get the project's framework dependencies configuration
-	 *
-	 * @public
-	 * @returns {@ui5/project/specifications/Project~FrameworkDependency[]} Framework dependencies configuration
-	 */
+	* @private
+	*/
 	getFrameworkDependencies() {
 		return this._config.framework?.libraries || [];
 	}
 
-	/**
-	 * Get the project's deprecated configuration
-	 *
-	 * @private
-	 * @returns {boolean} True if the project is flagged as deprecated
-	 */
-	isDeprecated() {
-		return !!this._config.metadata.deprecated;
+	isFrameworkProject() {
+		return this.__id.startsWith("@openui5/") || this.__id.startsWith("@sapui5/");
 	}
 
-	/**
-	 * Get the project's sapInternal configuration
-	 *
-	 * @private
-	 * @returns {boolean} True if the project is flagged as SAP-internal
-	 */
-	isSapInternal() {
-		return !!this._config.metadata.sapInternal;
+	getCustomConfiguration() {
+		return this._config.customConfiguration;
 	}
 
-	/**
-	 * Get the project's allowSapInternal configuration
-	 *
-	 * @private
-	 * @returns {boolean} True if the project allows for using SAP-internal projects
-	 */
-	getAllowSapInternal() {
-		return !!this._config.metadata.allowSapInternal;
-	}
-
-	/**
-	 * Get the project's builderResourcesExcludes configuration
-	 *
-	 * @private
-	 * @returns {string[]} BuilderResourcesExcludes configuration
-	 */
 	getBuilderResourcesExcludes() {
 		return this._config.builder?.resources?.excludes || [];
 	}
 
-	/**
-	 * Get the project's customTasks configuration
-	 *
-	 * @private
-	 * @returns {object[]} CustomTasks configuration
-	 */
 	getCustomTasks() {
 		return this._config.builder?.customTasks || [];
 	}
 
-	/**
-	 * Get the project's customMiddleware configuration
-	 *
-	 * @private
-	 * @returns {object[]} CustomMiddleware configuration
-	 */
 	getCustomMiddleware() {
-		return this._config.server?.customMiddleware || [];
+		return this._config.builder?.customMiddleware || [];
 	}
 
-	/**
-	 * Get the project's serverSettings configuration
-	 *
-	 * @private
-	 * @returns {object} ServerSettings configuration
-	 */
 	getServerSettings() {
 		return this._config.server?.settings;
 	}
 
-	/**
-	 * Get the project's builderSettings configuration
-	 *
-	 * @private
-	 * @returns {object} BuilderSettings configuration
-	 */
 	getBuilderSettings() {
 		return this._config.builder?.settings;
 	}
 
-	/**
-	 * Get the project's buildManifest configuration
-	 *
-	 * @private
-	 * @returns {object|null} BuildManifest configuration or null if none is available
-	 */
+	hasBuildManifest() {
+		return !!this._buildManifest;
+	}
+
 	getBuildManifest() {
-		return this._buildManifest || null;
+		return this._buildManifest || {};
 	}
 
 	/* === Resource Access === */
 	/**
-	 * Get a [ReaderCollection]{@link @ui5/fs/ReaderCollection} for accessing all resources of the
+	 * Get a [ReaderCollection]{@link module:@ui5/fs.ReaderCollection} for accessing all resources of the
 	 * project in the specified "style":
 	 *
 	 * <ul>
-	 * <li><b>buildtime:</b> Resource paths are always prefixed with <code>/resources/</code>
-	 *  or <code>/test-resources/</code> followed by the project's namespace.
-	 *  Any configured build-excludes are applied</li>
-	 * <li><b>dist:</b> Resource paths always match with what the UI5 runtime expects.
-	 *  This means that paths generally depend on the project type. Applications for example use a "flat"-like
-	 *  structure, while libraries use a "buildtime"-like structure.
-	 *  Any configured build-excludes are applied</li>
-	 * <li><b>runtime:</b> Resource paths always match with what the UI5 runtime expects.
-	 *  This means that paths generally depend on the project type. Applications for example use a "flat"-like
-	 *  structure, while libraries use a "buildtime"-like structure.
-	 *  This style is typically used for serving resources directly. Therefore, build-excludes are not applied
-	 * <li><b>flat:</b> Resource paths are never prefixed and namespaces are omitted if possible. Note that
-	 *  project types like "theme-library", which can have multiple namespaces, can't omit them.
-	 *  Any configured build-excludes are applied</li>
+	 * <li><b>buildtime</b>: Resource paths are always prefixed with <code>/resources/</code>
+	 *  or <code>/test-resources/</code> followed by the project's namespace</li>
+	 * <li><b>runtime</b>: Access resources the same way the UI5 runtime would do</li>
+	 * <li><b>flat:</b> No prefix, no namespace</li>
 	 * </ul>
-	 *
-	 * Resource readers always use POSIX-style paths.
 	 *
 	 * @public
 	 * @param {object} [options]
-	 * @param {string} [options.style=buildtime] Path style to access resources.
-	 *   Can be "buildtime", "dist", "runtime" or "flat"
-	 * @returns {@ui5/fs/ReaderCollection} Reader collection allowing access to all resources of the project
+	 * @param {string} [options.style=buildtime] Path style to access resources. Can be "buildtime", "runtime" or "flat"
+	 *											This parameter might be ignored by some project types
+	 * @returns {module:@ui5/fs.ReaderCollection} Reader collection allowing access to all resources of the project
 	 */
 	getReader(options) {
 		throw new Error(`getReader must be implemented by subclass ${this.constructor.name}`);
@@ -255,6 +126,7 @@ class Project extends Specification {
 
 	getResourceTagCollection() {
 		if (!this._resourceTagCollection) {
+			const ResourceTagCollection = require("@ui5/fs").ResourceTagCollection;
 			this._resourceTagCollection = new ResourceTagCollection({
 				allowedTags: ["ui5:IsDebugVariant", "ui5:HasDebugVariant"],
 				allowedNamespaces: ["project"],
@@ -265,11 +137,11 @@ class Project extends Specification {
 	}
 
 	/**
-	* Get a [DuplexCollection]{@link @ui5/fs/DuplexCollection} for accessing and modifying a
+	* Get a [DuplexCollection]{@link module:@ui5/fs.DuplexCollection} for accessing and modifying a
 	* project's resources. This is always of style <code>buildtime</code>.
 	*
 	* @public
-	* @returns {@ui5/fs/DuplexCollection} DuplexCollection
+	* @returns {module:@ui5/fs.DuplexCollection} DuplexCollection
 	*/
 	getWorkspace() {
 		throw new Error(`getWorkspace must be implemented by subclass ${this.constructor.name}`);
@@ -289,4 +161,4 @@ class Project extends Specification {
 	async _parseConfiguration(config) {}
 }
 
-export default Project;
+module.exports = Project;

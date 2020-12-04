@@ -1,18 +1,9 @@
-import fsPath from "node:path";
-import posixPath from "node:path/posix";
-import {promisify} from "node:util";
-import ComponentProject from "../ComponentProject.js";
-import * as resourceFactory from "@ui5/fs/resourceFactory";
+const fsPath = require("path");
+const posixPath = require("path").posix;
+const {promisify} = require("util");
+const resourceFactory = require("@ui5/fs").resourceFactory;
+const ComponentProject = require("../ComponentProject");
 
-/**
- * Library
- *
- * @public
- * @class
- * @alias @ui5/project/specifications/types/Library
- * @extends @ui5/project/specifications/ComponentProject
- * @hideconstructor
- */
 class Library extends ComponentProject {
 	constructor(parameters) {
 		super(parameters);
@@ -39,31 +30,8 @@ class Library extends ComponentProject {
 			this._config.builder.libraryPreload.excludes || [];
 	}
 
-	/**
-	* @private
-	*/
-	getJsdocExcludes() {
-		return this._config.builder && this._config.builder.jsdoc && this._config.builder.jsdoc.excludes || [];
-	}
-
-	/**
-	 * Get the path of the project's source directory. This might not be POSIX-style on some platforms.
-	 *
-	 * @public
-	 * @returns {string} Absolute path to the source directory of the project
-	 */
-	getSourcePath() {
-		return fsPath.join(this.getRootPath(), this._srcPath);
-	}
-
 	/* === Resource Access === */
-	/**
-	* Get a resource reader for the sources of the project (excluding any test resources)
-	*
-	* @param {string[]} excludes List of glob patterns to exclude
-	* @returns {@ui5/fs/ReaderCollection} Reader collection
-	*/
-	_getSourceReader(excludes) {
+	_getSourceReader() {
 		// TODO: Throw for libraries with additional namespaces like sap.ui.core?
 		let virBasePath = "/resources/";
 		if (!this._isSourceNamespaced) {
@@ -72,21 +40,15 @@ class Library extends ComponentProject {
 			virBasePath += `${this._namespace}/`;
 		}
 		return resourceFactory.createReader({
-			fsBasePath: this.getSourcePath(),
+			fsBasePath: fsPath.join(this.getPath(), this._srcPath),
 			virBasePath,
 			name: `Source reader for library project ${this.getName()}`,
 			project: this,
-			excludes
+			excludes: this.getBuilderResourcesExcludes()
 		});
 	}
 
-	/**
-	* Get a resource reader for the test-resources of the project
-	*
-	* @param {string[]} excludes List of glob patterns to exclude
-	* @returns {@ui5/fs/ReaderCollection} Reader collection
-	*/
-	_getTestReader(excludes) {
+	_getTestReader() {
 		if (!this._testPathExists) {
 			return null;
 		}
@@ -97,28 +59,27 @@ class Library extends ComponentProject {
 			virBasePath += `${this._namespace}/`;
 		}
 		const testReader = resourceFactory.createReader({
-			fsBasePath: fsPath.join(this.getRootPath(), this._testPath),
+			fsBasePath: fsPath.join(this.getPath(), this._testPath),
 			virBasePath,
 			name: `Runtime test-resources reader for library project ${this.getName()}`,
 			project: this,
-			excludes
+			excludes: this.getBuilderResourcesExcludes()
 		});
 		return testReader;
 	}
 
 	/**
-	 * Get a resource reader for the sources of the project (excluding any test resources)
-	 * without a virtual base path.
-	 * In the future the path structure can be flat or namespaced depending on the project
-	 * setup
 	 *
-	 * @returns {@ui5/fs/ReaderCollection} Reader collection
+	 * Get a resource reader for the sources of the project (excluding any test resources)
+	 * In the future the path structure can be flat or namespaced depending on the project
+	 *
+	 * @returns {module:@ui5/fs.ReaderCollection} Reader collection
 	*/
 	_getRawSourceReader() {
 		return resourceFactory.createReader({
-			fsBasePath: this.getSourcePath(),
+			fsBasePath: fsPath.join(this.getPath(), this._srcPath),
 			virBasePath: "/",
-			name: `Raw source reader for library project ${this.getName()}`,
+			name: `Source reader for library project ${this.getName()}`,
 			project: this
 		});
 	}
@@ -139,18 +100,22 @@ class Library extends ComponentProject {
 				this._testPath = config.resources.configuration.paths.test;
 			}
 		}
-		if (!(await this._dirExists("/" + this._srcPath))) {
-			throw new Error(
-				`Unable to find source directory '${this._srcPath}' in library project ${this.getName()}`);
-		}
-		this._testPathExists = await this._dirExists("/" + this._testPath);
 
 		this._log.verbose(`Path mapping for library project ${this.getName()}:`);
-		this._log.verbose(`  Physical root path: ${this.getRootPath()}`);
+		this._log.verbose(`  Physical root path: ${this.getPath()}`);
 		this._log.verbose(`  Mapped to:`);
 		this._log.verbose(`    /resources/ => ${this._srcPath}`);
-		this._log.verbose(
-			`    /test-resources/ => ${this._testPath}${this._testPathExists ? "" : " [does not exist]"}`);
+		this._log.verbose(`    /test-resources/ => ${this._testPath}`);
+
+		if (!await this._dirExists("/" + this._srcPath)) {
+			throw new Error(
+				`Unable to find directory '${this._srcPath}' in library project ${this.getName()}`);
+		}
+		if (!await this._dirExists("/" + this._testPath)) {
+			this._log.verbose(`    (/test-resources/ target does not exist)`);
+		} else {
+			this._testPathExists = true;
+		}
 	}
 
 	/**
@@ -176,8 +141,6 @@ class Library extends ComponentProject {
 		}
 
 		if (this.isFrameworkProject()) {
-			// Only framework projects are allowed to provide preload-excludes in their .library file,
-			// and only if it is not already defined in the ui5.yaml
 			if (config.builder?.libraryPreload?.excludes) {
 				this._log.verbose(
 					`Using preload excludes for framework library ${this.getName()} from project configuration`);
@@ -396,24 +359,17 @@ class Library extends ComponentProject {
 	 * @returns {string|null} Copyright of the project
 	 */
 	async _getCopyrightFromDotLibrary() {
-		try {
-			// If no copyright replacement was provided by ui5.yaml,
-			// check if the .library file has a valid copyright replacement
-			const {content: dotLibrary, filePath} = await this._getDotLibrary();
-			if (dotLibrary?.library?.copyright?._) {
-				this._log.verbose(
-					`Using copyright from ${filePath} for project ${this.getName()}...`);
-				return dotLibrary.library.copyright._;
-			} else {
-				this._log.verbose(
-					`No copyright configuration found in ${filePath} ` +
-					`of project ${this.getName()}`);
-				return null;
-			}
-		} catch (err) {
+		// If no copyright replacement was provided by ui5.yaml,
+		// check if the .library file has a valid copyright replacement
+		const {content: dotLibrary, filePath} = await this._getDotLibrary();
+		if (dotLibrary?.library?.copyright?._) {
 			this._log.verbose(
-				`Copyright determination from .library failed for project ` +
-				`${this.getName()}: ${err.message}`);
+				`Using copyright from ${filePath} for project ${this.getName()}...`);
+			return dotLibrary.library.copyright._;
+		} else {
+			this._log.verbose(
+				`No copyright configuration found in ${filePath} ` +
+				`of project ${this.getName()}`);
 			return null;
 		}
 	}
@@ -494,9 +450,7 @@ class Library extends ComponentProject {
 				const content = await resource.getString();
 
 				try {
-					const {
-						default: xml2js
-					} = await import("xml2js");
+					const xml2js = require("xml2js");
 					const parser = new xml2js.Parser({
 						explicitArray: false,
 						explicitCharkey: true
@@ -538,4 +492,4 @@ class Library extends ComponentProject {
 	}
 }
 
-export default Library;
+module.exports = Library;

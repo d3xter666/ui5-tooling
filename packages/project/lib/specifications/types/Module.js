@@ -1,16 +1,7 @@
-import fsPath from "node:path";
-import Project from "../Project.js";
-import * as resourceFactory from "@ui5/fs/resourceFactory";
+const fsPath = require("path");
+const resourceFactory = require("@ui5/fs").resourceFactory;
+const Project = require("../Project");
 
-/**
- * Module
- *
- * @public
- * @class
- * @alias @ui5/project/specifications/types/Module
- * @extends @ui5/project/specifications/Project
- * @hideconstructor
- */
 class Module extends Project {
 	constructor(parameters) {
 		super(parameters);
@@ -20,64 +11,19 @@ class Module extends Project {
 	}
 
 	/* === Attributes === */
-
 	/**
-	 * Since Modules have multiple source paths, this function always throws with an exception
-	 *
-	 * @public
-	 * @throws {Error} Projects of type module have more than one source path
-	 */
-	getSourcePath() {
-		throw new Error(`Projects of type module have more than one source path`);
-	}
+	* @public
+	*/
 
 	/* === Resource Access === */
-
 	/**
-	 * Get a [ReaderCollection]{@link @ui5/fs/ReaderCollection} for accessing all resources of the
-	 * project in the specified "style":
-	 *
-	 * <ul>
-	 * <li><b>buildtime:</b> Resource paths are always prefixed with <code>/resources/</code>
-	 *  or <code>/test-resources/</code> followed by the project's namespace.
-	 *  Any configured build-excludes are applied</li>
-	 * <li><b>dist:</b> Resource paths always match with what the UI5 runtime expects.
-	 *  This means that paths generally depend on the project type. Applications for example use a "flat"-like
-	 *  structure, while libraries use a "buildtime"-like structure.
-	 *  Any configured build-excludes are applied</li>
-	 * <li><b>runtime:</b> Resource paths always match with what the UI5 runtime expects.
-	 *  This means that paths generally depend on the project type. Applications for example use a "flat"-like
-	 *  structure, while libraries use a "buildtime"-like structure.
-	 *  This style is typically used for serving resources directly. Therefore, build-excludes are not applied
-	 * <li><b>flat:</b> Resource paths are never prefixed and namespaces are omitted if possible. Note that
-	 *  project types like "theme-library", which can have multiple namespaces, can't omit them.
-	 *  Any configured build-excludes are applied</li>
-	 * </ul>
-	 *
-	 * If project resources have been changed through the means of a workspace, those changes
-	 * are reflected in the provided reader too.
-	 *
-	 * Resource readers always use POSIX-style paths.
-	 *
-	 * @public
-	 * @param {object} [options]
-	 * @param {string} [options.style=buildtime] Path style to access resources.
-	 *   Can be "buildtime", "dist", "runtime" or "flat"
-	 * @returns {@ui5/fs/ReaderCollection} A reader collection instance
-	 */
-	getReader({style = "buildtime"} = {}) {
-		// Apply builder excludes to all styles but "runtime"
-		const excludes = style === "runtime" ? [] : this.getBuilderResourcesExcludes();
-
-		const readers = this._paths.map(({name, virBasePath, fsBasePath}) => {
-			return resourceFactory.createReader({
-				name,
-				virBasePath,
-				fsBasePath,
-				project: this,
-				excludes
-			});
-		});
+	* Get a resource reader for accessing the project resources
+	*
+	* @public
+	* @returns {module:@ui5/fs.ReaderCollection} Reader collection
+	*/
+	getReader() {
+		const readers = this._paths.map((readerArgs) => resourceFactory.createReader(readerArgs));
 		if (readers.length === 1) {
 			return readers[0];
 		}
@@ -95,7 +41,7 @@ class Module extends Project {
 	 * Get a resource reader/writer for accessing and modifying a project's resources
 	 *
 	 * @public
-	 * @returns {@ui5/fs/ReaderCollection} A reader collection instance
+	 * @returns {module:@ui5/fs.ReaderCollection} A reader collection instance
 	 */
 	getWorkspace() {
 		const reader = this.getReader();
@@ -125,42 +71,42 @@ class Module extends Project {
 	async _configureAndValidatePaths(config) {
 		await super._configureAndValidatePaths(config);
 
-		this._log.verbose(`Path mapping for module project ${this.getName()}:`);
-		this._log.verbose(`  Physical root path: ${this.getRootPath()}`);
+		this._log.verbose(`Path mapping for library project ${this.getName()}:`);
+		this._log.verbose(`  Physical root path: ${this.getPath()}`);
 		this._log.verbose(`  Mapped to:`);
+		this._log.verbose(`    /resources/ => ${this._srcPath}`);
 
 		if (config.resources?.configuration?.paths) {
-			const pathMappings = Object.entries(config.resources.configuration.paths);
-			if (this._log.isLevelEnabled("verbose")) {
-				// Log synchronously before async dir-exists checks
-				pathMappings.forEach(([virBasePath, relFsPath]) => {
+			this._paths = await Promise.all(Object.entries(config.resources.configuration.paths)
+				.map(async ([virBasePath, relFsPath]) => {
 					this._log.verbose(`    ${virBasePath} => ${relFsPath}`);
-				});
-			}
-			this._paths = await Promise.all(pathMappings.map(async ([virBasePath, relFsPath]) => {
-				if (!(await this._dirExists("/" + relFsPath))) {
-					throw new Error(
-						`Unable to find source directory '${relFsPath}' in module project ${this.getName()}`);
-				}
-				return {
-					name: `'${relFsPath}'' reader for module project ${this.getName()}`,
-					virBasePath,
-					fsBasePath: fsPath.join(this.getRootPath(), relFsPath)
-				};
-			}));
+					if (!await this._dirExists("/" + relFsPath)) {
+						throw new Error(
+							`Unable to find directory '${relFsPath}' in module project ${this.getName()}`);
+					}
+					return {
+						name: `'${relFsPath}'' reader for module project ${this.getName()}`,
+						virBasePath,
+						fsBasePath: fsPath.join(this.getPath(), relFsPath),
+						project: this,
+						excludes: config.builder?.resources?.excludes
+					};
+				}));
 		} else {
-			this._log.verbose(`    / => <project root>`);
-			if (!(await this._dirExists("/"))) {
+			if (!await this._dirExists("/")) {
 				throw new Error(
 					`Unable to find root directory of module project ${this.getName()}`);
 			}
+			this._log.verbose(`    / => <project root>`);
 			this._paths = [{
 				name: `Root reader for module project ${this.getName()}`,
 				virBasePath: "/",
-				fsBasePath: this.getRootPath()
+				fsBasePath: this.getPath(),
+				project: this,
+				excludes: config.builder?.resources?.excludes
 			}];
 		}
 	}
 }
 
-export default Module;
+module.exports = Module;
