@@ -1,9 +1,8 @@
-import {getLogger} from "@ui5/logger";
-const log = getLogger("builder:processors:libraryLessGenerator");
+const log = require("@ui5/logger").getLogger("builder:processors:libraryLessGenerator");
 
-import {promisify} from "node:util";
-import posixPath from "node:path/posix";
-import Resource from "@ui5/fs/Resource";
+const {promisify} = require("util");
+const posixPath = require("path").posix;
+const Resource = require("@ui5/fs").Resource;
 
 const IMPORT_PATTERN = /@import .*"(.*)";/g;
 const BASE_LESS_PATTERN = /^\/resources\/sap\/ui\/core\/themes\/([^/]+)\/base\.less$/;
@@ -17,13 +16,13 @@ class LibraryLessGenerator {
 	async generate({filePath, fileContent}) {
 		return `/* NOTE: This file was generated as an optimized version of ` +
 			`"library.source.less" for the Theme Designer. */\n\n` +
-			(await this.resolveLessImports({
+			await this.resolveLessImports({
 				filePath,
 				fileContent
-			}));
+			});
 	}
-	static getPathToRoot(baseDir) {
-		return posixPath.relative(baseDir, "/") + "/";
+	getPathToRoot(filePath) {
+		return posixPath.relative(posixPath.dirname(filePath), "/");
 	}
 	async resolveLessImports({filePath, fileContent}) {
 		const imports = this.findLessImports(fileContent);
@@ -61,9 +60,8 @@ class LibraryLessGenerator {
 			if (baseLessThemeName === "base") {
 				baseLessThemeName = "baseTheme";
 			}
-
-			const baseLessPath = LibraryLessGenerator.getPathToRoot(baseDir) +
-				"Base/baseLib/" + baseLessThemeName + "/base.less";
+			const baseLessPath = this.getPathToRoot(resolvedFilePath) +
+				"/Base/baseLib/" + baseLessThemeName + "/base.less";
 			return "@import \"" + baseLessPath + "\"; /* ORIGINAL IMPORT PATH: \"" + originalFilePath + "\" */\n";
 		}
 
@@ -81,16 +79,16 @@ class LibraryLessGenerator {
 		/*
 		 * Throw error in case of files which are not in the same directory as the current file because
 		 * inlining them would break relative URLs.
-		 * A possible solution would be to rewrite relative URLs when inlining the content.
-		 *
-		 * Keeping the import will cause errors since only "library.less" and "global.less" are
+		 * Keeping the import is also not possible since only "library.less" and "global.less" are
 		 * configured to be available to the Theme Designer (.theming generated in generateThemeDesignerResources).
+		 *
+		 * A possible solution would be to rewrite relative URLs when inlining the content.
 		 */
 		const relativeFilePath = posixPath.relative(baseDir, resolvedFilePath);
 		if (relativeFilePath.includes(posixPath.sep)) {
 			throw new Error(
-				`Could not inline import '${resolvedFilePath}' outside of theme directory '${baseDir}'. ` +
-				`Stylesheets must be located in the theme directory (no sub-directories).`
+				`libraryLessGenerator: Unsupported import of file '${resolvedFilePath}'. ` +
+				`Stylesheets must be located in the theme directory '${baseDir}' (no sub-directories)`
 			);
 		}
 
@@ -101,18 +99,18 @@ class LibraryLessGenerator {
 			if (err.code === "ENOENT") {
 				throw new Error(
 					`libraryLessGenerator: Unable to resolve import '${originalFilePath}' from '${baseDir}'\n` +
-					err.message
+					err
 				);
 			} else {
 				throw err;
 			}
 		}
 		return `/* START "${originalFilePath}" */\n` +
-			(await this.resolveLessImports({
+			await this.resolveLessImports({
 				filePath: resolvedFilePath,
 				fileContent: importedFileContent
-			})) +
-			`\n/* END "${originalFilePath}" */\n`;
+			}) +
+			`/* END "${originalFilePath}" */\n`;
 	}
 	findLessImports(fileContent) {
 		const imports = [];
@@ -129,11 +127,6 @@ class LibraryLessGenerator {
 }
 
 /**
- * @public
- * @module @ui5/builder/processors/libraryLessGenerator
- */
-
-/**
  * Creates a "library.less" file for the SAP Theme Designer based on a "library.source.less" file.
  *
  * <ul>
@@ -145,17 +138,15 @@ class LibraryLessGenerator {
  * </ul>
  *
  * @public
- * @function default
- * @static
- *
+ * @alias module:@ui5/builder.processors.libraryLessGenerator
  * @param {object} parameters Parameters
- * @param {@ui5/fs/Resource[]} parameters.resources List of <code>library.source.less</code>
+ * @param {module:@ui5/fs.Resource[]} parameters.resources List of <code>library.source.less</code>
  * resources
- * @param {fs|module:@ui5/fs/fsInterface} parameters.fs Node fs or custom
- * [fs interface]{@link module:@ui5/fs/fsInterface}
- * @returns {Promise<@ui5/fs/Resource[]>} Promise resolving with library.less resources
+ * @param {fs|module:@ui5/fs.fsInterface} parameters.fs Node fs or custom
+ * [fs interface]{@link module:resources/module:@ui5/fs.fsInterface}
+ * @returns {Promise<module:@ui5/fs.Resource[]>} Promise resolving with library.less resources
  */
-async function createLibraryLess({resources, fs}) {
+module.exports = async function({resources, fs}) {
 	const generator = new LibraryLessGenerator({fs});
 	return Promise.all(resources.map(async (librarySourceLessResource) => {
 		const filePath = librarySourceLessResource.getPath();
@@ -171,14 +162,10 @@ async function createLibraryLess({resources, fs}) {
 			string: libraryLessFileContent
 		});
 	}));
-}
+};
 
-export default createLibraryLess;
-
-let myLibraryLessGenerator;
 // Export class for testing only
 /* istanbul ignore else */
 if (process.env.NODE_ENV === "test") {
-	myLibraryLessGenerator = LibraryLessGenerator;
+	module.exports._LibraryLessGenerator = LibraryLessGenerator;
 }
-export const _LibraryLessGenerator = myLibraryLessGenerator;
