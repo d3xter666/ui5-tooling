@@ -1,31 +1,17 @@
-import test from "ava";
-import sinon from "sinon";
-import esmock from "esmock";
+const test = require("ava");
+const sinon = require("sinon");
+
+const processor = require("../../../lib/processors/libraryLessGenerator");
+const {_LibraryLessGenerator: LibraryLessGenerator} = processor;
 
 const FILE_HEADER = `/* NOTE: This file was generated as an optimized version of ` +
 	`"library.source.less" for the Theme Designer. */`;
 
-test.beforeEach(async (t) => {
-	t.context.loggerStub = {
-		error: sinon.stub(),
-		verbose: sinon.stub()
-	};
-
-	t.context.processor = await esmock("../../../lib/processors/libraryLessGenerator.js", {
-		"@ui5/logger": {
-			getLogger: sinon.stub().withArgs("builder:processors:libraryLessGenerator").returns(t.context.loggerStub)
-		}
-	});
-	t.context.LibraryLessGenerator = t.context.processor._LibraryLessGenerator;
-});
-
-test.afterEach.always(() => {
+test.afterEach(() => {
 	sinon.restore();
 });
 
 test.serial("processor", async (t) => {
-	const {processor, loggerStub} = t.context;
-
 	const resources = [
 		{
 			getPath() {
@@ -58,10 +44,10 @@ test.serial("processor", async (t) => {
 				);
 				return;
 			case "/resources/sap/foo/themes/base/Bar.less":
-				cb(null, `// Content of Bar.less`);
+				cb(null, `// Content of Bar.less\n`);
 				return;
 			case "/resources/sap/foo/themes/my_theme/Foo.less":
-				cb(null, `// Content of Foo.less`);
+				cb(null, `// Content of Foo.less\n`);
 				return;
 			default:
 				cb(new Error("File not found: " + filePath));
@@ -72,14 +58,13 @@ test.serial("processor", async (t) => {
 
 	const outputResources = await processor({resources, fs});
 
-	t.is(loggerStub.error.callCount, 0);
 	t.is(resources.length, outputResources.length, "Processor returns same amount of resources");
 	t.is(outputResources[0].getPath(), `/resources/sap/foo/themes/base/library.less`,
 		"Processor returns new library.less resource");
 	t.is(await outputResources[0].getString(),
 		`/* NOTE: This file was generated as an optimized version of "library.source.less" for the Theme Designer. */
 
-@import "../../../../../Base/baseLib/baseTheme/base.less"; \
+@import "../../../../../../Base/baseLib/baseTheme/base.less"; \
 /* ORIGINAL IMPORT PATH: "../../../../sap/ui/core/themes/base/base.less" */
 
 @import "../../../../sap/ui/core/themes/base/global.less";
@@ -88,7 +73,6 @@ test.serial("processor", async (t) => {
 /* START "Bar.less" */
 // Content of Bar.less
 /* END "Bar.less" */
-
 /* END "Foo.less" */
 `,
 		"Processor returns new library.less resource");
@@ -98,7 +82,7 @@ test.serial("processor", async (t) => {
 		`/* NOTE: This file was generated as an optimized version of "library.source.less" for the Theme Designer. */
 
 @import "../base/library.less";
-@import "../../../../../Base/baseLib/my_theme/base.less"; \
+@import "../../../../../../Base/baseLib/my_theme/base.less"; \
 /* ORIGINAL IMPORT PATH: "../../../../sap/ui/core/themes/my_theme/base.less" */
 
 @import "../../../../sap/ui/core/themes/my_theme/global.less";
@@ -110,8 +94,6 @@ test.serial("processor", async (t) => {
 });
 
 test.serial("LibraryLessGenerator: File without imports", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
 	const input = `.rule {}`;
 	const expectedOutput = `${FILE_HEADER}\n\n.rule {}`;
 
@@ -124,12 +106,9 @@ test.serial("LibraryLessGenerator: File without imports", async (t) => {
 
 	t.is(output, expectedOutput);
 	t.is(fs.readFile.callCount, 0, "fs.readFile should not be called");
-	t.is(loggerStub.error.callCount, 0);
 });
 
 test.serial("LibraryLessGenerator: File with normal import", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
 	const input = `@import "Foo.less";`;
 	const expectedOutput = `${FILE_HEADER}\n\n` +
 	`/* START "Foo.less" */\n` +
@@ -140,7 +119,7 @@ test.serial("LibraryLessGenerator: File with normal import", async (t) => {
 		readFile: sinon.stub().callsFake((filePath, options, cb) => {
 			switch (filePath) {
 			case "/resources/sap/foo/themes/base/Foo.less":
-				cb(null, `// Content of foo.less`);
+				cb(null, `// Content of foo.less\n`);
 				return;
 			}
 			const err = new Error("ENOENT: no such file or directory, open " + filePath);
@@ -155,12 +134,9 @@ test.serial("LibraryLessGenerator: File with normal import", async (t) => {
 	});
 
 	t.is(output, expectedOutput);
-	t.is(loggerStub.error.callCount, 0);
 });
 
 test.serial("LibraryLessGenerator: File with absolute import", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
 	const input = `@import "/resources/sap/foo/themes/base/Foo.less";`;
 	const expectedOutput = `${FILE_HEADER}\n\n` +
 	`/* START "/resources/sap/foo/themes/base/Foo.less" */\n` +
@@ -171,7 +147,7 @@ test.serial("LibraryLessGenerator: File with absolute import", async (t) => {
 		readFile: sinon.stub().callsFake((filePath, options, cb) => {
 			switch (filePath) {
 			case "/resources/sap/foo/themes/base/Foo.less":
-				cb(null, `// Content of foo.less`);
+				cb(null, `// Content of foo.less\n`);
 				return;
 			}
 			const err = new Error("ENOENT: no such file or directory, open " + filePath);
@@ -186,12 +162,9 @@ test.serial("LibraryLessGenerator: File with absolute import", async (t) => {
 	});
 
 	t.is(output, expectedOutput);
-	t.is(loggerStub.error.callCount, 0);
 });
 
 test.serial("LibraryLessGenerator: File with multiple imports", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
 	const input = `
 @import "File1.less";
 @import "File2.less";
@@ -226,7 +199,7 @@ test.serial("LibraryLessGenerator: File with multiple imports", async (t) => {
 
 	const fs = {
 		readFile: sinon.stub().callsFake((filePath, options, cb) => {
-			cb(null, `// Content of ${filePath}`);
+			cb(null, `// Content of ${filePath}\n`);
 		})
 	};
 
@@ -236,12 +209,9 @@ test.serial("LibraryLessGenerator: File with multiple imports", async (t) => {
 	});
 
 	t.is(output, expectedOutput);
-	t.is(loggerStub.error.callCount, 0);
 });
 
 test.serial("LibraryLessGenerator: File with nested imports", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
 	const input = `// Content of input\n` +
 	`@import "Foo.less";`;
 	const expectedOutput = `${FILE_HEADER}\n\n` +
@@ -251,7 +221,6 @@ test.serial("LibraryLessGenerator: File with nested imports", async (t) => {
 	`/* START "Bar.less" */\n` +
 	`// Content of Bar.less\n` +
 	`/* END "Bar.less" */\n` +
-	`\n` +
 	`/* END "Foo.less" */\n`;
 
 	const fs = {
@@ -263,7 +232,7 @@ test.serial("LibraryLessGenerator: File with nested imports", async (t) => {
 				);
 				return;
 			case "/resources/sap/foo/themes/base/Bar.less":
-				cb(null, `// Content of Bar.less`);
+				cb(null, `// Content of Bar.less\n`);
 				return;
 			}
 			const err = new Error("ENOENT: no such file or directory, open " + filePath);
@@ -278,12 +247,9 @@ test.serial("LibraryLessGenerator: File with nested imports", async (t) => {
 	});
 
 	t.is(output, expectedOutput);
-	t.is(loggerStub.error.callCount, 0);
 });
 
 test.serial("LibraryLessGenerator: No rewrite for sap.ui.core global.less", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
 	const input = `@import "global.less";`;
 	const expectedOutput = `${FILE_HEADER}\n\n` +
 	`@import "global.less";`;
@@ -303,12 +269,9 @@ test.serial("LibraryLessGenerator: No rewrite for sap.ui.core global.less", asyn
 
 	t.is(output, expectedOutput);
 	t.is(fs.readFile.callCount, 0, "fs.readFile should not be called");
-	t.is(loggerStub.error.callCount, 0);
 });
 
 test.serial("LibraryLessGenerator: No special handling for legacy sap.ui.core global.css", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
 	const input = `@import (less) "global.css";`;
 	const expectedOutput = `${FILE_HEADER}\n\n` +
 	`/* START "global.css" */\n` +
@@ -319,7 +282,7 @@ test.serial("LibraryLessGenerator: No special handling for legacy sap.ui.core gl
 		readFile: sinon.stub().callsFake((filePath, options, cb) => {
 			switch (filePath) {
 			case "/resources/sap/ui/core/themes/base/global.css":
-				cb(null, `// Content of global.css`);
+				cb(null, `// Content of global.css\n`);
 				return;
 			}
 			const err = new Error("ENOENT: no such file or directory, open " + filePath);
@@ -334,12 +297,10 @@ test.serial("LibraryLessGenerator: No special handling for legacy sap.ui.core gl
 	});
 
 	t.is(output, expectedOutput);
-	t.is(loggerStub.error.callCount, 0);
 });
 
-test.serial("LibraryLessGenerator: Rewrite for sap.ui.core base.less", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
 
+test.serial("LibraryLessGenerator: Rewrite for sap.ui.core base.less", async (t) => {
 	const input = `@import "../base/base.less";\n` +
 		`@import "base.less";`;
 	const expectedOutput = `${FILE_HEADER}\n\n` +
@@ -363,41 +324,9 @@ test.serial("LibraryLessGenerator: Rewrite for sap.ui.core base.less", async (t)
 
 	t.is(output, expectedOutput);
 	t.is(fs.readFile.callCount, 0, "fs.readFile should not be called");
-	t.is(loggerStub.error.callCount, 0);
-});
-
-test.serial("LibraryLessGenerator: Rewrite for sap.ui.core base.less (from different library)", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
-	const input = `@import "../../../../sap/ui/core/themes/base/base.less";\n` +
-		`@import "../../../../sap/ui/core/themes/sap_fiori_3/base.less";`;
-	const expectedOutput = `${FILE_HEADER}\n\n` +
-	`@import "../../../../../Base/baseLib/baseTheme/base.less"; ` +
-		`/* ORIGINAL IMPORT PATH: "../../../../sap/ui/core/themes/base/base.less" */\n\n` +
-	`@import "../../../../../Base/baseLib/sap_fiori_3/base.less"; ` +
-		`/* ORIGINAL IMPORT PATH: "../../../../sap/ui/core/themes/sap_fiori_3/base.less" */\n`;
-
-	const fs = {
-		readFile: sinon.stub().callsFake((filePath, options, cb) => {
-			const err = new Error("ENOENT: no such file or directory, open " + filePath);
-			err.code = "ENOENT";
-			cb(err);
-		})
-	};
-
-	const output = await (new LibraryLessGenerator({fs})).generate({
-		filePath: "/resources/sap/f/themes/sap_fiori_3/library.source.less",
-		fileContent: input
-	});
-
-	t.is(output, expectedOutput);
-	t.is(fs.readFile.callCount, 0, "fs.readFile should not be called");
-	t.is(loggerStub.error.callCount, 0);
 });
 
 test.serial("LibraryLessGenerator: Rewrite for library.source.less", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
 	const input = `@import "../base/library.source.less";`;
 	const expectedOutput = `${FILE_HEADER}\n\n` +
 	`@import "../base/library.less";`;
@@ -417,12 +346,9 @@ test.serial("LibraryLessGenerator: Rewrite for library.source.less", async (t) =
 
 	t.is(output, expectedOutput);
 	t.is(fs.readFile.callCount, 0, "fs.readFile should not be called");
-	t.is(loggerStub.error.callCount, 0);
 });
 
 test.serial("LibraryLessGenerator: Throw error for file in sub-directory", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
 	const input = `@import "foo/bar.less";`;
 
 	const fs = {
@@ -433,22 +359,20 @@ test.serial("LibraryLessGenerator: Throw error for file in sub-directory", async
 		})
 	};
 
-	await t.throwsAsync(new LibraryLessGenerator({fs}).generate({
+	await t.throwsAsync((new LibraryLessGenerator({fs})).generate({
 		filePath: "/resources/sap/ui/core/themes/sap_fiori_3/library.source.less",
 		fileContent: input
 	}), {
-		message: `Could not inline import '/resources/sap/ui/core/themes/sap_fiori_3/foo/bar.less' ` +
-			`outside of theme directory '/resources/sap/ui/core/themes/sap_fiori_3'. ` +
-			`Stylesheets must be located in the theme directory (no sub-directories).`
+		message:
+		"libraryLessGenerator: Unsupported import of file '/resources/sap/ui/core/themes/sap_fiori_3/foo/bar.less'. " +
+		"Stylesheets must be located in the theme directory '/resources/sap/ui/core/themes/sap_fiori_3' " +
+		"(no sub-directories)"
 	});
 
 	t.is(fs.readFile.callCount, 0, "fs.readFile should not be called");
-	t.is(loggerStub.error.callCount, 0);
 });
 
 test.serial("LibraryLessGenerator: Throw error for file outside of theme directory", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
 	const input = `@import "../foo/bar.less";`;
 
 	const fs = {
@@ -459,22 +383,20 @@ test.serial("LibraryLessGenerator: Throw error for file outside of theme directo
 		})
 	};
 
-	await t.throwsAsync(new LibraryLessGenerator({fs}).generate({
+	await t.throwsAsync((new LibraryLessGenerator({fs})).generate({
 		filePath: "/resources/sap/ui/core/themes/sap_fiori_3/library.source.less",
 		fileContent: input
 	}), {
-		message: `Could not inline import '/resources/sap/ui/core/themes/foo/bar.less' outside of theme directory ` +
-			`'/resources/sap/ui/core/themes/sap_fiori_3'. ` +
-			`Stylesheets must be located in the theme directory (no sub-directories).`
+		message:
+		"libraryLessGenerator: Unsupported import of file '/resources/sap/ui/core/themes/foo/bar.less'. " +
+		"Stylesheets must be located in the theme directory '/resources/sap/ui/core/themes/sap_fiori_3' " +
+		"(no sub-directories)"
 	});
 
 	t.is(fs.readFile.callCount, 0, "fs.readFile should not be called");
-	t.is(loggerStub.error.callCount, 0);
 });
 
 test.serial("LibraryLessGenerator: Throw error for absolute import outside of theme directory", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
 	const input = `@import "/foo/bar.less";`;
 
 	const fs = {
@@ -485,22 +407,20 @@ test.serial("LibraryLessGenerator: Throw error for absolute import outside of th
 		})
 	};
 
-	await t.throwsAsync(new LibraryLessGenerator({fs}).generate({
+	await t.throwsAsync((new LibraryLessGenerator({fs})).generate({
 		filePath: "/resources/sap/ui/core/themes/sap_fiori_3/library.source.less",
 		fileContent: input
 	}), {
-		message: `Could not inline import '/foo/bar.less' outside of theme directory ` +
-			`'/resources/sap/ui/core/themes/sap_fiori_3'. ` +
-			`Stylesheets must be located in the theme directory (no sub-directories).`
+		message:
+		"libraryLessGenerator: Unsupported import of file '/foo/bar.less'. " +
+		"Stylesheets must be located in the theme directory '/resources/sap/ui/core/themes/sap_fiori_3' " +
+		"(no sub-directories)"
 	});
 
 	t.is(fs.readFile.callCount, 0, "fs.readFile should not be called");
-	t.is(loggerStub.error.callCount, 0);
 });
 
 test.serial("LibraryLessGenerator: Throw error when file can't be found", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
 	const input = `@import "foo.less";`;
 
 	const fs = {
@@ -518,47 +438,8 @@ test.serial("LibraryLessGenerator: Throw error when file can't be found", async 
 		message:
 		`libraryLessGenerator: Unable to resolve import 'foo.less' from ` +
 		`'/resources/sap/ui/core/themes/sap_fiori_3'\n` +
-		`ENOENT: no such file or directory, open /resources/sap/ui/core/themes/sap_fiori_3/foo.less`
+		`Error: ENOENT: no such file or directory, open /resources/sap/ui/core/themes/sap_fiori_3/foo.less`
 	});
 
-	t.is(fs.readFile.callCount, 1, "fs.readFile should be called once");
-	t.is(loggerStub.error.callCount, 0);
-});
-
-test.serial("LibraryLessGenerator: Throw error when readFile fails", async (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
-	const input = `@import "foo.less";`;
-
-	const fs = {
-		readFile: sinon.stub().callsFake((filePath, options, cb) => {
-			const err = new Error("Unexpected error from fs.readFile");
-			cb(err);
-		})
-	};
-
-	await t.throwsAsync((new LibraryLessGenerator({fs})).generate({
-		filePath: "/resources/sap/ui/core/themes/sap_fiori_3/library.source.less",
-		fileContent: input
-	}), {
-		message:
-		`Unexpected error from fs.readFile`
-	});
-
-	t.is(fs.readFile.callCount, 1, "fs.readFile should be called once");
-	t.is(loggerStub.error.callCount, 0);
-});
-
-test.serial("LibraryLessGenerator.getPathToRoot", (t) => {
-	const {LibraryLessGenerator, loggerStub} = t.context;
-
-	t.is(
-		LibraryLessGenerator.getPathToRoot("/resources/sap/ui/core/themes/base"),
-		"../../../../../../"
-	);
-	t.is(
-		LibraryLessGenerator.getPathToRoot("/resources/sap/f/themes/sap_fiori_3"),
-		"../../../../../"
-	);
-	t.is(loggerStub.error.callCount, 0);
+	t.is(fs.readFile.callCount, 1, "fs.readFile should not be called");
 });
