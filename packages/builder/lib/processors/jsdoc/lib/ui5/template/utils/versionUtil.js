@@ -1,13 +1,6 @@
-"use strict";
 
-//                [m][.minor][.patch ]   [pre-release][ build-info ]
-const rSemVer = /^\d+(?:\.\d+(?:\.\d+)?)?(?:-[\w\-]+)?(?:\+[\w\-]+)?$/;
 
-function isSemVer(str) {
-	return rSemVer.test(str);
-}
-
-const rSinceVersion = /^([0-9]+(?:\.[0-9]+(?:\.[0-9]+)?)?([-.][0-9A-Z]+)?)(\.$|\.\s+|[,:;]\s*|\s-\s*|\s|$)/i;
+const rSinceVersion = /^([0-9]+(?:\.[0-9]+(?:\.[0-9]+)?)?([-.][0-9A-Z]+)?)(\.$|\.\s+|[,:]\s*|\s-\s*|\s|$)/i;
 function _parseVersion(value) {
 	const m = rSinceVersion.exec(value);
 	if (m) {
@@ -18,9 +11,8 @@ function _parseVersion(value) {
 			version: m[1],
 			versionFollowedBySpace: versionFollowedBySpace,
 			nextPosition: m[0].length
-		};
+		}
 	}
-	return undefined;
 }
 
 /**
@@ -46,10 +38,9 @@ function extractVersion(value) {
 	if (parseResult && parseResult.versionFollowedBySpace) {
 		return parseResult.version;
 	}
-	return undefined;
 }
 
-const rSinceIndicator = /^(?:as\s+of|since)(?:\s+version)?\s*/i;
+const rSinceIndicator = /^(?:as\s+of|since)(?:\s+version)?\s*/i
 
 /**
  * Extracts since information from given value.
@@ -93,14 +84,6 @@ function extractSince(value) {
 		value = String(value);
 	}
 
-	if (isSemVer(value)) {
-		return {
-			since: value,
-			pos: value.length,
-			value: ""
-		};
-	}
-
 	const mSinceIndicator = rSinceIndicator.exec(value);
 	if (mSinceIndicator) {
 		const iSinceIndicatorLength = mSinceIndicator[0].length;
@@ -130,7 +113,6 @@ function extractSince(value) {
 }
 
 module.exports = {
-	isSemVer,
 	extractSince,
 	extractVersion
-};
+}
