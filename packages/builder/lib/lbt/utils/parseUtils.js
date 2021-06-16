@@ -1,21 +1,15 @@
+"use strict";
 
-import {parse} from "espree";
+const espree = require("espree");
+const {Syntax} = espree;
 
 const hasOwn = Function.prototype.call.bind(Object.prototype.hasOwnProperty);
 
-/*
- * NOTE: After updating the ecmaVersion:
- * - Adopt JSModuleAnalyzer to handle new Syntax / VisitorKeys.
- * - Adjust the JSModuleAnalyzer test "Check for consistency between VisitorKeys and EnrichedVisitorKeys"
- *   (See comments in test for details)
-*/
-export const ecmaVersion = 2023;
-
-export function parseJS(code, userOptions = {}) {
+function parseJS(code, userOptions = {}) {
 	// allowed options and their defaults
 	const options = {
 		comment: false,
-		ecmaVersion,
+		ecmaVersion: 2020,
 		range: false,
 		sourceType: "script",
 	};
@@ -28,7 +22,10 @@ export function parseJS(code, userOptions = {}) {
 		options[name] = value;
 	}
 
-	return parse(code, options);
+	return espree.parse(code, options);
 }
 
-export {Syntax, VisitorKeys} from "espree";
+module.exports = {
+	parseJS,
+	Syntax
+};
