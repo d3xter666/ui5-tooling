@@ -1,4 +1,4 @@
-import stringReplacer from "../processors/stringReplacer.js";
+const stringReplacer = require("../processors/stringReplacer");
 
 function pad(v) {
 	return String(v).padStart(2, "0");
@@ -15,24 +15,17 @@ function getTimestamp() {
 }
 
 /**
- * @public
- * @module @ui5/builder/tasks/replaceBuildtime
- */
-
-/**
  * Task to replace the buildtime <code>${buildtime}</code>.
  *
  * @public
- * @function default
- * @static
- *
+ * @alias module:@ui5/builder.tasks.replaceBuildtime
  * @param {object} parameters Parameters
- * @param {@ui5/fs/DuplexCollection} parameters.workspace DuplexCollection to read and write files
+ * @param {module:@ui5/fs.DuplexCollection} parameters.workspace DuplexCollection to read and write files
  * @param {object} parameters.options Options
  * @param {string} parameters.options.pattern Pattern to locate the files to be processed
  * @returns {Promise<undefined>} Promise resolving with <code>undefined</code> once data has been written
  */
-export default function({workspace, options: {pattern}}) {
+module.exports = function({workspace, options: {pattern}}) {
 	const timestamp = getTimestamp();
 
 	return workspace.byGlob(pattern)
@@ -50,4 +43,4 @@ export default function({workspace, options: {pattern}}) {
 				return workspace.write(resource);
 			}));
 		});
-}
+};
