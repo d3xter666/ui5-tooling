@@ -8,7 +8,7 @@
 		"includePattern": "ui5-[^\/]+\/(lib/.+|index)\\.js$"
 	},
 	"plugins": [
-		"jsdoc-plugin.cjs"
+		"jsdoc-plugin"
 	],
 	"opts": {
 		"encoding": "utf8",
@@ -21,19 +21,15 @@
 		"cleverLinks": false,
 		"monospaceLinks": false,
 		"default": {
-			"useLongnameInNav": true,
-			"layoutFile": "lib/jsdoc/plugin/template/layout.tmpl",
-			"staticFiles": {
-				"include": ["lib/jsdoc/plugin/template/custom.css"]
-			}
+			"useLongnameInNav": true
 		}
 	},
 	"openGraph": {
-		"title": "UI5 CLI - API Reference",
+		"title": "UI5 Tooling - API Reference",
 		"type": "website",
-		"image": "https://ui5.github.io/cli/v4/images/UI5_logo_wide.png",
-		"site_name": "UI5 CLI - API Reference",
-		"url": "https://ui5.github.io/cli/v4/"
+		"image": "https://sap.github.io/ui5-tooling/docs/images/UI5_logo_wide.png",
+		"site_name": "UI5 Tooling - API Reference",
+		"url": "https://sap.github.io/ui5-tooling/"
 	},
 	"docdash": {
 		"sectionOrder": [
@@ -47,15 +43,15 @@
 			"Interfaces"
 		],
 		"meta": {
-			"title": "UI5 CLI - API Reference",
-			"description": "UI5 CLI - API Reference",
+			"title": "UI5 Tooling - API Reference",
+			"description": "UI5 Tooling - API Reference",
 			"keyword": "openui5 sapui5 ui5 build development tool api reference"
 		},
 		"search": true,
 		"wrap": true,
 		"menu": {
 			"GitHub": {
-				"href": "https://github.com/UI5/cli",
+				"href": "https://github.com/SAP/ui5-tooling",
 				"target": "_blank",
 				"class": "menu-item",
 				"id": "github_link"
