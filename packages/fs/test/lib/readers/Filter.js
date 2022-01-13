@@ -1,6 +1,6 @@
-import test from "ava";
-import sinon from "sinon";
-import Filter from "../../../lib/readers/Filter.js";
+const test = require("ava");
+const sinon = require("sinon");
+const Filter = require("../../../lib/readers/Filter");
 
 test("_byGlob: Basic filter", async (t) => {
 	const abstractReader = {
@@ -41,7 +41,7 @@ test("_byPath: Negative filter", async (t) => {
 	});
 
 	const resource = await readerCollection._byPath("anyPattern", {}, trace);
-	t.is(resource, null, "Correct empty result");
+	t.deepEqual(resource, null, "Correct empty result");
 });
 
 test("_byPath: Positive filter", async (t) => {
@@ -62,5 +62,5 @@ test("_byPath: Positive filter", async (t) => {
 	});
 
 	const resource = await readerCollection._byPath("anyPattern", {}, trace);
-	t.is(resource, "resource b", "Correct resource in result");
+	t.deepEqual(resource, "resource b", "Correct resource in result");
 });
