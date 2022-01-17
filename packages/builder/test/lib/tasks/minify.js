@@ -1,212 +1,77 @@
-import test from "ava";
-import sinonGlobal from "sinon";
-import esmock from "esmock";
+const test = require("ava");
+const sinon = require("sinon");
 
-test.beforeEach(async (t) => {
-	const sinon = t.context.sinon = sinonGlobal.createSandbox();
-	t.context.workspace = {
-		byGlob: sinon.stub().resolves(["resource A", "resource B"]),
-		write: sinon.stub().resolves()
-	};
-	t.context.taskUtil = {
+const minify = require("../../../lib/tasks/minify");
+const ui5Fs = require("@ui5/fs");
+const resourceFactory = ui5Fs.resourceFactory;
+const DuplexCollection = ui5Fs.DuplexCollection;
+
+test.afterEach.always((t) => {
+	sinon.restore();
+});
+
+test("integration: minify", async (t) => {
+	const taskUtil = {
 		setTag: sinon.stub(),
-		getTag: sinon.stub(),
 		STANDARD_TAGS: {
-			HasDebugVariant: "has debug variant",
-			IsDebugVariant: "is debug variant",
-			OmitFromBuildResult: "omit from build result"
-		},
-		registerCleanupTask: sinon.stub()
+			HasDebugVariant: "1️⃣",
+			IsDebugVariant: "2️⃣"
+		}
 	};
-
-	t.context.fsInterfaceStub = sinon.stub().returns("fs interface");
-	t.context.minifierStub = sinon.stub();
-	t.context.minify = await esmock("../../../lib/tasks/minify.js", {
-		"@ui5/fs/fsInterface": t.context.fsInterfaceStub,
-		"../../../lib/processors/minifier.js": t.context.minifierStub
+	const reader = resourceFactory.createAdapter({
+		virBasePath: "/"
 	});
-});
-test.afterEach.always(async (t) => {
-	const {registerCleanupTask} = t.context.taskUtil;
+	const writer = resourceFactory.createAdapter({
+		virBasePath: "/"
+	});
+	const duplexCollection = new DuplexCollection({reader: reader, writer: writer});
+	const content = `
+function test(paramA) {
+	var variableA = paramA;
+	console.log(variableA);
+}
+test();`;
+	const testResource = resourceFactory.createResource({
+		path: "/test.js",
+		string: content
+	});
+	await reader.write(testResource);
 
-	if (registerCleanupTask.callCount === 1) {
-		// Ensure to call cleanup task so that workerpool is terminated - otherwise the test will time out!
-		const cleanupTask = registerCleanupTask.getCall(0).args[0];
-		await cleanupTask();
+	await minify({
+		workspace: duplexCollection,
+		taskUtil,
+		options: {
+			pattern: "/test.js"
+		}
+	});
+
+	const expected = `function test(t){var o=t;console.log(o)}test();
+//# sourceMappingURL=test.js.map`;
+	const res = await writer.byPath("/test.js");
+	if (!res) {
+		t.fail("Could not find /test.js in target locator");
 	}
+	t.deepEqual(await res.getString(), expected, "Correct file content");
 
-	t.context.sinon.restore();
+	const resDbg = await writer.byPath("/test-dbg.js");
+	if (!resDbg) {
+		t.fail("Could not find /test-dbg.js in target locator");
+	}
+	t.deepEqual(await resDbg.getString(), content, "Correct debug-file content");
+
+	const expectedSourceMap =
+		`{"version":3,"sources":["test-dbg.js"],"names":["test","paramA","variableA","console","log"],` +
+		`"mappings":"AACA,SAASA,KAAKC,GACb,IAAIC,EAAYD,EAChBE,QAAQC,IAAIF,GAEbF","file":"test.js"}`;
+
+	const resSourceMap = await writer.byPath("/test.js.map");
+	if (!resSourceMap) {
+		t.fail("Could not find /test-dbg.js.map in target locator");
+	}
+	t.deepEqual(await resSourceMap.getString(), expectedSourceMap, "Correct source map content");
+
+	t.is(taskUtil.setTag.callCount, 2, "taskUtil.setTag was called twice");
+	t.deepEqual(taskUtil.setTag.getCall(0).args, [res, "1️⃣"], "First taskUtil.setTag call with expected arguments");
+	t.deepEqual(taskUtil.setTag.getCall(1).args, [resDbg, "2️⃣"],
+		"Second taskUtil.setTag call with expected arguments");
 });
 
-test("minify: Default params", async (t) => {
-	const {minify, workspace, taskUtil, minifierStub} = t.context;
-	minifierStub.resolves([{
-		resource: "resource A",
-		dbgResource: "dbgResource A",
-		sourceMapResource: "sourceMapResource A",
-		dbgSourceMapResource: "dbgSourceMapResource A" // optional
-	}, {
-		resource: "resource B",
-		dbgResource: "dbgResource B",
-		sourceMapResource: "sourceMapResource B",
-	}]);
-	await minify({
-		workspace,
-		taskUtil,
-		options: {
-			pattern: "**"
-		}
-	});
-
-	t.is(minifierStub.callCount, 1, "minifier got called once");
-	const minifierCallArgs = minifierStub.firstCall.firstArg;
-	t.deepEqual(minifierCallArgs.resources, ["resource A", "resource B"], "Correct resources provided to processor");
-	t.is(minifierCallArgs.fs, "fs interface", "Correct fs interface provided to processor");
-	t.is(minifierCallArgs.taskUtil, taskUtil, "Correct taskUtil provided to processor");
-	t.deepEqual(minifierCallArgs.options, {
-		addSourceMappingUrl: true,
-		readSourceMappingUrl: true,
-		useWorkers: true
-	}, "minifier got called with expected options");
-
-	t.is(taskUtil.setTag.callCount, 7, "taskUtil#setTag got called 12 times");
-	t.is(taskUtil.setTag.getCall(0).args[0], "resource A", "taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(0).args[1], "has debug variant", "taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(1).args[0], "dbgResource A", "taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(1).args[1], "is debug variant", "taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(2).args[0], "sourceMapResource A",
-		"taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(2).args[1], "has debug variant", "taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(3).args[0], "dbgSourceMapResource A",
-		"taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(3).args[1], "is debug variant", "taskUtil#setTag got called with the correct tag");
-
-	t.is(taskUtil.setTag.getCall(4).args[0], "resource B", "taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(4).args[1], "has debug variant", "taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(5).args[0], "dbgResource B", "taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(5).args[1], "is debug variant", "taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(6).args[0], "sourceMapResource B",
-		"taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(6).args[1], "has debug variant", "taskUtil#setTag got called with the correct tag");
-
-	t.is(workspace.write.callCount, 7, "workspace#write got called seven times");
-	[
-		"resource A", "dbgResource A", "sourceMapResource A", "dbgSourceMapResource A",
-		"resource B", "dbgResource B", "sourceMapResource B"
-	].forEach((resName, idx) => {
-		t.is(workspace.write.getCall(idx).firstArg, resName, "workspace#write got called for expected resource");
-	});
-});
-
-test("minify: omitSourceMapResources: true, useInputSourceMaps: false", async (t) => {
-	const {minify, workspace, taskUtil, minifierStub} = t.context;
-	minifierStub.resolves([{
-		resource: "resource A",
-		dbgResource: "dbgResource A",
-		sourceMapResource: "sourceMapResource A",
-		dbgSourceMapResource: "dbgSourceMapResource A" // optional
-	}, {
-		resource: "resource B",
-		dbgResource: "dbgResource B",
-		sourceMapResource: "sourceMapResource B",
-	}]);
-	await minify({
-		workspace,
-		taskUtil,
-		options: {
-			pattern: "**",
-			omitSourceMapResources: true,
-			useInputSourceMaps: false
-		}
-	});
-
-	t.is(minifierStub.callCount, 1, "minifier got called once");
-	const minifierCallArgs = minifierStub.firstCall.firstArg;
-	t.deepEqual(minifierCallArgs.resources, ["resource A", "resource B"], "Correct resources provided to processor");
-	t.is(minifierCallArgs.fs, "fs interface", "Correct fs interface provided to processor");
-	t.is(minifierCallArgs.taskUtil, taskUtil, "Correct taskUtil provided to processor");
-	t.deepEqual(minifierCallArgs.options, {
-		addSourceMappingUrl: false,
-		readSourceMappingUrl: false,
-		useWorkers: true
-	}, "minifier got called with expected options");
-
-	t.is(taskUtil.setTag.callCount, 10, "taskUtil#setTag got called 12 times");
-	t.is(taskUtil.setTag.getCall(0).args[0], "resource A", "taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(0).args[1], "has debug variant", "taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(1).args[0], "dbgResource A", "taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(1).args[1], "is debug variant", "taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(2).args[0], "sourceMapResource A",
-		"taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(2).args[1], "has debug variant", "taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(3).args[0], "sourceMapResource A",
-		"taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(3).args[1], "omit from build result",
-		"taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(4).args[0], "dbgSourceMapResource A",
-		"taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(4).args[1], "is debug variant", "taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(5).args[0], "dbgSourceMapResource A",
-		"taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(5).args[1], "omit from build result",
-		"taskUtil#setTag got called with the correct tag");
-
-	t.is(taskUtil.setTag.getCall(6).args[0], "resource B", "taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(6).args[1], "has debug variant", "taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(7).args[0], "dbgResource B", "taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(7).args[1], "is debug variant", "taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(8).args[0], "sourceMapResource B",
-		"taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(8).args[1], "has debug variant", "taskUtil#setTag got called with the correct tag");
-	t.is(taskUtil.setTag.getCall(9).args[0], "sourceMapResource B",
-		"taskUtil#setTag got called with the correct resource");
-	t.is(taskUtil.setTag.getCall(9).args[1], "omit from build result",
-		"taskUtil#setTag got called with the correct tag");
-
-	t.is(workspace.write.callCount, 7, "workspace#write got called seven times");
-	[
-		"resource A", "dbgResource A", "sourceMapResource A", "dbgSourceMapResource A",
-		"resource B", "dbgResource B", "sourceMapResource B"
-	].forEach((resName, idx) => {
-		t.is(workspace.write.getCall(idx).firstArg, resName, "workspace#write got called for expected resource");
-	});
-});
-
-test("minify: No taskUtil", async (t) => {
-	const {minify, workspace, minifierStub} = t.context;
-	minifierStub.resolves([{
-		resource: "resource A",
-		dbgResource: "dbgResource A",
-		sourceMapResource: "sourceMapResource A",
-		dbgSourceMapResource: "dbgSourceMapResource A" // optional
-	}, {
-		resource: "resource B",
-		dbgResource: "dbgResource B",
-		sourceMapResource: "sourceMapResource B",
-	}]);
-	await minify({
-		workspace,
-		options: {
-			pattern: "**"
-		}
-	});
-
-	t.is(minifierStub.callCount, 1, "minifier got called once");
-	const minifierCallArgs = minifierStub.firstCall.firstArg;
-	t.deepEqual(minifierCallArgs.resources, ["resource A", "resource B"], "Correct resources provided to processor");
-	t.is(minifierCallArgs.fs, "fs interface", "Correct fs interface provided to processor");
-	t.is(minifierCallArgs.taskUtil, undefined, "No taskUtil provided to processor");
-	t.deepEqual(minifierCallArgs.options, {
-		addSourceMappingUrl: true,
-		readSourceMappingUrl: true,
-		useWorkers: false
-	}, "minifier got called with expected options");
-
-	t.is(workspace.write.callCount, 7, "workspace#write got called seven times");
-	[
-		"resource A", "dbgResource A", "sourceMapResource A", "dbgSourceMapResource A",
-		"resource B", "dbgResource B", "sourceMapResource B"
-	].forEach((resName, idx) => {
-		t.is(workspace.write.getCall(idx).firstArg, resName, "workspace#write got called for expected resource");
-	});
-});
