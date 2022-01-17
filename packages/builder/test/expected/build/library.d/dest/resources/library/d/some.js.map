@@ -1,1 +1,1 @@
-{"version":3,"file":"some.js","names":["sap","ui","define","_library","someNonUglifiedVariable","console","log"],"sources":["some-dbg.js"],"mappings":";;;AAIAA,IAAIC,GAAGC,OAAO,CAAC,aAAeC,IAC7B,IAAIC,EAA0B,QAC9BC,QAAQC,IAAI,SAAWF","ignoreList":[]}
+{"version":3,"sources":["some-dbg.js"],"names":["someNonUglifiedVariable","console","log"],"mappings":";;;CAGA,WACC,IAAIA,EAA0B,QAC9BC,QAAQC,IAAI,SAAWF,IAFxB","file":"some.js"}
