@@ -46,11 +46,13 @@ As described in [RFC 0010 UI5 Builder-Bundling Refactoring](https://github.com/S
 1. buildThemes (`LibraryBuilder`, `ThemeLibraryBuilder`)
     * Requires theme resources of dependencies in order to build a library's theme. To be checked: Are the required resources already present in the dependency source? I.e. is it necessary to build them?
 1. generateThemeDesignerResources
-1. generateLibraryManifest
+    * To read resources from sap.ui.core library
+    * Possibly to resolve other Less imports?
+1. ~generateLibraryManifest~ *(removed with https://github.com/SAP/ui5-builder/pull/735)*
 1. Bundling
-    1. generateComponentPreload *(actually not necessary? See https://github.com/SAP/ui5-builder/pull/734)*
+    1. ~generateComponentPreload~ *(removed with https://github.com/SAP/ui5-builder/pull/734)*
     1. generateBundle *(in case dependencies are bundled too)*
-    1. generateLibraryPreload *(actually not necessary? See https://github.com/SAP/ui5-builder/pull/734)*
+    1. ~generateLibraryPreload~ *(removed with https://github.com/SAP/ui5-builder/pull/734)*
     1. generateStandaloneAppBundle *(to bundle required runtime resources)* - Note: `build --all` is already recommended for self-contained builds in order to generate required theme resources which are not part of the standalone app bundle.
 
 
