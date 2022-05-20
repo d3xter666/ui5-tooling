@@ -55,13 +55,6 @@ As described in [RFC 0010 UI5 Builder-Bundling Refactoring](https://github.com/S
     1. ~generateLibraryPreload~ *(removed with https://github.com/SAP/ui5-builder/pull/734)*
     1. generateStandaloneAppBundle *(to bundle required runtime resources)* - Note: `build --all` is already recommended for self-contained builds in order to generate required theme resources which are not part of the standalone app bundle.
 
-### Introduce Project Graph
-
-
-![UI5 Project: Graph Components](./resources/UI5_Project_Graph_Components.png)
-
-![UI5 Project: Specification Class Diagram](./resources/UI5_Project_Specification_Class_Overview.png)
-
 
 <!-- This is the bulk of the RFC. Explain the design in enough detail for somebody familiar with the UI5 Tooling to understand, and for somebody familiar with the implementation to implement. This should get into specifics and corner-cases, and include examples of how the feature is used. Any new terminology should be defined here. -->
 
