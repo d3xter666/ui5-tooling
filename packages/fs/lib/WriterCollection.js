@@ -1,42 +1,32 @@
-import AbstractReaderWriter from "./AbstractReaderWriter.js";
-import ReaderCollection from "./ReaderCollection.js";
-import escapeStringRegExp from "escape-string-regexp";
+const AbstractReaderWriter = require("./AbstractReaderWriter");
+const ReaderCollection = require("./ReaderCollection");
 
 /**
  * Resource Locator WriterCollection
  *
  * @public
- * @class
- * @alias @ui5/fs/WriterCollection
- * @extends @ui5/fs/AbstractReaderWriter
+ * @memberof module:@ui5/fs
+ * @augments module:@ui5/fs.AbstractReaderWriter
  */
 class WriterCollection extends AbstractReaderWriter {
 	/**
 	 * The constructor.
 	 *
 	 * @param {object} parameters Parameters
-	 * @param {string} parameters.name The collection name
-	 * @param {object.<string, @ui5/fs/AbstractReaderWriter>} parameters.writerMapping
+	 * @param {object[]<string,module:@ui5/fs.AbstractReaderWriter[]>} parameters.writerMapping
 	 * 	Mapping of virtual base paths to writers. Path are matched greedy
-	 *
-	 * @example
-	 * new WriterCollection({
-	 *     name: "Writer Collection",
-	 *     writerMapping: {
-	 *	       "/": writerA,
-	 *	       "/my/path/": writerB,
-	 *     }
-	 * });
+	 * @param {string} parameters.name The collection name
 	 */
-	constructor({name, writerMapping}) {
-		super(name);
+	constructor({writerMapping, name}) {
+		super();
+		this._name = name;
 
 		if (!writerMapping) {
-			throw new Error(`Cannot create WriterCollection ${this._name}: Missing parameter 'writerMapping'`);
+			throw new Error("Missing parameter 'writerMapping'");
 		}
 		const basePaths = Object.keys(writerMapping);
 		if (!basePaths.length) {
-			throw new Error(`Cannot create WriterCollection ${this._name}: Empty parameter 'writerMapping'`);
+			throw new Error("Empty parameter 'writerMapping'");
 		}
 
 		// Create a regular expression (which is greedy by nature) from all paths to easily
@@ -55,7 +45,7 @@ class WriterCollection extends AbstractReaderWriter {
 					`Missing trailing slash in path mapping '${basePath}' of WriterCollection ${this._name}`);
 			}
 
-			return `${regex}(?:${escapeStringRegExp(basePath)})??`;
+			return `${regex}(?:${basePath.replace(/\//g, "\\/")})??`;
 		}, "^(") + ")+.*?$";
 
 		this._writerMapping = writerMapping;
@@ -72,8 +62,8 @@ class WriterCollection extends AbstractReaderWriter {
 	 * @param {string|string[]} pattern glob pattern as string or an array of
 	 *         glob patterns for virtual directory structure
 	 * @param {object} options glob options
-	 * @param {@ui5/fs/tracing.Trace} trace Trace instance
-	 * @returns {Promise<@ui5/fs/Resource[]>} Promise resolving to list of resources
+	 * @param {module:@ui5/fs.tracing.Trace} trace Trace instance
+	 * @returns {Promise<module:@ui5/fs.Resource[]>} Promise resolving to list of resources
 	 */
 	_byGlob(pattern, options, trace) {
 		return this._readerCollection._byGlob(pattern, options, trace);
@@ -85,8 +75,8 @@ class WriterCollection extends AbstractReaderWriter {
 	 * @private
 	 * @param {string} virPath Virtual path
 	 * @param {object} options Options
-	 * @param {@ui5/fs/tracing.Trace} trace Trace instance
-	 * @returns {Promise<@ui5/fs/Resource>} Promise resolving to a single resource
+	 * @param {module:@ui5/fs.tracing.Trace} trace Trace instance
+	 * @returns {Promise<module:@ui5/fs.Resource>} Promise resolving to a single resource
 	 */
 	_byPath(virPath, options, trace) {
 		return this._readerCollection._byPath(virPath, options, trace);
@@ -96,7 +86,7 @@ class WriterCollection extends AbstractReaderWriter {
 	 * Writes the content of a resource to a path.
 	 *
 	 * @private
-	 * @param {@ui5/fs/Resource} resource The Resource to write
+	 * @param {module:@ui5/fs.Resource} resource The Resource to write
 	 * @param {object} [options] Write options, see above
 	 * @returns {Promise<undefined>} Promise resolving once data has been written
 	 */
@@ -112,6 +102,20 @@ class WriterCollection extends AbstractReaderWriter {
 		const writer = this._writerMapping[basePathMatch[1]];
 		return writer._write(resource, options);
 	}
+
+	_validateBasePath(writerMapping) {
+		Object.keys(writerMapping).forEach((path) => {
+			if (!path) {
+				throw new Error(`Empty path in path mapping of WriterCollection ${this._name}`);
+			}
+			if (!path.startsWith("/")) {
+				throw new Error(`Missing leading slash in path mapping '${path}' of WriterCollection ${this._name}`);
+			}
+			if (!path.endsWith("/")) {
+				throw new Error(`Missing trailing slash in path mapping '${path}' of WriterCollection ${this._name}`);
+			}
+		});
+	}
 }
 
-export default WriterCollection;
+module.exports = WriterCollection;
