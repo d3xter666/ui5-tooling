@@ -1,38 +1,27 @@
-import posixPath from "node:path/posix";
-
 /**
- * A {@link @ui5/fs/Resource Resource} with a different path than it's original
+ * A [Resource]{module:@ui5/project.Resource} with a different path than it's original
  *
  * @public
- * @class
- * @alias @ui5/fs/ResourceFacade
+ * @memberof module:@ui5/fs
  */
 class ResourceFacade {
-	#path;
-	#name;
-	#resource;
-
 	/**
+	 * The constructor.
 	 *
 	 * @public
 	 * @param {object} parameters Parameters
-	 * @param {string} parameters.path Virtual path of the facade resource
-	 * @param {@ui5/fs/Resource} parameters.resource Resource to conceal
+	 * @param {string} parameters.path Virtual path
+	 * @param {module:@ui5/fs.Resource} parameters.resource Resource to cover
 	 */
 	constructor({path, resource}) {
 		if (!path) {
-			throw new Error("Unable to create ResourceFacade: Missing parameter 'path'");
+			throw new Error("Cannot create ResourceFacade: path parameter missing");
 		}
 		if (!resource) {
-			throw new Error("Unable to create ResourceFacade: Missing parameter 'resource'");
+			throw new Error("Cannot create ResourceFacade: resource parameter missing");
 		}
-		path = posixPath.normalize(path);
-		if (!posixPath.isAbsolute(path)) {
-			throw new Error(`Unable to create ResourceFacade: Parameter 'path' must be absolute: ${path}`);
-		}
-		this.#path = path;
-		this.#name = posixPath.basename(path);
-		this.#resource = resource;
+		this._path = path;
+		this._resource = resource;
 	}
 
 	/**
@@ -42,17 +31,7 @@ class ResourceFacade {
 	 * @returns {string} (Virtual) path of the resource
 	 */
 	getPath() {
-		return this.#path;
-	}
-
-	/**
-	 * Gets the resource name
-	 *
-	 * @public
-	 * @returns {string} Name of the resource
-	 */
-	getName() {
-		return this.#name;
+		return this._path;
 	}
 
 	/**
@@ -62,7 +41,7 @@ class ResourceFacade {
 	 * @param {string} path (Virtual) path of the resource
 	 */
 	setPath(path) {
-		throw new Error(`The path of a ResourceFacade can't be changed`);
+		throw new Error(`The path of a ResourceFacade can't be changed at the moment`);
 	}
 
 	/**
@@ -70,11 +49,11 @@ class ResourceFacade {
 	 * A ResourceFacade becomes a Resource
 	 *
 	 * @public
-	 * @returns {Promise<@ui5/fs/Resource>} Promise resolving with the clone
+	 * @returns {Promise<module:@ui5/fs.Resource>} Promise resolving with the clone
 	 */
 	async clone() {
 		// Cloning resolves the facade
-		const resourceClone = await this.#resource.clone();
+		const resourceClone = await this._resource.clone();
 		resourceClone.setPath(this.getPath());
 		return resourceClone;
 	}
@@ -91,7 +70,7 @@ class ResourceFacade {
 	 * @returns {Promise<Buffer>} Promise resolving with a buffer of the resource content.
 	 */
 	async getBuffer() {
-		return this.#resource.getBuffer();
+		return this._resource.getBuffer();
 	}
 
 	/**
@@ -101,7 +80,7 @@ class ResourceFacade {
 	 * @param {Buffer} buffer Buffer instance
 	 */
 	setBuffer(buffer) {
-		return this.#resource.setBuffer(buffer);
+		return this._resource.setBuffer(buffer);
 	}
 
 	/**
@@ -111,7 +90,7 @@ class ResourceFacade {
 	 * @returns {Promise<string>} Promise resolving with the resource content.
 	 */
 	getString() {
-		return this.#resource.getString();
+		return this._resource.getString();
 	}
 
 	/**
@@ -121,33 +100,33 @@ class ResourceFacade {
 	 * @param {string} string Resource content
 	 */
 	setString(string) {
-		return this.#resource.setString(string);
+		return this._resource.setString(string);
 	}
 
 	/**
 	 * Gets a readable stream for the resource content.
 	 *
 	 * Repetitive calls of this function are only possible if new content has been set in the meantime (through
-	 * [setStream]{@link @ui5/fs/Resource#setStream}, [setBuffer]{@link @ui5/fs/Resource#setBuffer}
-	 * or [setString]{@link @ui5/fs/Resource#setString}). This
+	 * [setStream]{@link module:@ui5/fs.Resource#setStream}, [setBuffer]{@link module:@ui5/fs.Resource#setBuffer}
+	 * or [setString]{@link module:@ui5/fs.Resource#setString}). This
 	 * is to prevent consumers from accessing drained streams.
 	 *
 	 * @public
 	 * @returns {stream.Readable} Readable stream for the resource content.
 	 */
 	getStream() {
-		return this.#resource.getStream();
+		return this._resource.getStream();
 	}
 
 	/**
 	 * Sets a readable stream as content.
 	 *
 	 * @public
-	 * @param {stream.Readable|@ui5/fs/Resource~createStream} stream Readable stream of the resource content or
+	 * @param {stream.Readable|module:@ui5/fs.Resource~createStream} stream Readable stream of the resource content or
 															callback for dynamic creation of a readable stream
 	 */
 	setStream(stream) {
-		return this.#resource.setStream(stream);
+		return this._resource.setStream(stream);
 	}
 
 	/**
@@ -161,7 +140,7 @@ class ResourceFacade {
 	 *								or similar object
 	 */
 	getStatInfo() {
-		return this.#resource.getStatInfo();
+		return this._resource.getStatInfo();
 	}
 
 	/**
@@ -171,7 +150,7 @@ class ResourceFacade {
 	 * @returns {Promise<number>} size in bytes, <code>0</code> if there is no content yet
 	 */
 	async getSize() {
-		return this.#resource.getSize();
+		return this._resource.getSize();
 	}
 
 	/**
@@ -180,7 +159,7 @@ class ResourceFacade {
 	 * @param {string} name Resource collection name
 	 */
 	pushCollection(name) {
-		return this.#resource.pushCollection(name);
+		return this._resource.pushCollection(name);
 	}
 
 	/**
@@ -189,74 +168,24 @@ class ResourceFacade {
 	 * @returns {object} Trace tree
 	 */
 	getPathTree() {
-		return this.#resource.getPathTree();
+		return this._resource.getPathTree();
 	}
 
-	/**
-	 * Retrieve the project assigned to the resource
-	 * <br/>
-	 * <b>Note for UI5 CLI extensions (i.e. custom tasks, custom middleware):</b>
-	 * In order to ensure compatibility across UI5 CLI versions, consider using the
-	 * <code>getProject(resource)</code> method provided by
-	 * [TaskUtil]{@link module:@ui5/project/build/helpers/TaskUtil} and
-	 * [MiddlewareUtil]{@link module:@ui5/server.middleware.MiddlewareUtil}, which will
-	 * return a Specification Version-compatible Project interface.
-	 *
-	 * @public
-	 * @returns {@ui5/project/specifications/Project} Project this resource is associated with
-	 */
+	getSource() {
+		return this._resource.getSource();
+	}
+
 	getProject() {
-		return this.#resource.getProject();
+		return this._resource.getProject();
 	}
 
-	/**
-	 * Assign a project to the resource
-	 *
-	 * @public
-	 * @param {@ui5/project/specifications/Project} project Project this resource is associated with
-	 */
-	setProject(project) {
-		return this.#resource.setProject(project);
-	}
-
-	/**
-	 * Check whether a project has been assigned to the resource
-	 *
-	 * @public
-	 * @returns {boolean} True if the resource is associated with a project
-	 */
 	hasProject() {
-		return this.#resource.hasProject();
-	}
-	/**
-	 * Check whether the content of this resource has been changed during its life cycle
-	 *
-	 * @public
-	 * @returns {boolean} True if the resource's content has been changed
-	 */
-	isModified() {
-		return this.#resource.isModified();
+		return this._resource.hasProject();
 	}
 
-	/**
-	 * Returns source metadata if any where provided during the creation of this resource.
-	 * Typically set by an adapter to store information for later retrieval.
-	 *
-	 * @returns {object|null}
-	 */
-	getSourceMetadata() {
-		return this.#resource.getSourceMetadata();
-	}
-
-
-	/**
-	 * Returns the resource concealed by this facade
-	 *
-	 * @returns {@ui5/fs/Resource}
-	 */
 	getConcealedResource() {
-		return this.#resource;
+		return this._resource;
 	}
 }
 
-export default ResourceFacade;
+module.exports = ResourceFacade;
