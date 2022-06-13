@@ -1,9 +1,9 @@
-import test from "ava";
-import sinon from "sinon";
-import WriterCollection from "../../lib/WriterCollection.js";
-import Resource from "../../lib/Resource.js";
+const test = require("ava");
+const sinon = require("sinon");
+const WriterCollection = require("../../lib/WriterCollection");
+const Resource = require("../../lib/Resource");
 
-test("Constructor: Path mapping regex", (t) => {
+test("Constructor: Path mapping regex", async (t) => {
 	const myWriter = {};
 	const writer = new WriterCollection({
 		name: "myCollection",
@@ -13,46 +13,30 @@ test("Constructor: Path mapping regex", (t) => {
 			"/my/": myWriter,
 		}
 	});
-	t.is(writer._basePathRegex.toString(), "^((?:/)??(?:/my/)??(?:/my/path/)??)+.*?$",
+	t.is(writer._basePathRegex.toString(), "^((?:\\/)??(?:\\/my\\/)??(?:\\/my\\/path\\/)??)+.*?$",
 		"Created correct path mapping regular expression");
 });
 
-test("Constructor: Path mapping regex has correct escaping", (t) => {
-	const myWriter = {};
-	const writer = new WriterCollection({
-		name: "myCollection",
-		writerMapping: {
-			"/My\\Weird.Path/": myWriter,
-			"/my/pa$h/": myWriter,
-			"/my/": myWriter,
-		}
-	});
-	t.is(writer._basePathRegex.toString(), "^((?:/My\\\\Weird\\.Path/)??(?:/my/)??(?:/my/pa\\$h/)??)+.*?$",
-		"Created correct path mapping regular expression");
-});
-
-test("Constructor: Throws for missing path mapping", (t) => {
+test("Constructor: Throws for missing path mapping", async (t) => {
 	const err = t.throws(() => {
 		new WriterCollection({
 			name: "myCollection"
 		});
 	});
-	t.is(err.message, "Cannot create WriterCollection myCollection: Missing parameter 'writerMapping'",
-		"Threw with expected error message");
+	t.is(err.message, "Missing parameter 'writerMapping'", "Threw with expected error message");
 });
 
-test("Constructor: Throws for empty path mapping", (t) => {
+test("Constructor: Throws for empty path mapping", async (t) => {
 	const err = t.throws(() => {
 		new WriterCollection({
 			name: "myCollection",
 			writerMapping: {}
 		});
 	});
-	t.is(err.message, "Cannot create WriterCollection myCollection: Empty parameter 'writerMapping'",
-		"Threw with expected error message");
+	t.is(err.message, "Empty parameter 'writerMapping'", "Threw with expected error message");
 });
 
-test("Constructor: Throws for empty path", (t) => {
+test("Constructor: Throws for empty path", async (t) => {
 	const myWriter = {
 		_write: sinon.stub()
 	};
@@ -68,7 +52,7 @@ test("Constructor: Throws for empty path", (t) => {
 		"Threw with expected error message");
 });
 
-test("Constructor: Throws for missing leading slash", (t) => {
+test("Constructor: Throws for missing leading slash", async (t) => {
 	const myWriter = {
 		_write: sinon.stub()
 	};
@@ -84,7 +68,7 @@ test("Constructor: Throws for missing leading slash", (t) => {
 		"Threw with expected error message");
 });
 
-test("Constructor: Throws for missing trailing slash", (t) => {
+test("Constructor: Throws for missing trailing slash", async (t) => {
 	const myWriter = {
 		_write: sinon.stub()
 	};
