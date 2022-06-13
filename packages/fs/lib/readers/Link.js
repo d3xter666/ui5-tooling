@@ -1,48 +1,31 @@
-import AbstractReader from "../AbstractReader.js";
-import ResourceFacade from "../ResourceFacade.js";
-import {prefixGlobPattern} from "../resourceFactory.js";
-import {getLogger} from "@ui5/logger";
-const log = getLogger("resources:readers:Link");
+const AbstractReader = require("../AbstractReader");
+const ResourceFacade = require("../ResourceFacade");
+const resourceFactory = require("../resourceFactory");
+const log = require("@ui5/logger").getLogger("resources:readers:Link");
 
 /**
- * A reader that allows for rewriting paths segments of all resources passed through it.
- *
- * @example
- * import Link from "@ui5/fs/readers/Link";
- * const linkedReader = new Link({
- *     reader: sourceReader,
- *     pathMapping: {
- *          linkPath: `/app`,
- *          targetPath: `/resources/my-app-name/`
- *      }
- * });
- *
- * // The following resolves with a @ui5/fs/ResourceFacade of the resource
- * // located at "/resources/my-app-name/Component.js" in the sourceReader
- * const resource = await linkedReader.byPath("/app/Component.js");
+ * A reader that allows modification of all resources passed through it.
  *
  * @public
- * @class
- * @alias @ui5/fs/readers/Link
- * @extends @ui5/fs/AbstractReader
+ * @memberof module:@ui5/fs.readers
+ * @augments module:@ui5/fs.AbstractReader
  */
 class Link extends AbstractReader {
 	/**
-	 * Path mapping for a [Link]{@link @ui5/fs/readers/Link}
+	 * Path mapping for a [Link]{@link module:@ui5/fs.readers.Link}
 	 *
 	 * @public
-	 * @typedef {object} @ui5/fs/readers/Link/PathMapping
-	 * @property {string} linkPath Path to match and replace in the requested path or pattern
-	 * @property {string} targetPath Path to use as a replacement in the request for the source reader
+	 * @typedef {object} PathMapping
+	 * @property {string} pathMapping.linkPath Input path to rewrite
+	 * @property {string} pathMapping.targetPath Path to rewrite to
 	 */
-
 	/**
 	 * Constructor
 	 *
- 	 * @public
+	 * @public
 	 * @param {object} parameters Parameters
-	 * @param {@ui5/fs/AbstractReader} parameters.reader The resource reader or collection to wrap
-	 * @param {@ui5/fs/readers/Link/PathMapping} parameters.pathMapping
+	 * @param {module:@ui5/fs.AbstractReader} parameters.reader The resource reader to wrap
+	 * @param {PathMapping} parameters.pathMapping
 	 */
 	constructor({reader, pathMapping}) {
 		super();
@@ -54,7 +37,7 @@ class Link extends AbstractReader {
 		}
 		this._reader = reader;
 		this._pathMapping = pathMapping;
-		Link._validatePathMapping(pathMapping);
+		this._validatePathMapping(pathMapping);
 	}
 
 	/**
@@ -64,8 +47,8 @@ class Link extends AbstractReader {
 	 * @param {string|string[]} patterns glob pattern as string or an array of
 	 *         glob patterns for virtual directory structure
 	 * @param {object} options glob options
-	 * @param {@ui5/fs/tracing/Trace} trace Trace instance
-	 * @returns {Promise<@ui5/fs/Resource[]>} Promise resolving to list of resources
+	 * @param {module:@ui5/fs.tracing.Trace} trace Trace instance
+	 * @returns {Promise<module:@ui5/fs.Resource[]>} Promise resolving to list of resources
 	 */
 	async _byGlob(patterns, options, trace) {
 		if (!(patterns instanceof Array)) {
@@ -75,7 +58,7 @@ class Link extends AbstractReader {
 			if (pattern.startsWith(this._pathMapping.linkPath)) {
 				pattern = pattern.substr(this._pathMapping.linkPath.length);
 			}
-			return prefixGlobPattern(pattern, this._pathMapping.targetPath);
+			return resourceFactory.prefixGlobPattern(pattern, this._pathMapping.targetPath);
 		});
 
 		// Flatten prefixed patterns
@@ -100,15 +83,15 @@ class Link extends AbstractReader {
 	 * @private
 	 * @param {string} virPath Virtual path
 	 * @param {object} options Options
-	 * @param {@ui5/fs/tracing/Trace} trace Trace instance
-	 * @returns {Promise<@ui5/fs/Resource>} Promise resolving to a single resource
+	 * @param {module:@ui5/fs.tracing.Trace} trace Trace instance
+	 * @returns {Promise<module:@ui5/fs.Resource>} Promise resolving to a single resource
 	 */
 	async _byPath(virPath, options, trace) {
 		if (!virPath.startsWith(this._pathMapping.linkPath)) {
 			return null;
 		}
 		const targetPath = this._pathMapping.targetPath + virPath.substr(this._pathMapping.linkPath.length);
-		log.silly(`byPath: Rewriting virtual path ${virPath} to ${targetPath}`);
+		log.verbose(`byPath: Rewriting virtual path ${virPath} to ${targetPath}`);
 
 		const resource = await this._reader._byPath(targetPath, options, trace);
 		if (resource) {
@@ -120,7 +103,7 @@ class Link extends AbstractReader {
 		return null;
 	}
 
-	static _validatePathMapping({linkPath, targetPath}) {
+	_validatePathMapping({linkPath, targetPath}) {
 		if (!linkPath) {
 			throw new Error(`Path mapping is missing attribute "linkPath"`);
 		}
@@ -136,4 +119,4 @@ class Link extends AbstractReader {
 	}
 }
 
-export default Link;
+module.exports = Link;
