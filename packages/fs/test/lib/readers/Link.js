@@ -1,7 +1,7 @@
-import test from "ava";
-import sinon from "sinon";
-import Link from "../../../lib/readers/Link.js";
-import ResourceFacade from "../../../lib/ResourceFacade.js";
+const test = require("ava");
+const sinon = require("sinon");
+const Link = require("../../../lib/readers/Link");
+const ResourceFacade = require("../../../lib/ResourceFacade");
 
 test("_byGlob: Basic Link", async (t) => {
 	const dummyResourceA = {
@@ -94,7 +94,7 @@ test("_byGlob: Request prefixed with target path", async (t) => {
 
 	t.is(abstractReader._byGlob.callCount, 1, "Mocked _byGlob got called once");
 	t.deepEqual(abstractReader._byGlob.getCall(0).args[0], [
-		"/some/lib/some/lib/dir/**", // Weird, but expected. We prefix everything with the targetPath
+		"/some/lib/some/lib/dir/**", // TODO 3.0: Is this expected? Maybe this can lead to serious issues
 	], "Mocked _byGlob got called with expected patterns");
 	t.is(abstractReader._byGlob.getCall(0).args[1], options,
 		"Mocked _byGlob got called with expected options");
@@ -155,7 +155,7 @@ test("_byPath: Basic Link", async (t) => {
 	t.is(resource.getPath(), "/dir/File.js", "First resource has correct rewritten path");
 
 	t.is(abstractReader._byPath.callCount, 1, "Mocked _byPath got called once");
-	t.is(abstractReader._byPath.getCall(0).args[0], "/resources/some/lib/dir/File.js",
+	t.deepEqual(abstractReader._byPath.getCall(0).args[0], "/resources/some/lib/dir/File.js",
 		"Mocked _byPath got called with expected patterns");
 	t.is(abstractReader._byPath.getCall(0).args[1], options,
 		"Mocked _byPath got called with expected options");
@@ -188,7 +188,7 @@ test("_byPath: Rewrite on same level", async (t) => {
 	t.is(resource.getPath(), "/my/lib/dir/File.js", "First resource has correct rewritten path");
 
 	t.is(abstractReader._byPath.callCount, 1, "Mocked _byPath got called once");
-	t.is(abstractReader._byPath.getCall(0).args[0], "/some/lib/dir/File.js",
+	t.deepEqual(abstractReader._byPath.getCall(0).args[0], "/some/lib/dir/File.js",
 		"Mocked _byPath got called with expected patterns");
 	t.is(abstractReader._byPath.getCall(0).args[1], options,
 		"Mocked _byPath got called with expected options");
@@ -216,7 +216,7 @@ test("_byPath: No resource found", async (t) => {
 	t.is(resource, null, "No resource returned");
 
 	t.is(abstractReader._byPath.callCount, 1, "Mocked _byPath got called once");
-	t.is(abstractReader._byPath.getCall(0).args[0], "/some/lib/dir/File.js",
+	t.deepEqual(abstractReader._byPath.getCall(0).args[0], "/some/lib/dir/File.js",
 		"Mocked _byPath got called with expected patterns");
 	t.is(abstractReader._byPath.getCall(0).args[1], options,
 		"Mocked _byPath got called with expected options");
@@ -245,7 +245,7 @@ test("_byPath: Request different prefix", async (t) => {
 	t.is(abstractReader._byPath.callCount, 0, "Mocked _byPath never got called");
 });
 
-test("Missing attributes", (t) => {
+test("Missing attributes", async (t) => {
 	const abstractReader = {};
 	let err = t.throws(() => {
 		new Link({
