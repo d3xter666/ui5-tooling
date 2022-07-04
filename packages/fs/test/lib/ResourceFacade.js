@@ -1,34 +1,33 @@
-import test from "ava";
-import sinon from "sinon";
-import Resource from "../../lib/Resource.js";
-import ResourceFacade from "../../lib/ResourceFacade.js";
+const test = require("ava");
+const sinon = require("sinon");
+const Resource = require("../../lib/Resource");
+const ResourceFacade = require("../../lib/ResourceFacade");
 
-test.afterEach.always( (t) => {
+test.afterEach.always(async (t) => {
 	sinon.restore();
 });
 
-test("Create instance", (t) => {
+test("Create instance", async (t) => {
 	const resource = new Resource({
-		path: "/my/path/to/resource",
+		path: "my/path/to/resource",
 		string: "my content"
 	});
 	const resourceFacade = new ResourceFacade({
-		path: "/my/path",
+		path: "my/path",
 		resource
 	});
-	t.is(resourceFacade.getPath(), "/my/path", "Returns correct path");
-	t.is(resourceFacade.getName(), "path", "Returns correct name");
+	t.is(resourceFacade.getPath(), "my/path", "Returns correct path");
 	t.is(resourceFacade.getConcealedResource(), resource, "Returns correct concealed resource");
 });
 
-test("Create instance: Missing parameters", (t) => {
+test("Create instance: Missing parameters", async (t) => {
 	t.throws(() => {
 		new ResourceFacade({
-			path: "/my/path",
+			path: "my/path",
 		});
 	}, {
 		instanceOf: Error,
-		message: "Unable to create ResourceFacade: Missing parameter 'resource'"
+		message: "Cannot create ResourceFacade: resource parameter missing"
 	});
 	t.throws(() => {
 		new ResourceFacade({
@@ -36,32 +35,32 @@ test("Create instance: Missing parameters", (t) => {
 		});
 	}, {
 		instanceOf: Error,
-		message: "Unable to create ResourceFacade: Missing parameter 'path'"
+		message: "Cannot create ResourceFacade: path parameter missing"
 	});
 });
 
 test("ResourceFacade #clone", async (t) => {
 	const resource = new Resource({
-		path: "/my/path/to/resource",
+		path: "my/path/to/resource",
 		string: "my content"
 	});
 	const resourceFacade = new ResourceFacade({
-		path: "/my/path",
+		path: "my/path",
 		resource
 	});
 
 	const clone = await resourceFacade.clone();
 	t.true(clone instanceof Resource, "Cloned resource facade is an instance of Resource");
-	t.is(clone.getPath(), "/my/path", "Cloned resource has path of resource facade");
+	t.is(clone.getPath(), "my/path", "Cloned resource has path of resource facade");
 });
 
-test("ResourceFacade #setPath", (t) => {
+test("ResourceFacade #setPath", async (t) => {
 	const resource = new Resource({
-		path: "/my/path/to/resource",
+		path: "my/path/to/resource",
 		string: "my content"
 	});
 	const resourceFacade = new ResourceFacade({
-		path: "/my/path",
+		path: "my/path",
 		resource
 	});
 
@@ -71,13 +70,13 @@ test("ResourceFacade #setPath", (t) => {
 	t.is(err.message, "The path of a ResourceFacade can't be changed", "Threw with expected error message");
 });
 
-test("ResourceFacade provides same public functions as Resource", (t) => {
+test("ResourceFacade provides same public functions as Resource", async (t) => {
 	const resource = new Resource({
-		path: "/my/path/to/resource",
+		path: "my/path/to/resource",
 		string: "my content"
 	});
 	const resourceFacade = new ResourceFacade({
-		path: "/my/path",
+		path: "my/path",
 		resource
 	});
 
@@ -86,7 +85,7 @@ test("ResourceFacade provides same public functions as Resource", (t) => {
 
 	methods.forEach((method) => {
 		t.truthy(resourceFacade[method], `resourceFacade provides function #${method}`);
-		if (["constructor", "getPath", "getName", "setPath", "clone"].includes(method)) {
+		if (["constructor", "getPath", "setPath", "clone"].includes(method)) {
 			// special functions with separate tests
 			return;
 		}
