@@ -1,7 +1,8 @@
-import test from "ava";
-import ShimCollection from "../../../lib/graph/ShimCollection.js";
+const test = require("ava");
 
-test("Add shims", (t) => {
+const ShimCollection = require("../../../lib/graph/ShimCollection");
+
+test("Add shims", async (t) => {
 	const collection = new ShimCollection();
 	collection.addProjectShim({
 		getName: () => "shim-1",
