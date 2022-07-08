@@ -1,812 +1,658 @@
-import test from "ava";
-import sinonGlobal from "sinon";
-import path from "node:path";
-import esmock from "esmock";
-import {setLogLevel} from "@ui5/logger";
-import OutputStyleEnum from "../../../lib/build/helpers/ProjectBuilderOutputStyle.js";
+const test = require("ava");
+const sinon = require("sinon");
+const mock = require("mock-require");
+
+const parentLogger = require("@ui5/logger").getGroupLogger("mygroup");
+
+const ProjectBuilder = require("../../../lib/build/ProjectBuilder");
 
 function noop() {}
+function emptyarray() {
+	return [];
+}
 
-function getMockProject(type, id = "b") {
+function getMockProject(type) {
 	return {
-		getName: () => "project." + id,
-		getNamespace: () => "project/" + id,
+		getName: () => "project.b",
+		getNamespace: () => "project/b",
 		getType: () => type,
+		getPropertiesFileSourceEncoding: noop,
 		getCopyright: noop,
 		getVersion: noop,
-		getReader: () => "reader",
-		getWorkspace: () => "workspace",
+		getSpecVersion: () => "0.1",
+		getMinificationExcludes: emptyarray,
+		getComponentPreloadPaths: () => [
+			"project/b/**/Component.js"
+		],
+		getComponentPreloadNamespaces: emptyarray,
+		getComponentPreloadExcludes: emptyarray,
+		getLibraryPreloadExcludes: emptyarray,
+		getBundles: () => [{
+			bundleDefinition: {
+				name: "project/b/sectionsA/customBundle.js",
+				defaultFileTypes: [".js"],
+				sections: [{
+					mode: "preload",
+					filters: [
+						"project/b/sectionsA/",
+						"!project/b/sectionsA/section2**",
+					]
+				}],
+				sort: true
+			},
+			bundleOptions: {
+				optimize: true,
+				usePredefinedCalls: true
+			}
+		}],
+		getCachebusterSignatureType: noop,
+		getCustomTasks: () => [],
 	};
 }
 
-test.beforeEach(async (t) => {
-	const sinon = t.context.sinon = sinonGlobal.createSandbox();
-	t.context.getRootNameStub = sinon.stub().returns("project.a");
-	t.context.getRootTypeStub = sinon.stub().returns("application");
-	t.context.taskRepository = "taskRepository";
+test.beforeEach((t) => {
+	t.context.taskUtil = {
+		isRootProject: sinon.stub().returns(true),
+		getBuildOption: sinon.stub(),
+		getInterface: sinon.stub()
+	};
+
 	t.context.graph = {
 		getRoot: () => {
 			return {
-				getName: t.context.getRootNameStub,
-				getType: t.context.getRootTypeStub,
+				getName: () => "graph-root"
 			};
 		},
-		isSealed: sinon.stub().returns(true),
-		getProjectNames: sinon.stub().returns([
-			"project.a",
-			"project.b",
-			"project.c",
-		]),
-		getSize: sinon.stub().returns(3),
-		getDependencies: sinon.stub().returns([]).withArgs("project.a").returns(["project.b"]),
-		traverseBreadthFirst: async (start, callback) => {
-			if (callback) {
-				await callback({
-					project: getMockProject("library", "c")
-				});
-				return;
-			}
-			await start({
-				project: getMockProject("library", "a")
-			});
-			await start({
-				project: getMockProject("library", "c")
-			});
-			await start({
-				project: getMockProject("library", "b")
-			});
-		},
-		traverseDepthFirst: async (callback) => {
-			await callback({
-				project: getMockProject("library", "a")
-			});
-			await callback({
-				project: getMockProject("library", "b")
-			});
-			await callback({
-				project: getMockProject("library", "c")
-			});
-		},
-		getProject: sinon.stub().callsFake((projectName) => {
-			return getMockProject(...projectName.split("."));
-		})
+		getExtension: sinon.stub().returns("a custom task")
 	};
-
-	t.context.ProjectBuilder = await esmock("../../../lib/build/ProjectBuilder.js");
 });
 
-test.afterEach.always((t) => {
-	t.context.sinon.restore();
+test("Project of type 'application'", (t) => {
+	const {graph, taskUtil} = t.context;
+	const builder = new ProjectBuilder({project: getMockProject("application"), graph, taskUtil, parentLogger});
+	t.deepEqual(builder._taskExecutionOrder, [
+		"escapeNonAsciiCharacters",
+		"replaceCopyright",
+		"replaceVersion",
+		"minify",
+		"generateFlexChangesBundle",
+		"generateManifestBundle",
+		"generateComponentPreload",
+		"generateStandaloneAppBundle",
+		"transformBootstrapHtml",
+		"generateBundle",
+		"generateVersionInfo",
+		"generateCachebusterInfo",
+		"generateApiIndex",
+		"generateResourcesJson"
+	], "Correct standard tasks");
 });
 
-test("Missing graph parameters", (t) => {
-	const {ProjectBuilder} = t.context;
-	const err1 = t.throws(() => {
-		new ProjectBuilder({});
+test("Project of type 'library'", (t) => {
+	const {graph, taskUtil} = t.context;
+	const builder = new ProjectBuilder({project: getMockProject("library"), graph, taskUtil, parentLogger});
+
+	t.deepEqual(builder._taskExecutionOrder, [
+		"escapeNonAsciiCharacters",
+		"replaceCopyright",
+		"replaceVersion",
+		"replaceBuildtime",
+		"generateJsdoc",
+		"executeJsdocSdkTransformation",
+		"minify",
+		"generateLibraryManifest",
+		"generateManifestBundle",
+		"generateComponentPreload",
+		"generateLibraryPreload",
+		"generateBundle",
+		"buildThemes",
+		"generateThemeDesignerResources",
+		"generateResourcesJson"
+	], "Correct standard tasks");
+});
+
+test("Project of type 'theme-library'", (t) => {
+	const {graph, taskUtil} = t.context;
+	const builder = new ProjectBuilder({project: getMockProject("theme-library"), graph, taskUtil, parentLogger});
+
+	t.deepEqual(builder._taskExecutionOrder, [
+		"replaceCopyright",
+		"replaceVersion",
+		"buildThemes",
+		"generateThemeDesignerResources",
+		"generateResourcesJson"
+	], "Correct standard tasks");
+});
+
+test("Project of type 'module'", (t) => {
+	const {graph, taskUtil} = t.context;
+	const builder = new ProjectBuilder({project: getMockProject("module"), graph, taskUtil, parentLogger});
+
+	t.deepEqual(builder._taskExecutionOrder, [], "Correct standard tasks");
+});
+
+test("Custom tasks", (t) => {
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("application");
+	project.getCustomTasks = () => [
+		{name: "myTask", afterTask: "minify"},
+		{name: "myOtherTask", beforeTask: "replaceVersion"}
+	];
+	const builder = new ProjectBuilder({project, graph, taskUtil, parentLogger});
+	t.deepEqual(builder._taskExecutionOrder, [
+		"escapeNonAsciiCharacters",
+		"replaceCopyright",
+		"myOtherTask",
+		"replaceVersion",
+		"minify",
+		"myTask",
+		"generateFlexChangesBundle",
+		"generateManifestBundle",
+		"generateComponentPreload",
+		"generateStandaloneAppBundle",
+		"transformBootstrapHtml",
+		"generateBundle",
+		"generateVersionInfo",
+		"generateCachebusterInfo",
+		"generateApiIndex",
+		"generateResourcesJson"
+	], "Custom tasks are inserted correctly");
+});
+
+test("Custom tasks with no standard tasks", (t) => {
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("module");
+	project.getCustomTasks = () => [
+		{name: "myTask"},
+		{name: "myOtherTask", beforeTask: "myTask"}
+	];
+	const builder = new ProjectBuilder({project, graph, taskUtil, parentLogger});
+	t.deepEqual(builder._taskExecutionOrder, [
+		"myOtherTask",
+		"myTask",
+	], "ApplicationBuilder is still instantiated with standard tasks");
+});
+
+test("Custom tasks with no standard tasks and second task defining no before-/afterTask", (t) => {
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("module");
+	project.getCustomTasks = () => [
+		{name: "myTask"},
+		{name: "myOtherTask"}
+	];
+	const err = t.throws(() => {
+		new ProjectBuilder({project, graph, taskUtil, parentLogger});
 	});
-	t.is(err1.message, "Missing parameter 'graph'",
-		"Threw with expected error message");
-
-	const err2 = t.throws(() => {
-		new ProjectBuilder({graph: "graph"});
-	});
-	t.is(err2.message, "Missing parameter 'taskRepository'",
+	t.is(err.message,
+		`Custom task definition myOtherTask of project project.b defines neither a ` +
+		`"beforeTask" nor an "afterTask" parameter. One must be defined.`,
 		"Threw with expected error message");
 });
 
-test("build", async (t) => {
-	const {graph, taskRepository, ProjectBuilder, sinon} = t.context;
+test("Custom tasks with both, before- and afterTask reference", (t) => {
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("application");
+	project.getCustomTasks = () => [
+		{name: "myTask", beforeTask: "minify", afterTask: "replaceVersion"}
+	];
+	const err = t.throws(() => {
+		new ProjectBuilder({project, graph, taskUtil, parentLogger});
+	});
+	t.is(err.message,
+		`Custom task definition myTask of project project.b defines both ` +
+		`"beforeTask" and "afterTask" parameters. Only one must be defined.`,
+		"Threw with expected error message");
+});
 
-	const builder = new ProjectBuilder({graph, taskRepository});
+test("Custom tasks with no before-/afterTask reference", (t) => {
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("application");
+	project.getCustomTasks = () => [
+		{name: "myTask"}
+	];
+	const err = t.throws(() => {
+		new ProjectBuilder({project, graph, taskUtil, parentLogger});
+	});
+	t.is(err.message,
+		`Custom task definition myTask of project project.b defines neither a ` +
+		`"beforeTask" nor an "afterTask" parameter. One must be defined.`,
+		"Threw with expected error message");
+});
 
-	const filterProjectStub = sinon.stub().returns(true);
-	const getProjectFilterStub = sinon.stub(builder, "_getProjectFilter").resolves(filterProjectStub);
+test("Custom tasks without name", (t) => {
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("application");
+	project.getCustomTasks = () => [
+		{name: ""}
+	];
+	const err = t.throws(() => {
+		new ProjectBuilder({project, graph, taskUtil, parentLogger});
+	});
+	t.is(err.message,
+		`Missing name for custom task in configuration of project project.b`,
+		"Threw with expected error message");
+});
 
-	const requiresBuildStub = sinon.stub().returns(true);
-	const runTasksStub = sinon.stub().resolves();
-	const projectBuildContextMock = {
-		getTaskRunner: () => {
-			return {
-				runTasks: runTasksStub,
-			};
+test("Custom task with name of standard tasks", (t) => {
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("application");
+	project.getCustomTasks = () => [
+		{name: "replaceVersion", afterTask: "minify"}
+	];
+	const err = t.throws(() => {
+		new ProjectBuilder({project, graph, taskUtil, parentLogger});
+	});
+	t.is(err.message,
+		"Custom task configuration of project project.b references standard task replaceVersion. " +
+		"Only custom tasks must be provided here.",
+		"Threw with expected error message");
+});
+
+test("Multiple custom tasks with same name", (t) => {
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("application");
+	project.getCustomTasks = () => [
+		{name: "myTask", afterTask: "minify"},
+		{name: "myTask", afterTask: "myTask"},
+		{name: "myTask", afterTask: "minify"}
+	];
+	const builder = new ProjectBuilder({project, graph, taskUtil, parentLogger});
+	t.deepEqual(builder._taskExecutionOrder, [
+		"escapeNonAsciiCharacters",
+		"replaceCopyright",
+		"replaceVersion",
+		"minify",
+		"myTask--3",
+		"myTask",
+		"myTask--2",
+		"generateFlexChangesBundle",
+		"generateManifestBundle",
+		"generateComponentPreload",
+		"generateStandaloneAppBundle",
+		"transformBootstrapHtml",
+		"generateBundle",
+		"generateVersionInfo",
+		"generateCachebusterInfo",
+		"generateApiIndex",
+		"generateResourcesJson"
+	], "Custom tasks are inserted correctly");
+});
+
+test("Custom tasks with unknown beforeTask", (t) => {
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("application");
+	project.getCustomTasks = () => [
+		{name: "myTask", beforeTask: "unknownTask"}
+	];
+	const err = t.throws(() => {
+		new ProjectBuilder({project, graph, taskUtil, parentLogger});
+	});
+	t.is(err.message,
+		"Could not find task unknownTask, referenced by custom task myTask, " +
+		"to be scheduled for project project.b",
+		"Threw with expected error message");
+});
+
+test("Custom tasks with unknown afterTask", (t) => {
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("application");
+	project.getCustomTasks = () => [
+		{name: "myTask", afterTask: "unknownTask"}
+	];
+	const err = t.throws(() => {
+		new ProjectBuilder({project, graph, taskUtil, parentLogger});
+	});
+	t.is(err.message,
+		"Could not find task unknownTask, referenced by custom task myTask, " +
+		"to be scheduled for project project.b",
+		"Threw with expected error message");
+});
+
+test("Custom tasks is unknown", (t) => {
+	const {graph, taskUtil} = t.context;
+	graph.getExtension.returns(undefined);
+	const project = getMockProject("application");
+	project.getCustomTasks = () => [
+		{name: "myTask", afterTask: "minify"}
+	];
+	const err = t.throws(() => {
+		new ProjectBuilder({project, graph, taskUtil, parentLogger});
+	});
+	t.is(err.message,
+		"Could not find custom task myTask, referenced by project project.b in project " +
+		"graph with root node graph-root",
+		"Threw with expected error message");
+});
+
+test("Custom task is called correctly", async (t) => {
+	const {graph, taskUtil} = t.context;
+	const taskStub = sinon.stub();
+	graph.getExtension.returns({
+		getTask: () => taskStub,
+		getSpecVersion: () => "2.6"
+	});
+	t.context.taskUtil.getInterface.returns("taskUtil interface");
+	const project = getMockProject("module");
+	project.getCustomTasks = () => [
+		{name: "myTask", configuration: "configuration"}
+	];
+
+	const builder = new ProjectBuilder({project, graph, taskUtil, parentLogger});
+
+	t.truthy(builder._tasks["myTask"], "Custom tasks has been added to task map");
+	t.true(builder._tasks["myTask"].requiresDependencies, "Custom tasks requires dependencies by default");
+	await builder._tasks["myTask"].task({
+		workspace: "workspace",
+		dependencies: "dependencies"
+	});
+
+	t.is(taskStub.callCount, 1, "Task got called once");
+	t.is(taskStub.getCall(0).args.length, 1, "Task got called with one argument");
+	t.deepEqual(taskStub.getCall(0).args[0], {
+		workspace: "workspace",
+		dependencies: "dependencies",
+		options: {
+			projectName: "project.b",
+			projectNamespace: "project/b",
+			configuration: "configuration",
 		},
-		requiresBuild: requiresBuildStub,
-		getProject: sinon.stub().returns(getMockProject("library"))
-	};
-	const createRequiredBuildContextsStub = sinon.stub(builder, "_createRequiredBuildContexts")
-		.resolves(new Map().set("project.a", projectBuildContextMock));
+		taskUtil: "taskUtil interface"
+	}, "Task got called with one argument");
 
-	const registerCleanupSigHooksStub = sinon.stub(builder, "_registerCleanupSigHooks").returns("cleanup sig hooks");
+	t.is(taskUtil.getInterface.callCount, 1, "taskUtil#getInterface got called once");
+	t.is(taskUtil.getInterface.getCall(0).args[0], "2.6",
+		"taskUtil#getInterface got called with correct argument");
+});
 
-	const writeResultsStub = sinon.stub(builder, "_writeResults").resolves();
-	const deregisterCleanupSigHooksStub = sinon.stub(builder, "_deregisterCleanupSigHooks");
-	const executeCleanupTasksStub = sinon.stub(builder, "_executeCleanupTasks").resolves();
+test("Custom task with legacy spec version", async (t) => {
+	const {graph, taskUtil} = t.context;
+	const taskStub = sinon.stub();
+	graph.getExtension.returns({
+		getTask: () => taskStub,
+		getSpecVersion: () => "1.0"
+	});
+	t.context.taskUtil.getInterface.returns(undefined); // simulating no taskUtil for old specVersion
+	const project = getMockProject("module");
+	project.getCustomTasks = () => [
+		{name: "myTask", configuration: "configuration"}
+	];
+
+	const builder = new ProjectBuilder({project, graph, taskUtil, parentLogger});
+
+	t.truthy(builder._tasks["myTask"], "Custom tasks has been added to task map");
+	t.true(builder._tasks["myTask"].requiresDependencies, "Custom tasks requires dependencies by default");
+	await builder._tasks["myTask"].task({
+		workspace: "workspace",
+		dependencies: "dependencies"
+	});
+
+	t.is(taskStub.callCount, 1, "Task got called once");
+	t.is(taskStub.getCall(0).args.length, 1, "Task got called with one argument");
+	t.deepEqual(taskStub.getCall(0).args[0], {
+		workspace: "workspace",
+		dependencies: "dependencies",
+		options: {
+			projectName: "project.b",
+			projectNamespace: "project/b",
+			configuration: "configuration",
+		}
+	}, "Task got called with one argument");
+
+	t.is(taskUtil.getInterface.callCount, 1, "taskUtil#getInterface got called once");
+	t.is(taskUtil.getInterface.getCall(0).args[0], "1.0",
+		"taskUtil#getInterface got called with correct argument");
+});
+
+test("Custom task with specVersion 2.7", async (t) => {
+	const {graph, taskUtil} = t.context;
+	const taskStub = sinon.stub();
+	graph.getExtension.returns({
+		getTask: () => taskStub,
+		getSpecVersion: () => "2.7"
+	});
+	t.context.taskUtil.getInterface.returns(undefined); // simulating no taskUtil for old specVersion
+	const project = getMockProject("module");
+	project.getCustomTasks = () => [
+		{name: "myTask", configuration: "configuration"}
+	];
+
+	const builder = new ProjectBuilder({project, graph, taskUtil, parentLogger});
+
+	t.truthy(builder._tasks["myTask"], "Custom tasks has been added to task map");
+	t.true(builder._tasks["myTask"].requiresDependencies, "Custom tasks requires dependencies by default");
+	await builder._tasks["myTask"].task({
+		workspace: "workspace",
+		dependencies: "dependencies"
+	}, "log");
+
+	t.is(taskStub.callCount, 1, "Task got called once");
+	t.is(taskStub.getCall(0).args.length, 1, "Task got called with one argument");
+	t.deepEqual(taskStub.getCall(0).args[0], {
+		workspace: "workspace",
+		dependencies: "dependencies",
+		taskName: "myTask", // specVersion 2.7 feature
+		log: "log", // specVersion 2.7 feature
+		options: {
+			projectName: "project.b",
+			projectNamespace: "project/b",
+			configuration: "configuration",
+		}
+	}, "Task got called with one argument");
+
+	t.is(taskUtil.getInterface.callCount, 1, "taskUtil#getInterface got called once");
+	t.is(taskUtil.getInterface.getCall(0).args[0], "2.7",
+		"taskUtil#getInterface got called with correct argument");
+});
+
+test("Multiple custom tasks with same name are called correctly", async (t) => {
+	const {graph, taskUtil} = t.context;
+	const taskStub1 = sinon.stub();
+	const taskStub2 = sinon.stub();
+	const taskStub3 = sinon.stub();
+	graph.getExtension.onFirstCall().returns({
+		getTask: () => taskStub1,
+		getSpecVersion: () => "2.5"
+	});
+	graph.getExtension.onSecondCall().returns({
+		getTask: () => taskStub2,
+		getSpecVersion: () => "2.6"
+	});
+	graph.getExtension.onThirdCall().returns({
+		getTask: () => taskStub3,
+		getSpecVersion: () => "2.7"
+	});
+	const project = getMockProject("module");
+	project.getCustomTasks = () => [
+		{name: "myTask", configuration: "cat"},
+		{name: "myTask", afterTask: "myTask", configuration: "dog"},
+		{name: "myTask", afterTask: "myTask", configuration: "bird"}
+	];
+	const builder = new ProjectBuilder({project, graph, taskUtil, parentLogger});
+
+	t.truthy(builder._tasks["myTask"], "Custom tasks has been added to task map");
+	t.truthy(builder._tasks["myTask--2"], "Custom tasks has been added to task map");
+	t.truthy(builder._tasks["myTask--3"], "Custom tasks has been added to task map");
+	t.true(builder._tasks["myTask"].requiresDependencies, "Custom tasks requires dependencies by default");
+	t.true(builder._tasks["myTask--2"].requiresDependencies, "Custom tasks requires dependencies by default");
+	t.true(builder._tasks["myTask--3"].requiresDependencies, "Custom tasks requires dependencies by default");
+
+	t.deepEqual(builder._taskExecutionOrder, [
+		"myTask",
+		"myTask--3",
+		"myTask--2",
+	], "Correct order of custom tasks");
 
 	await builder.build({
-		destPath: "dest/path",
-		includedDependencies: ["dep a"],
-		excludedDependencies: ["dep b"]
-	});
-
-	t.is(getProjectFilterStub.callCount, 1, "_getProjectFilter got called once");
-	t.deepEqual(getProjectFilterStub.getCall(0).args[0], {
-		explicitIncludes: ["dep a"],
-		explicitExcludes: ["dep b"],
-		dependencyIncludes: undefined
-	}, "_getProjectFilter got called with correct arguments");
-
-	t.is(createRequiredBuildContextsStub.callCount, 1, "_createRequiredBuildContexts got called once");
-	t.deepEqual(createRequiredBuildContextsStub.getCall(0).args[0], [
-		"project.a", "project.b", "project.c"
-	], "_createRequiredBuildContexts got called with correct arguments");
-
-	t.is(requiresBuildStub.callCount, 1, "ProjectBuildContext#requiresBuild got called once");
-	t.is(registerCleanupSigHooksStub.callCount, 1, "_registerCleanupSigHooksStub got called once");
-
-	t.is(runTasksStub.callCount, 1, "TaskRunner#runTasks got called once");
-
-	t.is(writeResultsStub.callCount, 1, "_writeResults got called once");
-	t.is(writeResultsStub.getCall(0).args[0], projectBuildContextMock,
-		"_writeResults got called with correct first argument");
-	t.is(writeResultsStub.getCall(0).args[1]._fsBasePath, path.resolve("dest/path") + path.sep,
-		"_writeResults got called with correct second argument");
-
-	t.is(deregisterCleanupSigHooksStub.callCount, 1, "_deregisterCleanupSigHooks got called once");
-	t.is(deregisterCleanupSigHooksStub.getCall(0).args[0], "cleanup sig hooks",
-		"_deregisterCleanupSigHooks got called with correct arguments");
-	t.is(executeCleanupTasksStub.callCount, 1, "_executeCleanupTasksStub got called once");
-});
-
-test("build: Missing dest parameter", async (t) => {
-	const {graph, taskRepository, ProjectBuilder} = t.context;
-
-	const builder = new ProjectBuilder({graph, taskRepository});
-
-	const err = await t.throwsAsync(builder.build({
-		destPath: "dest/path",
-		dependencyIncludes: "dependencyIncludes",
-		includedDependencies: ["dep a"],
-		excludedDependencies: ["dep b"]
-	}));
-
-	t.is(err.message,
-		"Parameter 'dependencyIncludes' can't be used in conjunction " +
-		"with parameters 'includedDependencies' or 'excludedDependencies",
-		"Threw with expected error message");
-});
-
-test("build: Too many dependency parameters", async (t) => {
-	const {graph, taskRepository, ProjectBuilder} = t.context;
-
-	const builder = new ProjectBuilder({graph, taskRepository});
-
-	const err = await t.throwsAsync(builder.build({
-		includedDependencies: ["dep a"],
-		excludedDependencies: ["dep b"]
-	}));
-
-	t.is(err.message, "Missing parameter 'destPath'", "Threw with expected error message");
-});
-
-test("build: createBuildManifest in conjunction with dependencies", async (t) => {
-	const {graph, taskRepository, ProjectBuilder, sinon} = t.context;
-	t.context.getRootTypeStub = sinon.stub().returns("library");
-	const builder = new ProjectBuilder({graph, taskRepository,
-		buildConfig: {
-			createBuildManifest: true
-		}
-	});
-
-	const filterProjectStub = sinon.stub().returns(true);
-	sinon.stub(builder, "_getProjectFilter").resolves(filterProjectStub);
-	const err = await t.throwsAsync(builder.build({
-		destPath: "dest/path",
-		includedDependencies: ["dep a"]
-	}));
-
-	t.is(err.message,
-		"It is currently not supported to request the creation of a build manifest while " +
-		"including any dependencies into the build result",
-		"Threw with expected error message");
-});
-
-test("build: Failure", async (t) => {
-	const {graph, taskRepository, ProjectBuilder, sinon} = t.context;
-
-	const builder = new ProjectBuilder({graph, taskRepository});
-
-	const filterProjectStub = sinon.stub().returns(true);
-	sinon.stub(builder, "_getProjectFilter").resolves(filterProjectStub);
-
-	const requiresBuildStub = sinon.stub().returns(true);
-	const runTasksStub = sinon.stub().rejects(new Error("Some Error"));
-	const projectBuildContextMock = {
-		requiresBuild: requiresBuildStub,
-		getTaskRunner: () => {
-			return {
-				runTasks: runTasksStub
-			};
-		},
-		getProject: sinon.stub().returns(getMockProject("library"))
-	};
-	sinon.stub(builder, "_createRequiredBuildContexts")
-		.resolves(new Map().set("project.a", projectBuildContextMock));
-
-	sinon.stub(builder, "_registerCleanupSigHooks").returns("cleanup sig hooks");
-	const writeResultsStub = sinon.stub(builder, "_writeResults").resolves();
-	const deregisterCleanupSigHooksStub = sinon.stub(builder, "_deregisterCleanupSigHooks");
-	const executeCleanupTasksStub = sinon.stub(builder, "_executeCleanupTasks").resolves();
-
-	const err = await t.throwsAsync(builder.build({
-		destPath: "dest/path",
-		includedDependencies: ["dep a"],
-		excludedDependencies: ["dep b"]
-	}));
-
-	t.is(err.message, "Some Error", "Threw with expected error message");
-
-	t.is(writeResultsStub.callCount, 0, "_writeResults did not get called");
-
-	t.is(deregisterCleanupSigHooksStub.callCount, 1, "_deregisterCleanupSigHooks got called once");
-	t.is(deregisterCleanupSigHooksStub.getCall(0).args[0], "cleanup sig hooks",
-		"_deregisterCleanupSigHooks got called with correct arguments");
-	t.is(executeCleanupTasksStub.callCount, 1, "_executeCleanupTasksStub got called once");
-});
-
-test.serial("build: Multiple projects", async (t) => {
-	const {graph, taskRepository, sinon} = t.context;
-
-	const buildLoggerMock = {
-		isLevelEnabled: sinon.stub(),
-		setProjects: sinon.stub(),
-		startProjectBuild: sinon.stub(),
-		endProjectBuild: sinon.stub(),
-		skipProjectBuild: sinon.stub(),
-
-		info: sinon.stub(),
-		verbose: sinon.stub(),
-		error: sinon.stub(),
-	};
-	// Function acts as constructor for our class mock
-	function CreateBuildLoggerMock(moduleName) {
-		t.is(moduleName, "ProjectBuilder", "BuildLogger created with expected moduleName");
-		return buildLoggerMock;
-	}
-	const ProjectBuilder = await esmock("../../../lib/build/ProjectBuilder.js", {
-		"@ui5/logger/internal/loggers/Build": CreateBuildLoggerMock
-	});
-
-	const builder = new ProjectBuilder({graph, taskRepository});
-
-	const filterProjectStub = sinon.stub().returns(true).onFirstCall().returns(false);
-	const getProjectFilterStub = sinon.stub(builder, "_getProjectFilter").resolves(filterProjectStub);
-
-	const requiresBuildAStub = sinon.stub().returns(true);
-	const requiresBuildBStub = sinon.stub().returns(false);
-	const requiresBuildCStub = sinon.stub().returns(true);
-	const getBuildMetadataStub = sinon.stub().returns({
-		timestamp: "2022-07-28T12:00:00.000Z",
-		age: "xx days"
-	});
-	const runTasksStub = sinon.stub().resolves();
-	const projectBuildContextMockA = {
-		getTaskRunner: () => {
-			return {
-				runTasks: runTasksStub
-			};
-		},
-		requiresBuild: requiresBuildAStub,
-		getProject: sinon.stub().returns(getMockProject("library", "a"))
-	};
-	const projectBuildContextMockB = {
-		getTaskRunner: () => {
-			return {
-				runTasks: runTasksStub
-			};
-		},
-		getBuildMetadata: getBuildMetadataStub,
-		requiresBuild: requiresBuildBStub,
-		getProject: sinon.stub().returns(getMockProject("library", "b"))
-	};
-	const projectBuildContextMockC = {
-		getTaskRunner: () => {
-			return {
-				runTasks: runTasksStub
-			};
-		},
-		requiresBuild: requiresBuildCStub,
-		getProject: sinon.stub().returns(getMockProject("library", "c"))
-	};
-	const createRequiredBuildContextsStub = sinon.stub(builder, "_createRequiredBuildContexts")
-		.resolves(new Map()
-			.set("project.a", projectBuildContextMockA)
-			.set("project.b", projectBuildContextMockB)
-			.set("project.c", projectBuildContextMockC)
-		);
-
-	const registerCleanupSigHooksStub = sinon.stub(builder, "_registerCleanupSigHooks").returns("cleanup sig hooks");
-	const writeResultsStub = sinon.stub(builder, "_writeResults").resolves();
-	const deregisterCleanupSigHooksStub = sinon.stub(builder, "_deregisterCleanupSigHooks");
-	const executeCleanupTasksStub = sinon.stub(builder, "_executeCleanupTasks").resolves();
-
-	setLogLevel("verbose");
-	await builder.build({
-		destPath: path.join("dest", "path"),
-		dependencyIncludes: "dependencyIncludes"
-	});
-	setLogLevel("info");
-
-	t.is(getProjectFilterStub.callCount, 1, "_getProjectFilter got called once");
-	t.deepEqual(getProjectFilterStub.getCall(0).args[0], {
-		explicitIncludes: [],
-		explicitExcludes: [],
-		dependencyIncludes: "dependencyIncludes"
-	}, "_getProjectFilter got called with correct arguments");
-
-	t.is(createRequiredBuildContextsStub.callCount, 1, "_createRequiredBuildContexts got called once");
-	t.deepEqual(createRequiredBuildContextsStub.getCall(0).args[0], [
-		"project.b", "project.c"
-	], "_createRequiredBuildContexts got called with correct arguments");
-
-	t.is(requiresBuildAStub.callCount, 1, "TaskRunner#requiresBuild got called once times for library.a");
-	t.is(requiresBuildBStub.callCount, 1, "TaskRunner#requiresBuild got called once times for library.b");
-	t.is(requiresBuildCStub.callCount, 1, "TaskRunner#requiresBuild got called once times for library.c");
-	t.is(registerCleanupSigHooksStub.callCount, 1, "_registerCleanupSigHooksStub got called once");
-
-	t.is(runTasksStub.callCount, 2, "TaskRunner#runTasks got called twice"); // library.b does not require a build
-
-	t.is(writeResultsStub.callCount, 2, "_writeResults got called twice"); // library.a has not been requested
-	t.is(writeResultsStub.getCall(0).args[0], projectBuildContextMockB,
-		"_writeResults got called with correct first argument");
-	t.is(writeResultsStub.getCall(0).args[1]._fsBasePath, path.resolve("dest/path") + path.sep,
-		"_writeResults got called with correct second argument");
-	t.is(writeResultsStub.getCall(1).args[0], projectBuildContextMockC,
-		"_writeResults got called with correct first argument");
-	t.is(writeResultsStub.getCall(1).args[1]._fsBasePath, path.resolve("dest/path") + path.sep,
-		"_writeResults got called with correct second argument");
-
-	t.is(deregisterCleanupSigHooksStub.callCount, 1, "_deregisterCleanupSigHooks got called once");
-	t.is(deregisterCleanupSigHooksStub.getCall(0).args[0], "cleanup sig hooks",
-		"_deregisterCleanupSigHooks got called with correct arguments");
-	t.is(executeCleanupTasksStub.callCount, 1, "_executeCleanupTasksStub got called once");
-
-	t.is(buildLoggerMock.setProjects.callCount, 1, "BuildLogger#setProjects got called once");
-	t.deepEqual(buildLoggerMock.setProjects.firstCall.firstArg, [
-		"project.a",
-		"project.b",
-		"project.c",
-	], "BuildLogger#setProjects got called with expected argument");
-	t.is(buildLoggerMock.startProjectBuild.callCount, 2,
-		"BuildLogger#startProjectBuild got called twice");
-	t.is(buildLoggerMock.startProjectBuild.getCall(0).firstArg, "project.a",
-		"BuildLogger#startProjectBuild got called with expected argument on first call");
-	t.is(buildLoggerMock.startProjectBuild.getCall(1).firstArg, "project.c",
-		"BuildLogger#startProjectBuild got called with expected argument on second call");
-	t.is(buildLoggerMock.endProjectBuild.callCount, 2,
-		"BuildLogger#endProjectBuild got called twice");
-	t.is(buildLoggerMock.endProjectBuild.getCall(0).firstArg, "project.a",
-		"BuildLogger#endProjectBuild got called with expected argument on first call");
-	t.is(buildLoggerMock.endProjectBuild.getCall(1).firstArg, "project.c",
-		"BuildLogger#endProjectBuild got called with expected argument on second call");
-	t.is(buildLoggerMock.skipProjectBuild.callCount, 1,
-		"BuildLogger#skipProjectBuild got called once");
-	t.is(buildLoggerMock.skipProjectBuild.getCall(0).firstArg, "project.b",
-		"BuildLogger#skipProjectBuild got called with expected argument");
-});
-
-test("_createRequiredBuildContexts", async (t) => {
-	const {graph, taskRepository, ProjectBuilder, sinon} = t.context;
-
-	const builder = new ProjectBuilder({graph, taskRepository});
-
-	const requiresBuildStub = sinon.stub().returns(true);
-	const getRequiredDependenciesStub = sinon.stub()
-		.returns(new Set())
-		.onFirstCall().returns(new Set(["project.b"])); // required dependency of project.a
-
-	const projectBuildContextMock = {
-		requiresBuild: requiresBuildStub,
-		getTaskRunner: () => {
-			return {
-				getRequiredDependencies: getRequiredDependenciesStub
-			};
-		}
-	};
-	const createProjectContextStub = sinon.stub(builder._buildContext, "createProjectContext")
-		.returns(projectBuildContextMock);
-	const projectBuildContexts = await builder._createRequiredBuildContexts(["project.a", "project.c"]);
-
-	t.is(requiresBuildStub.callCount, 3, "TaskRunner#requiresBuild got called three times");
-	t.is(getRequiredDependenciesStub.callCount, 3, "TaskRunner#getRequiredDependencies got called three times");
-
-	t.deepEqual(Object.fromEntries(projectBuildContexts), {
-		"project.a": projectBuildContextMock,
-		"project.b": projectBuildContextMock, // is a required dependency of project.a
-		"project.c": projectBuildContextMock,
-	}, "Returned expected project build contexts");
-
-	t.is(createProjectContextStub.callCount, 3, "BuildContext#createProjectContextStub got called three times");
-	t.is(createProjectContextStub.getCall(0).args[0].project.getName(), "project.a",
-		"First call to BuildContext#createProjectContextStub with expected project");
-	t.is(createProjectContextStub.getCall(1).args[0].project.getName(), "project.c",
-		"Second call to BuildContext#createProjectContextStub with expected project");
-	t.is(createProjectContextStub.getCall(2).args[0].project.getName(), "project.b",
-		"Third call to BuildContext#createProjectContextStub with expected project");
-});
-
-test.serial("_getProjectFilter with dependencyIncludes", async (t) => {
-	const {graph, taskRepository, sinon} = t.context;
-	const composeProjectListStub = sinon.stub().returns({
-		includedDependencies: ["project.b", "project.c"],
-		excludedDependencies: ["project.d", "project.e", "project.a"],
-	});
-	const ProjectBuilder = await esmock("../../../lib/build/ProjectBuilder.js", {
-		"../../../lib/build/helpers/composeProjectList.js": composeProjectListStub
-	});
-
-	const builder = new ProjectBuilder({graph, taskRepository});
-
-	const filterProject = await builder._getProjectFilter({
-		dependencyIncludes: "dependencyIncludes",
-		explicitIncludes: "explicitIncludes",
-		explicitExcludes: "explicitExcludes",
-	});
-
-	t.is(composeProjectListStub.callCount, 1, "composeProjectList got called once");
-	t.is(composeProjectListStub.getCall(0).args[0], graph,
-		"composeProjectList got called with correct graph argument");
-	t.is(composeProjectListStub.getCall(0).args[1], "dependencyIncludes",
-		"composeProjectList got called with correct include/exclude argument");
-
-	t.true(filterProject("project.a"), "project.a (root project) is always allowed");
-	t.true(filterProject("project.b"), "project.b is allowed");
-	t.true(filterProject("project.c"), "project.c is allowed");
-	t.false(filterProject("project.d"), "project.d is not allowed");
-	t.false(filterProject("project.e"), "project.e is not allowed");
-});
-
-test.serial("_getProjectFilter with explicit include/exclude", async (t) => {
-	const {graph, taskRepository, sinon} = t.context;
-	const composeProjectListStub = sinon.stub().returns({
-		includedDependencies: ["project.b", "project.c"],
-		excludedDependencies: ["project.d", "project.e", "project.a"],
-	});
-	const ProjectBuilder = await esmock("../../../lib/build/ProjectBuilder.js", {
-		"../../../lib/build/helpers/composeProjectList.js": composeProjectListStub
-	});
-
-	const builder = new ProjectBuilder({graph, taskRepository});
-
-	const filterProject = await builder._getProjectFilter({
-		explicitIncludes: "explicitIncludes",
-		explicitExcludes: "explicitExcludes",
-	});
-
-	t.is(composeProjectListStub.callCount, 1, "composeProjectList got called once");
-	t.is(composeProjectListStub.getCall(0).args[0], graph,
-		"composeProjectList got called with correct graph argument");
-	t.deepEqual(composeProjectListStub.getCall(0).args[1], {
-		includeDependencyTree: "explicitIncludes",
-		excludeDependencyTree: "explicitExcludes",
-	}, "composeProjectList got called with correct include/exclude argument");
-
-	t.true(filterProject("project.a"), "project.a (root project) is always allowed");
-	t.true(filterProject("project.b"), "project.b is allowed");
-	t.true(filterProject("project.c"), "project.c is allowed");
-	t.false(filterProject("project.d"), "project.d is not allowed");
-	t.false(filterProject("project.e"), "project.e is not allowed");
-});
-
-test("_writeResults", async (t) => {
-	const {ProjectBuilder, sinon} = t.context;
-	t.context.getRootTypeStub = sinon.stub().returns("library");
-	const {graph, taskRepository} = t.context;
-	const builder = new ProjectBuilder({
-		graph, taskRepository,
-		buildConfig: {
-			createBuildManifest: false,
-			otherBuildConfig: "yes"
-		}
-	});
-
-	const mockResources = [{
-		_resourceName: "resource.a",
-		getPath: () => "resource.a"
-	}, {
-		_resourceName: "resource.b",
-		getPath: () => "resource.b"
-	}, {
-		_resourceName: "resource.c",
-		getPath: () => "resource.c"
-	}];
-	const byGlobStub = sinon.stub().resolves(mockResources);
-	const getReaderStub = sinon.stub().returns({
-		byGlob: byGlobStub
-	});
-	const mockProject = getMockProject("library", "c");
-	mockProject.getReader = getReaderStub;
-
-	const getTagStub = sinon.stub().returns(false).onFirstCall().returns(true);
-	const projectBuildContextMock = {
-		getProject: () => mockProject,
-		getTaskUtil: () => {
-			return {
-				isRootProject: () => false,
-				getTag: getTagStub,
-				STANDARD_TAGS: {
-					OmitFromBuildResult: "OmitFromBuildResultTag"
-				}
-			};
-		}
-	};
-	const writerMock = {
-		write: sinon.stub().resolves()
-	};
-
-	await builder._writeResults(projectBuildContextMock, writerMock);
-
-	t.is(getReaderStub.callCount, 1, "One reader requested");
-	t.deepEqual(getReaderStub.getCall(0).args[0], {
-		style: "dist"
-	}, "Reader requested expected style");
-
-	t.is(byGlobStub.callCount, 1, "One byGlob call");
-	t.is(byGlobStub.getCall(0).args[0], "/**/*", "byGlob called with expected pattern");
-
-	t.is(getTagStub.callCount, 3, "TaskUtil#getTag got called three times");
-	t.is(getTagStub.getCall(0).args[0], mockResources[0], "TaskUtil#getTag called with first resource");
-	t.is(getTagStub.getCall(0).args[1], "OmitFromBuildResultTag", "TaskUtil#getTag called with correct tag value");
-	t.is(getTagStub.getCall(1).args[0], mockResources[1], "TaskUtil#getTag called with second resource");
-	t.is(getTagStub.getCall(1).args[1], "OmitFromBuildResultTag", "TaskUtil#getTag called with correct tag value");
-	t.is(getTagStub.getCall(2).args[0], mockResources[2], "TaskUtil#getTag called with third resource");
-	t.is(getTagStub.getCall(2).args[1], "OmitFromBuildResultTag", "TaskUtil#getTag called with correct tag value");
-
-	t.is(writerMock.write.callCount, 2, "Write got called twice");
-	t.is(writerMock.write.getCall(0).args[0], mockResources[1], "Write got called with second resource");
-	t.is(writerMock.write.getCall(1).args[0], mockResources[2], "Write got called with third resource");
-});
-
-test.serial("_writeResults: Create build manifest", async (t) => {
-	const {sinon} = t.context;
-	t.context.getRootTypeStub = sinon.stub().returns("library");
-	const {graph, taskRepository} = t.context;
-
-	const createBuildManifestStub = sinon.stub().returns({"build": "manifest"});
-	const createResourceStub = sinon.stub().returns("build manifest resource");
-	const ProjectBuilder = await esmock.p("../../../lib/build/ProjectBuilder.js", {
-		"../../../lib/build/helpers/createBuildManifest.js": createBuildManifestStub,
-		"@ui5/fs/resourceFactory": {
-			createResource: createResourceStub
-		}
-	});
-
-	const builder = new ProjectBuilder({
-		graph, taskRepository,
-		buildConfig: {
-			createBuildManifest: true,
-			otherBuildConfig: "yes"
-		}
-	});
-
-	const mockResources = [{
-		_resourceName: "resource.a",
-		getPath: () => "resource.a"
-	}, {
-		_resourceName: "resource.b",
-		getPath: () => "resource.b"
-	}, {
-		_resourceName: "resource.c",
-		getPath: () => "resource.c"
-	}];
-	const byGlobStub = sinon.stub().resolves(mockResources);
-	const getReaderStub = sinon.stub().returns({
-		byGlob: byGlobStub
-	});
-	const mockProject = getMockProject("library", "c");
-	mockProject.getReader = getReaderStub;
-
-	const getTagStub = sinon.stub().returns(false).onFirstCall().returns(true);
-	const projectBuildContextMock = {
-		getProject: () => mockProject,
-		getTaskUtil: () => {
-			return {
-				isRootProject: () => true,
-				getTag: getTagStub,
-				STANDARD_TAGS: {
-					OmitFromBuildResult: "OmitFromBuildResultTag"
-				}
-			};
-		}
-	};
-	const writerMock = {
-		write: sinon.stub().resolves()
-	};
-
-	await builder._writeResults(projectBuildContextMock, writerMock);
-
-	t.is(getReaderStub.callCount, 1, "One reader requested");
-	t.deepEqual(getReaderStub.getCall(0).args[0], {
-		style: "buildtime"
-	}, "Reader requested expected style");
-
-	t.is(byGlobStub.callCount, 1, "One byGlob call");
-	t.is(byGlobStub.getCall(0).args[0], "/**/*", "byGlob called with expected pattern");
-
-	t.is(createBuildManifestStub.callCount, 1, "createBuildManifest got called once");
-	t.is(createBuildManifestStub.getCall(0).args[0], mockProject,
-		"createBuildManifest got called with correct project");
-	t.deepEqual(createBuildManifestStub.getCall(0).args[1], {
-		createBuildManifest: true,
-		outputStyle: OutputStyleEnum.Default,
-		cssVariables: false,
-		excludedTasks: [],
 		includedTasks: [],
-		jsdoc: false,
-		selfContained: false,
-	}, "createBuildManifest got called with correct build configuration");
-
-	t.is(createResourceStub.callCount, 1, "One resource has been created");
-	t.deepEqual(createResourceStub.getCall(0).args[0], {
-		path: "/.ui5/build-manifest.json",
-		string: `{
-	"build": "manifest"
-}`
-	}, "Build manifest resource has been created with correct arguments");
-
-	t.is(getTagStub.callCount, 3, "TaskUtil#getTag got called three times");
-	t.is(getTagStub.getCall(0).args[0], mockResources[0], "TaskUtil#getTag called with first resource");
-	t.is(getTagStub.getCall(0).args[1], "OmitFromBuildResultTag", "TaskUtil#getTag called with correct tag value");
-	t.is(getTagStub.getCall(1).args[0], mockResources[1], "TaskUtil#getTag called with second resource");
-	t.is(getTagStub.getCall(1).args[1], "OmitFromBuildResultTag", "TaskUtil#getTag called with correct tag value");
-	t.is(getTagStub.getCall(2).args[0], mockResources[2], "TaskUtil#getTag called with third resource");
-	t.is(getTagStub.getCall(2).args[1], "OmitFromBuildResultTag", "TaskUtil#getTag called with correct tag value");
-
-	t.is(writerMock.write.callCount, 3, "Write got called three times");
-	t.is(writerMock.write.getCall(0).args[0], "build manifest resource", "Write got called with build manifest");
-	t.is(writerMock.write.getCall(1).args[0], mockResources[1], "Write got called with second resource");
-	t.is(writerMock.write.getCall(2).args[0], mockResources[2], "Write got called with third resource");
-
-	esmock.purge(ProjectBuilder);
-});
-
-test.serial("_writeResults: Flat build output", async (t) => {
-	const {sinon, ProjectBuilder} = t.context;
-	t.context.getRootTypeStub = sinon.stub().returns("library");
-	const {graph, taskRepository} = t.context;
-
-	const builder = new ProjectBuilder({
-		graph, taskRepository,
-		buildConfig: {
-			outputStyle: OutputStyleEnum.Flat,
-			otherBuildConfig: "yes"
-		}
-	});
-
-	const mockResources = [{
-		_resourceName: "resource.a",
-		getPath: () => "resource.a"
+		excludedTasks: []
 	}, {
-		_resourceName: "resource.b",
-		getPath: () => "resource.b"
-	}, {
-		_resourceName: "resource.c",
-		getPath: () => "resource.c"
-	}];
-	const byGlobStub = sinon.stub().resolves(mockResources);
-	const getReaderStub = sinon.stub().returns({
-		byGlob: byGlobStub
+		workspace: "workspace",
+		dependencies: "dependencies"
 	});
-	const mockProject = getMockProject("library", "a");
-	mockProject.getReader = getReaderStub;
 
-	const getTagStub = sinon.stub().returns(false).onFirstCall().returns(true);
-	const projectBuildContextMock = {
-		getProject: () => mockProject,
-		getTaskUtil: () => {
-			return {
-				isRootProject: () => true,
-				getTag: getTagStub,
-				STANDARD_TAGS: {
-					OmitFromBuildResult: "OmitFromBuildResultTag"
-				}
-			};
+	t.is(taskStub1.callCount, 1, "Task 1 got called once");
+	t.is(taskStub1.getCall(0).args.length, 1, "Task 1 got called with one argument");
+	t.deepEqual(taskStub1.getCall(0).args[0], {
+		workspace: "workspace",
+		dependencies: "dependencies",
+		options: {
+			projectName: "project.b",
+			projectNamespace: "project/b",
+			configuration: "cat",
 		}
-	};
-	const writerMock = {
-		write: sinon.stub().resolves()
-	};
+	}, "Task 1 got called with one argument");
 
-	await builder._writeResults(projectBuildContextMock, writerMock);
+	t.is(taskStub2.callCount, 1, "Task 2 got called once");
+	t.is(taskStub2.getCall(0).args.length, 1, "Task 2 got called with one argument");
+	t.deepEqual(taskStub2.getCall(0).args[0], {
+		workspace: "workspace",
+		dependencies: "dependencies",
+		options: {
+			projectName: "project.b",
+			projectNamespace: "project/b",
+			configuration: "dog",
+		}
+	}, "Task 2 got called with one argument");
 
-	t.is(getReaderStub.callCount, 2, "One reader requested");
-	t.deepEqual(getReaderStub.getCall(0).args[0], {
-		style: "flat"
-	}, "Reader requested expected style");
+	t.is(taskStub3.callCount, 1, "Task 3 got called once");
+	t.is(taskStub3.getCall(0).args.length, 1, "Task 3 got called with one argument");
+	t.deepEqual(taskStub3.getCall(0).args[0], {
+		workspace: "workspace",
+		dependencies: "dependencies",
+		log: builder._taskLog,
+		taskName: "myTask--3",
+		options: {
+			projectName: "project.b",
+			projectNamespace: "project/b",
+			configuration: "bird",
+		}
+	}, "Task 3 got called with one argument");
 
-	t.is(byGlobStub.callCount, 2, "One byGlob call");
-	t.is(byGlobStub.getCall(0).args[0], "/**/*", "byGlob called with expected pattern");
-
-	t.is(getTagStub.callCount, 3, "TaskUtil#getTag got called three times");
-	t.is(getTagStub.getCall(0).args[0], mockResources[0], "TaskUtil#getTag called with first resource");
-	t.is(getTagStub.getCall(0).args[1], "OmitFromBuildResultTag", "TaskUtil#getTag called with correct tag value");
-	t.is(getTagStub.getCall(1).args[0], mockResources[1], "TaskUtil#getTag called with second resource");
-	t.is(getTagStub.getCall(1).args[1], "OmitFromBuildResultTag", "TaskUtil#getTag called with correct tag value");
-	t.is(getTagStub.getCall(2).args[0], mockResources[2], "TaskUtil#getTag called with third resource");
-	t.is(getTagStub.getCall(2).args[1], "OmitFromBuildResultTag", "TaskUtil#getTag called with correct tag value");
-
-	t.is(writerMock.write.callCount, 2, "Write got called twice");
-	t.is(writerMock.write.getCall(0).args[0], mockResources[1], "Write got called with second resource");
-	t.is(writerMock.write.getCall(1).args[0], mockResources[2], "Write got called with third resource");
+	t.is(taskUtil.getInterface.callCount, 3, "taskUtil#getInterface got called once");
+	t.is(taskUtil.getInterface.getCall(0).args[0], "2.5",
+		"taskUtil#getInterface got called with correct argument");
+	t.is(taskUtil.getInterface.getCall(1).args[0], "2.7",
+		"taskUtil#getInterface got called with correct argument");
+	t.is(taskUtil.getInterface.getCall(2).args[0], "2.6",
+		"taskUtil#getInterface got called with correct argument");
 });
 
+test.serial("_addTask", async (t) => {
+	const taskStub = sinon.stub();
+	const getTaskStub = sinon.stub(require("@ui5/builder").tasks.taskRepository, "getTask").returns({
+		task: taskStub
+	});
+	const ProjectBuilder = mock.reRequire("../../../lib/build/ProjectBuilder");
 
-test("_executeCleanupTasks", async (t) => {
-	const {graph, taskRepository, ProjectBuilder, sinon} = t.context;
-	const builder = new ProjectBuilder({graph, taskRepository});
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("module");
+	const builder = new ProjectBuilder({project, graph, taskUtil, parentLogger});
 
-	const executeCleanupTasksStub = sinon.stub(builder._buildContext, "executeCleanupTasks");
-	await builder._executeCleanupTasks();
-	t.is(executeCleanupTasksStub.callCount, 1, "BuildContext#executeCleanupTasks got called once");
-	t.deepEqual(executeCleanupTasksStub.getCall(0).args, [undefined],
-		"BuildContext#executeCleanupTasks got called with correct arguments");
+	builder._addTask("standardTask");
 
-	// reset stub
-	executeCleanupTasksStub.reset();
-	// Call with enforcement flag
-	await builder._executeCleanupTasks(true);
-	t.is(executeCleanupTasksStub.callCount, 1, "BuildContext#executeCleanupTasks got called once");
-	t.deepEqual(executeCleanupTasksStub.getCall(0).args, [true],
-		"BuildContext#executeCleanupTasks got called with correct arguments");
-});
+	t.truthy(builder._tasks["standardTask"], "Task has been added to task map");
+	t.false(builder._tasks["standardTask"].requiresDependencies, "requiresDependencies defaults to false");
+	t.truthy(builder._tasks["standardTask"].task, "Task function got set correctly");
+	t.deepEqual(builder._taskExecutionOrder, ["standardTask"], "Task got added to execution order");
 
-test("instantiate new logger for every ProjectBuilder", async (t) => {
-	function CreateBuildLoggerMock(moduleName) {
-		t.is(moduleName, "ProjectBuilder", "BuildLogger created with expected moduleName");
-		return {};
-	}
-
-	const {graph, taskRepository, sinon} = t.context;
-	const createBuildLoggerMockSpy = sinon.spy(CreateBuildLoggerMock);
-	const ProjectBuilder = await esmock("../../../lib/build/ProjectBuilder.js", {
-		"@ui5/logger/internal/loggers/Build": createBuildLoggerMockSpy
+	await builder._tasks["standardTask"].task({
+		workspace: "workspace",
+		dependencies: "dependencies",
 	});
 
-	new ProjectBuilder({graph, taskRepository});
-	new ProjectBuilder({graph, taskRepository});
+	t.is(getTaskStub.callCount, 1, "taskRepository#getTask got called once");
+	t.is(getTaskStub.getCall(0).args[0], "standardTask", "taskRepository#getTask got called with correct argument");
 
-	t.is(createBuildLoggerMockSpy.callCount, 2, "BuildLogger is instantiated for every ProjectBuilder instance");
+	t.is(taskStub.callCount, 1, "Task got called once");
+	t.deepEqual(taskStub.getCall(0).args[0], {
+		workspace: "workspace",
+		// No dependencies
+		options: {
+			projectName: "project.b",
+			projectNamespace: "project/b"
+		},
+		taskUtil
+	}, "Task got called with correct arguments");
+
+	getTaskStub.restore();
+	mock.stopAll();
 });
 
+test.serial("_addTask with options", async (t) => {
+	const taskStub = sinon.stub();
+	const getTaskStub = sinon.stub(require("@ui5/builder").tasks.taskRepository, "getTask").returns({});
+	const ProjectBuilder = mock.reRequire("../../../lib/build/ProjectBuilder");
 
-function getProcessListenerCount() {
-	return ["SIGHUP", "SIGINT", "SIGTERM", "SIGBREAK"].map((eventName) => {
-		return process.listenerCount(eventName);
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("module");
+	const builder = new ProjectBuilder({project, graph, taskUtil, parentLogger});
+
+	builder._addTask("standardTask", {
+		requiresDependencies: true,
+		options: {
+			myTaskOption: "cat",
+		},
+		taskFunction: taskStub
 	});
-}
-test("_registerCleanupSigHooks/_deregisterCleanupSigHooks", (t) => {
-	const listenersBefore = getProcessListenerCount();
 
-	const {graph, taskRepository, ProjectBuilder} = t.context;
-	const builder = new ProjectBuilder({graph, taskRepository});
+	t.truthy(builder._tasks["standardTask"], "Task has been added to task map");
+	t.true(builder._tasks["standardTask"].requiresDependencies, "requiresDependencies set to true");
+	t.truthy(builder._tasks["standardTask"].task, "Task function got set correctly");
+	t.deepEqual(builder._taskExecutionOrder, ["standardTask"], "Task got added to execution order");
 
-	const signals = builder._registerCleanupSigHooks();
+	await builder._tasks["standardTask"].task({
+		workspace: "workspace",
+		dependencies: "dependencies",
+	});
 
-	t.deepEqual(Object.keys(signals), ["SIGHUP", "SIGINT", "SIGTERM", "SIGBREAK"],
-		"Returned four signal listeners");
+	t.is(getTaskStub.callCount, 0, "taskRepository#getTask did not get called");
 
-	t.deepEqual(getProcessListenerCount(), listenersBefore.map((x) => x+1),
-		"For every signal one new listener got registered");
+	t.is(taskStub.callCount, 1, "Task got called once");
+	t.deepEqual(taskStub.getCall(0).args[0], {
+		workspace: "workspace",
+		dependencies: "dependencies",
+		options: {
+			projectName: "project.b",
+			projectNamespace: "project/b",
+			myTaskOption: "cat"
+		},
+		taskUtil
+	}, "Task got called with correct arguments");
 
-	builder._deregisterCleanupSigHooks(signals);
-
-	t.deepEqual(getProcessListenerCount(), listenersBefore,
-		"All signal listeners got de-registered");
+	getTaskStub.restore();
+	mock.stopAll();
 });
 
-test("_getElapsedTime", (t) => {
-	const {graph, taskRepository, ProjectBuilder} = t.context;
-	const builder = new ProjectBuilder({graph, taskRepository});
+test("_addTask: Duplicate task", async (t) => {
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("module");
+	const builder = new ProjectBuilder({project, graph, taskUtil, parentLogger});
 
-	const res = builder._getElapsedTime(process.hrtime());
-	t.truthy(res, "Returned a value");
+	builder._addTask("standardTask", {
+		taskFunction: () => {}
+	});
+
+	const err = t.throws(() => {
+		builder._addTask("standardTask", {
+			taskFunction: () => {}
+		});
+	});
+	t.is(err.message, "Failed to add duplicate task standardTask for project project.b",
+		"Threw with expected error message");
+});
+
+test("_addTask: Task already added to execution order", async (t) => {
+	const {graph, taskUtil} = t.context;
+	const project = getMockProject("module");
+	const builder = new ProjectBuilder({project, graph, taskUtil, parentLogger});
+
+	builder._taskExecutionOrder.push("standardTask");
+	const err = t.throws(() => {
+		builder._addTask("standardTask", {
+			taskFunction: () => {}
+		});
+	});
+	t.is(err.message,
+		"Failed to add task standardTask for project project.b. It has already been scheduled for execution",
+		"Threw with expected error message");
 });
