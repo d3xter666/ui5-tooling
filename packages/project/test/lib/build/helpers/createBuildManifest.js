@@ -1,10 +1,7 @@
-import test from "ava";
-import path from "node:path";
-import semver from "semver";
-import createBuildManifest from "../../../../lib/build/helpers/createBuildManifest.js";
-import Specification from "../../../../lib/specifications/Specification.js";
-
-const __dirname = import.meta.dirname;
+const test = require("ava");
+const path = require("path");
+const createBuildManifest = require("../../../../lib/build/helpers/createBuildManifest");
+const Specification = require("../../../../lib/specifications/Specification");
 
 const applicationAPath = path.join(__dirname, "..", "..", "..", "fixtures", "application.a");
 const applicationProjectInput = {
@@ -42,46 +39,13 @@ const libraryProjectInput = {
 	}
 };
 
-test("Missing parameter: project", async (t) => {
-	await t.throwsAsync(createBuildManifest(), {
-		message: "Missing parameter 'project'"
-	});
-});
-
-test("Missing parameter: buildConfig", async (t) => {
-	const project = await Specification.create(applicationProjectInput);
-
-	await t.throwsAsync(createBuildManifest(project), {
-		message: "Missing parameter 'buildConfig'"
-	});
-});
-
-test("Missing parameter: taskRepository", async (t) => {
-	const project = await Specification.create(applicationProjectInput);
-
-	await t.throwsAsync(createBuildManifest(project, "buildConfig"), {
-		message: "Missing parameter 'taskRepository'"
-	});
-});
-
 test("Create application from project with build manifest", async (t) => {
 	const project = await Specification.create(applicationProjectInput);
 	project.getResourceTagCollection().setTag("/resources/id1/foo.js", "ui5:HasDebugVariant");
 
-	const taskRepository = {
-		getVersions: async () => ({builderVersion: "<builder version>", fsVersion: "<builder fs version>"})
-	};
-
-	const metadata = await createBuildManifest(project, "buildConfig", taskRepository);
-
+	const metadata = await createBuildManifest(project, "buildConfig");
 	t.truthy(new Date(metadata.buildManifest.timestamp), "Timestamp is valid");
 	metadata.buildManifest.timestamp = "<timestamp>";
-
-	t.not(semver.valid(metadata.buildManifest.versions.fsVersion), null, "fs version should be filled");
-	metadata.buildManifest.versions.fsVersion = "<version>";
-
-	t.not(semver.valid(metadata.buildManifest.versions.projectVersion), null, "project version should be filled");
-	metadata.buildManifest.versions.projectVersion = "<version>";
 
 	t.deepEqual(metadata, {
 		project: {
@@ -99,16 +63,15 @@ test("Create application from project with build manifest", async (t) => {
 			}
 		},
 		buildManifest: {
-			manifestVersion: "0.2",
+			manifestVersion: "0.1",
 			buildConfig: "buildConfig",
 			namespace: "id1",
 			timestamp: "<timestamp>",
 			version: "1.0.0",
 			versions: {
-				builderVersion: "<builder version>",
-				fsVersion: "<version>",
-				projectVersion: "<version>",
-				builderFsVersion: "<builder fs version>",
+				builderVersion: require("@ui5/builder/package.json").version,
+				fsVersion: require("@ui5/fs/package.json").version,
+				projectVersion: require("../../../../package.json").version,
 			},
 			tags: {
 				"/resources/id1/foo.js": {
@@ -123,20 +86,9 @@ test("Create library from project with build manifest", async (t) => {
 	const project = await Specification.create(libraryProjectInput);
 	project.getResourceTagCollection().setTag("/resources/library/d/foo.js", "ui5:HasDebugVariant");
 
-	const taskRepository = {
-		getVersions: async () => ({builderVersion: "<builder version>", fsVersion: "<builder fs version>"})
-	};
-
-	const metadata = await createBuildManifest(project, "buildConfig", taskRepository);
-
+	const metadata = await createBuildManifest(project, "buildConfig");
 	t.truthy(new Date(metadata.buildManifest.timestamp), "Timestamp is valid");
 	metadata.buildManifest.timestamp = "<timestamp>";
-
-	t.not(semver.valid(metadata.buildManifest.versions.fsVersion), null, "fs version should be filled");
-	metadata.buildManifest.versions.fsVersion = "<version>";
-
-	t.not(semver.valid(metadata.buildManifest.versions.projectVersion), null, "project version should be filled");
-	metadata.buildManifest.versions.projectVersion = "<version>";
 
 	t.deepEqual(metadata, {
 		project: {
@@ -155,16 +107,15 @@ test("Create library from project with build manifest", async (t) => {
 			}
 		},
 		buildManifest: {
-			manifestVersion: "0.2",
+			manifestVersion: "0.1",
 			buildConfig: "buildConfig",
 			namespace: "library/d",
 			timestamp: "<timestamp>",
 			version: "1.0.0",
 			versions: {
-				builderVersion: "<builder version>",
-				fsVersion: "<version>",
-				projectVersion: "<version>",
-				builderFsVersion: "<builder fs version>",
+				builderVersion: require("@ui5/builder/package.json").version,
+				fsVersion: require("@ui5/fs/package.json").version,
+				projectVersion: require("../../../../package.json").version,
 			},
 			tags: {
 				"/resources/library/d/foo.js": {
