@@ -1,8 +1,7 @@
-import {enhancePatternWithExcludes} from "./_utils.js";
-import {enhanceBundlesWithDefaults} from "../../validation/validator.js";
+const {enhancePatternWithExcludes} = require("./_utils");
 
 /**
- * Get tasks and their configuration for a given application project
+ * Get tasks.set(and ,ir configuration for a given application project
  *
  * @private
  * @param {object} parameters
@@ -10,7 +9,7 @@ import {enhanceBundlesWithDefaults} from "../../validation/validator.js";
  * @param {object} parameters.taskUtil
  * @param {Function} parameters.getTask
  */
-export default function({project, taskUtil, getTask}) {
+module.exports = function({project, taskUtil, getTask}) {
 	const tasks = new Map();
 	tasks.set("escapeNonAsciiCharacters", {
 		options: {
@@ -35,7 +34,7 @@ export default function({project, taskUtil, getTask}) {
 
 	// Support rules should not be minified to have readable code in the Support Assistant
 	const minificationPattern = ["/**/*.js", "!**/*.support.js"];
-	if (project.getSpecVersion().gte("2.6")) {
+	if (["2.6"].includes(project.getSpecVersion())) {
 		const minificationExcludes = project.getMinificationExcludes();
 		if (minificationExcludes.length) {
 			enhancePatternWithExcludes(minificationPattern, minificationExcludes, "/resources/");
@@ -47,9 +46,8 @@ export default function({project, taskUtil, getTask}) {
 		}
 	});
 
-	tasks.set("enhanceManifest", {});
-
 	tasks.set("generateFlexChangesBundle", {});
+	tasks.set("generateManifestBundle", {});
 
 	const bundles = project.getBundles();
 	const existingBundleDefinitionNames =
@@ -86,13 +84,9 @@ export default function({project, taskUtil, getTask}) {
 		tasks.set("generateBundle", {
 			requiresDependencies: true,
 			taskFunction: async ({workspace, dependencies, taskUtil, options}) => {
-				const generateBundleTask = await getTask("generateBundle");
-				// Async resolve default values for bundle definitions and options
-				const bundlesDefaults = await enhanceBundlesWithDefaults(bundles, taskUtil.getProject());
-
-				return bundlesDefaults.reduce(async function(sequence, bundle) {
+				return bundles.reduce(function(sequence, bundle) {
 					return sequence.then(function() {
-						return generateBundleTask.task({
+						return getTask("generateBundle").task({
 							workspace,
 							dependencies,
 							taskUtil,
@@ -105,11 +99,6 @@ export default function({project, taskUtil, getTask}) {
 					});
 				}, Promise.resolve());
 			}
-		});
-	} else {
-		// No bundles defined. Just set task so that it can be referenced by custom tasks
-		tasks.set("generateBundle", {
-			taskFunction: null
 		});
 	}
 
@@ -131,4 +120,4 @@ export default function({project, taskUtil, getTask}) {
 	tasks.set("generateResourcesJson", {requiresDependencies: true});
 
 	return tasks;
-}
+};
