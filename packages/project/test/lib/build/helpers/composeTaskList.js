@@ -1,18 +1,20 @@
-import test from "ava";
-import sinon from "sinon";
-import esmock from "esmock";
+const test = require("ava");
+const sinon = require("sinon");
+const mock = require("mock-require");
+const logger = require("@ui5/logger");
 
-test.beforeEach(async (t) => {
+test.beforeEach((t) => {
 	t.context.log = {
 		warn: sinon.stub()
 	};
-	const getLoggerStub = sinon.stub().withArgs("build:helpers:composeTaskList").returns(t.context.log);
+	sinon.stub(logger, "getLogger").withArgs("build:helpers:composeTaskList").returns(t.context.log);
 
-	t.context.composeTaskList = await esmock("../../../../lib/build/helpers/composeTaskList.js", {
-		"@ui5/logger": {
-			getLogger: getLoggerStub
-		}
-	});
+	t.context.composeTaskList = mock.reRequire("../../../../lib/build/helpers/composeTaskList");
+});
+
+test.afterEach.always(() => {
+	sinon.restore();
+	mock.stopAll();
 });
 
 const allTasks = [
@@ -28,6 +30,7 @@ const allTasks = [
 	"transformBootstrapHtml",
 	"generateLibraryManifest",
 	"generateVersionInfo",
+	"generateManifestBundle",
 	"generateFlexChangesBundle",
 	"generateComponentPreload",
 	"generateResourcesJson",
@@ -116,7 +119,6 @@ const allTasks = [
 			"generateApiIndex",
 			"generateJsdoc",
 			"buildThemes",
-			"generateVersionInfo",
 			"generateBundle",
 		]
 	],
@@ -161,6 +163,7 @@ const allTasks = [
 			"transformBootstrapHtml",
 			"generateLibraryManifest",
 			"generateVersionInfo",
+			"generateManifestBundle",
 			"generateFlexChangesBundle",
 			"generateComponentPreload",
 			"generateResourcesJson",
@@ -201,7 +204,13 @@ const allTasks = [
 			"generateLibraryPreload",
 		], (t) => {
 			const {log} = t.context;
-			t.is(log.warn.callCount, 0);
+			t.is(log.warn.callCount, 2);
+			t.deepEqual(log.warn.getCall(0).args, [
+				"Unable to include task 'foo': Task is unknown"
+			]);
+			t.deepEqual(log.warn.getCall(1).args, [
+				"Unable to include task 'bar': Task is unknown"
+			]);
 		}
 	],
 	[
@@ -225,7 +234,13 @@ const allTasks = [
 			"generateLibraryPreload",
 		], (t) => {
 			const {log} = t.context;
-			t.is(log.warn.callCount, 0);
+			t.is(log.warn.callCount, 2);
+			t.deepEqual(log.warn.getCall(0).args, [
+				"Unable to exclude task 'foo': Task is unknown"
+			]);
+			t.deepEqual(log.warn.getCall(1).args, [
+				"Unable to exclude task 'bar': Task is unknown"
+			]);
 		}
 	],
 ].forEach(([testTitle, args, expectedTaskList, assertCb]) => {
