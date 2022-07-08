@@ -1,10 +1,8 @@
-import test from "ava";
-import path from "node:path";
-import createBuildManifest from "../../../../lib/build/helpers/createBuildManifest.js";
-import Module from "../../../../lib/graph/Module.js";
-import Specification from "../../../../lib/specifications/Specification.js";
-
-const __dirname = import.meta.dirname;
+const test = require("ava");
+const path = require("path");
+const createBuildManifest = require("../../../../lib/build/helpers/createBuildManifest");
+const Module = require("../../../../lib/graph/Module");
+const Specification = require("../../../../lib/specifications/Specification");
 
 const applicationAPath = path.join(__dirname, "..", "..", "..", "fixtures", "application.a");
 const buildDescrApplicationAPath =
@@ -47,11 +45,7 @@ test("Create project from application project providing a build manifest", async
 	const inputProject = await Specification.create(applicationAConfig);
 	inputProject.getResourceTagCollection().setTag("/resources/id1/foo.js", "ui5:HasDebugVariant");
 
-	const taskRepository = {
-		getVersions: async () => ({a: "a", b: "b"})
-	};
-
-	const metadata = await createBuildManifest(inputProject, buildConfig, taskRepository);
+	const metadata = await createBuildManifest(inputProject, buildConfig);
 	const m = new Module({
 		id: "build-descr-application.a.id",
 		version: "2.0.0",
@@ -67,8 +61,7 @@ test("Create project from application project providing a build manifest", async
 		"Archive project has correct tag");
 	t.is(project.getVersion(), "2.0.0", "Archive project has version from archive module");
 
-	const reader = project.getReader();
-	const resources = await reader.byGlob("**/test.js");
+	const resources = await project.getReader().byGlob("**/test.js");
 	t.is(resources.length, 1,
 		"Found requested resource in archive project");
 	t.is(resources[0].getPath(), "/resources/id1/test.js",
@@ -79,11 +72,7 @@ test("Create project from library project providing a build manifest", async (t)
 	const inputProject = await Specification.create(libraryEConfig);
 	inputProject.getResourceTagCollection().setTag("/resources/library/e/file.js", "ui5:HasDebugVariant");
 
-	const taskRepository = {
-		getVersions: async () => ({a: "a", b: "b"})
-	};
-
-	const metadata = await createBuildManifest(inputProject, buildConfig, taskRepository);
+	const metadata = await createBuildManifest(inputProject, buildConfig);
 	const m = new Module({
 		id: "build-descr-library.e.id",
 		version: "2.0.0",
@@ -99,8 +88,7 @@ test("Create project from library project providing a build manifest", async (t)
 		"Archive project has correct tag");
 	t.is(project.getVersion(), "2.0.0", "Archive project has version from archive module");
 
-	const reader = project.getReader();
-	const resources = await reader.byGlob("**/some.js");
+	const resources = await project.getReader().byGlob("**/some.js");
 	t.is(resources.length, 1,
 		"Found requested resource in archive project");
 	t.is(resources[0].getPath(), "/resources/library/e/some.js",
