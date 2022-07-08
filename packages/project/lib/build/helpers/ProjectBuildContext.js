@@ -1,30 +1,27 @@
-import ResourceTagCollection from "@ui5/fs/internal/ResourceTagCollection";
-import ProjectBuildLogger from "@ui5/logger/internal/loggers/ProjectBuild";
-import TaskUtil from "./TaskUtil.js";
-import TaskRunner from "../TaskRunner.js";
+const ResourceTagCollection = require("@ui5/fs").ResourceTagCollection;
+const TaskUtil = require("@ui5/builder").tasks.TaskUtil;
 
 /**
  * Build context of a single project. Always part of an overall
- * [Build Context]{@link @ui5/project/build/helpers/BuildContext}
+ * [Build Context]{@link module:@ui5/builder.builder.BuildContext}
  *
  * @private
- * @memberof @ui5/project/build/helpers
+ * @memberof module:@ui5/builder.builder
  */
 class ProjectBuildContext {
-	constructor({buildContext, project}) {
+	constructor({buildContext, log, project}) {
 		if (!buildContext) {
 			throw new Error(`Missing parameter 'buildContext'`);
+		}
+		if (!log) {
+			throw new Error(`Missing parameter 'log'`);
 		}
 		if (!project) {
 			throw new Error(`Missing parameter 'project'`);
 		}
 		this._buildContext = buildContext;
 		this._project = project;
-		this._log = new ProjectBuildLogger({
-			moduleName: "Build",
-			projectName: project.getName(),
-			projectType: project.getType()
-		});
+		this._log = log;
 		this._queues = {
 			cleanup: []
 		};
@@ -47,40 +44,15 @@ class ProjectBuildContext {
 		this._queues.cleanup.push(callback);
 	}
 
-	async executeCleanupTasks(force) {
+	async executeCleanupTasks() {
 		await Promise.all(this._queues.cleanup.map((callback) => {
-			return callback(force);
+			return callback();
 		}));
-	}
-
-	/**
-	 * Retrieve a single project from the dependency graph
-	 *
-	 * @param {string} [projectName] Name of the project to retrieve. Defaults to the project currently being built
-	 * @returns {@ui5/project/specifications/Project|undefined}
-	 *					project instance or undefined if the project is unknown to the graph
-	 */
-	getProject(projectName) {
-		if (projectName) {
-			return this._buildContext.getGraph().getProject(projectName);
-		}
-		return this._project;
-	}
-
-	/**
-	 * Retrieve a list of direct dependencies of a given project from the dependency graph
-	 *
-	 * @param {string} [projectName] Name of the project to retrieve. Defaults to the project currently being built
-	 * @returns {string[]} Names of all direct dependencies
-	 * @throws {Error} If the requested project is unknown to the graph
-	 */
-	getDependencies(projectName) {
-		return this._buildContext.getGraph().getDependencies(projectName || this._project.getName());
 	}
 
 	getResourceTagCollection(resource, tag) {
 		if (!resource.hasProject()) {
-			this._log.silly(`Associating resource ${resource.getPath()} with project ${this._project.getName()}`);
+			this._log.verbose(`Associating resource ${resource.getPath()} with project ${this._project.getName()}`);
 			resource.setProject(this._project);
 			// throw new Error(
 			// 	`Unable to get tag collection for resource ${resource.getPath()}: ` +
@@ -106,43 +78,19 @@ class ProjectBuildContext {
 		return this._taskUtil;
 	}
 
-	getTaskRunner() {
-		if (!this._taskRunner) {
-			this._taskRunner = new TaskRunner({
-				project: this._project,
-				log: this._log,
-				taskUtil: this.getTaskUtil(),
-				graph: this._buildContext.getGraph(),
-				taskRepository: this._buildContext.getTaskRepository(),
-				buildConfig: this._buildContext.getBuildConfig()
-			});
-		}
-		return this._taskRunner;
-	}
-
 	/**
-	 * Determine whether the project has to be built or is already built
-	 * (typically indicated by the presence of a build manifest)
+	 * Retrieve a single project from the dependency graph
 	 *
-	 * @returns {boolean} True if the project needs to be built
+	 * @param {string} [projectName] Name of the project to retrieve. Defaults to the project currently being built
+	 * @returns {module:@ui5/project.specifications.Project|undefined}
+	 *					project instance or undefined if the project is unknown to the graph
 	 */
-	requiresBuild() {
-		return !this._project.getBuildManifest();
-	}
-
-	getBuildMetadata() {
-		const buildManifest = this._project.getBuildManifest();
-		if (!buildManifest) {
-			return null;
+	getProject(projectName) {
+		if (projectName) {
+			return this._buildContext.getProject(projectName);
 		}
-		const timeDiff = (new Date().getTime() - new Date(buildManifest.timestamp).getTime());
-
-		// TODO: Format age properly via a new @ui5/logger util module
-		return {
-			timestamp: buildManifest.timestamp,
-			age: timeDiff / 1000 + " seconds"
-		};
+		return this._project;
 	}
 }
 
-export default ProjectBuildContext;
+module.exports = ProjectBuildContext;
