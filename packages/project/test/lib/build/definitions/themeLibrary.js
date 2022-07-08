@@ -1,6 +1,7 @@
-import test from "ava";
-import sinon from "sinon";
-import themeLibrary from "../../../../lib/build/definitions/themeLibrary.js";
+const test = require("ava");
+const sinon = require("sinon");
+
+const themeLibrary = require("../../../../lib/build/definitions/themeLibrary");
 
 function emptyarray() {
 	return [];
@@ -13,11 +14,7 @@ function getMockProject() {
 		getType: () => "theme-library",
 		getCopyright: () => "copyright",
 		getVersion: () => "version",
-		getSpecVersion: () => {
-			return {
-				toString: () => "2.6"
-			};
-		},
+		getSpecVersion: () => "2.6",
 		getMinificationExcludes: emptyarray,
 		getComponentPreloadPaths: emptyarray,
 		getComponentPreloadNamespaces: emptyarray,
@@ -25,8 +22,8 @@ function getMockProject() {
 		getLibraryPreloadExcludes: emptyarray,
 		getBundles: emptyarray,
 		getCachebusterSignatureType: () => "PONY",
+		getJsdocExcludes: () => ["**.html"],
 		getCustomTasks: emptyarray,
-		isFrameworkProject: () => false
 	};
 }
 
@@ -41,13 +38,12 @@ test.beforeEach((t) => {
 	t.context.getTask = sinon.stub();
 });
 
-test("Standard build", (t) => {
+test("Standard build", async (t) => {
 	const {project, taskUtil, getTask} = t.context;
 
 	const tasks = themeLibrary({
 		project, taskUtil, getTask
 	});
-	const generateThemeDesignerResourcesTaskFunction = tasks.get("generateThemeDesignerResources");
 	t.deepEqual(Object.fromEntries(tasks), {
 		replaceCopyright: {
 			options: {
@@ -71,38 +67,23 @@ test("Standard build", (t) => {
 				cssVariables: undefined
 			}
 		},
+		generateThemeDesignerResources: {
+			requiresDependencies: true,
+			options: {
+				version: "version"
+			}
+		},
 		generateResourcesJson: {
 			requiresDependencies: true
-		},
-		generateThemeDesignerResources: {
-			taskFunction: null
 		}
 	}, "Correct task definitions");
 
 	t.is(taskUtil.getBuildOption.callCount, 1, "taskUtil#getBuildOption got called once");
 	t.is(taskUtil.getBuildOption.getCall(0).args[0], "cssVariables",
 		"taskUtil#getBuildOption got called with correct argument");
-
-	t.is(generateThemeDesignerResourcesTaskFunction.taskFunction, null, "taskFunction is explicitly set to null");
 });
 
-test("Standard build (framework project)", (t) => {
-	const {project, taskUtil, getTask} = t.context;
-
-	project.isFrameworkProject = () => true;
-
-	const tasks = themeLibrary({
-		project, taskUtil, getTask
-	});
-
-	t.deepEqual(tasks.get("generateThemeDesignerResources"), {
-		requiresDependencies: true, options: {
-			version: "version"
-		}
-	});
-});
-
-test("Standard build for non root project", (t) => {
+test("Standard build for non root project", async (t) => {
 	const {project, taskUtil, getTask} = t.context;
 	taskUtil.isRootProject.returns(false);
 
@@ -132,11 +113,14 @@ test("Standard build for non root project", (t) => {
 				cssVariables: undefined
 			}
 		},
+		generateThemeDesignerResources: {
+			requiresDependencies: true,
+			options: {
+				version: "version"
+			}
+		},
 		generateResourcesJson: {
 			requiresDependencies: true
-		},
-		generateThemeDesignerResources: {
-			taskFunction: null
 		}
 	}, "Correct task definitions");
 
@@ -145,7 +129,7 @@ test("Standard build for non root project", (t) => {
 		"taskUtil#getBuildOption got called with correct argument");
 });
 
-test("CSS variables enabled", (t) => {
+test("CSS variables enabled", async (t) => {
 	const {project, taskUtil, getTask} = t.context;
 	taskUtil.getBuildOption.returns(true);
 
