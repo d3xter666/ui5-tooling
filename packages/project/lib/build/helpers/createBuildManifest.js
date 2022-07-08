@@ -1,35 +1,13 @@
-import {createRequire} from "node:module";
-
-// Using CommonsJS require since JSON module imports are still experimental
-const require = createRequire(import.meta.url);
-
-async function getVersion(pkg) {
-	return require(`${pkg}/package.json`).version;
+function getVersion(pkg) {
+	const packageInfo = require(`${pkg}/package.json`);
+	return packageInfo.version;
 }
 
-function getSortedTags(project) {
-	const tags = project.getResourceTagCollection().getAllTags();
-	const entities = Object.entries(tags);
-	entities.sort(([keyA], [keyB]) => {
-		return keyA.localeCompare(keyB);
-	});
-	return Object.fromEntries(entities);
-}
-
-export default async function(project, buildConfig, taskRepository) {
-	if (!project) {
-		throw new Error(`Missing parameter 'project'`);
-	}
-	if (!buildConfig) {
-		throw new Error(`Missing parameter 'buildConfig'`);
-	}
-	if (!taskRepository) {
-		throw new Error(`Missing parameter 'taskRepository'`);
-	}
+module.exports = async function(project, buildConfig) {
 	const projectName = project.getName();
 	const type = project.getType();
 
-	const pathMapping = Object.create(null);
+	const pathMapping = {};
 	switch (type) {
 	case "application":
 		pathMapping.webapp = `resources/${project.getNamespace()}`;
@@ -45,10 +23,9 @@ export default async function(project, buildConfig, taskRepository) {
 			`Project type ${type} is currently not supported`);
 	}
 
-	const {builderVersion, fsVersion: builderFsVersion} = await taskRepository.getVersions();
 	const metadata = {
 		project: {
-			specVersion: project.getSpecVersion().toString(),
+			specVersion: project.getSpecVersion(),
 			type,
 			metadata: {
 				name: projectName,
@@ -60,26 +37,19 @@ export default async function(project, buildConfig, taskRepository) {
 			}
 		},
 		buildManifest: {
-			manifestVersion: "0.2",
+			manifestVersion: "0.1",
 			timestamp: new Date().toISOString(),
 			versions: {
-				builderVersion: builderVersion,
-				projectVersion: await getVersion("@ui5/project"),
-				fsVersion: await getVersion("@ui5/fs"),
+				builderVersion: getVersion("@ui5/builder"),
+				projectVersion: getVersion("../../../"),
+				fsVersion: getVersion("@ui5/fs"),
 			},
 			buildConfig,
 			version: project.getVersion(),
 			namespace: project.getNamespace(),
-			tags: getSortedTags(project)
+			tags: project.getResourceTagCollection().getAllTags()
 		}
 	};
 
-	if (metadata.buildManifest.versions.fsVersion !== builderFsVersion) {
-		// Added in manifestVersion 0.2:
-		// @ui5/project and @ui5/builder use different versions of @ui5/fs.
-		// This should be mentioned in the build manifest:
-		metadata.buildManifest.versions.builderFsVersion = builderFsVersion;
-	}
-
 	return metadata;
-}
+};
