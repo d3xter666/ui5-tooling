@@ -1,512 +1,324 @@
-import {rmrf} from "../utils/fs.js";
-import * as resourceFactory from "@ui5/fs/resourceFactory";
-import BuildLogger from "@ui5/logger/internal/loggers/Build";
-import composeProjectList from "./helpers/composeProjectList.js";
-import BuildContext from "./helpers/BuildContext.js";
-import prettyHrtime from "pretty-hrtime";
-import OutputStyleEnum from "./helpers/ProjectBuilderOutputStyle.js";
+const {getTask} = require("@ui5/builder").tasks.taskRepository;
+const composeTaskList = require("./helpers/composeTaskList");
 
-/**
- * @public
- * @class
- * @alias @ui5/project/build/ProjectBuilder
- */
 class ProjectBuilder {
-	#log;
 	/**
-	 * Build Configuration
+	 * Constructor
 	 *
-	 * @public
-	 * @typedef {object} @ui5/project/build/ProjectBuilder~BuildConfiguration
-	 * @property {boolean} [selfContained=false] Flag to activate self contained build
-	 * @property {boolean} [cssVariables=false] Flag to activate CSS variables generation
-	 * @property {boolean} [jsdoc=false] Flag to activate JSDoc build
-	 * @property {boolean} [createBuildManifest=false]
-	 *   Whether to create a build manifest file for the root project.
-	 *   This is currently only supported for projects of type 'library' and 'theme-library'
-	 *   No other dependencies can be included in the build result.
-	 * @property {module:@ui5/project/build/ProjectBuilderOutputStyle} [outputStyle=Default]
-	 *   Processes build results into a specific directory structure.
-	 * @property {Array.<string>} [includedTasks=[]] List of tasks to be included
-	 * @property {Array.<string>} [excludedTasks=[]] List of tasks to be excluded.
-	 * 			If the wildcard '*' is provided, only the included tasks will be executed.
-	 */
-
-	/**
-	 * As an alternative to providing plain lists of names of dependencies to include and exclude, you can provide a
-	 * more complex "Dependency Includes" object to define which dependencies should be part of the build result.
-	 * <br>
-	 * This information is then used to compile lists of <code>includedDependencies</code> and
-	 * <code>excludedDependencies</code>, which are applied during the build process.
-	 * <br><br>
-	 * Regular expression-parameters are directly applied to a list of all project dependencies
-	 * so that they don't need to be evaluated in later processing steps.
-	 * <br><br>
-	 * Generally, includes are handled with a higher priority than excludes. Additionally, operations for processing
-	 * transitive dependencies are handled with a lower priority than explicitly mentioned dependencies. The "default"
-	 * dependency-includes are appended at the end.
-	 * <br><br>
-	 * The priority of the various dependency lists is applied in the following order.
-	 * Note that a later exclude can't overrule an earlier include.
-	 * <br>
-	 * <ol>
-	 *   <li><code>includeDependency</code>, <code>includeDependencyRegExp</code></li>
-	 *   <li><code>excludeDependency</code>, <code>excludeDependencyRegExp</code></li>
-	 *   <li><code>includeDependencyTree</code></li>
-	 *   <li><code>excludeDependencyTree</code></li>
-	 *   <li><code>defaultIncludeDependency</code>, <code>defaultIncludeDependencyRegExp</code>,
-	 *     <code>defaultIncludeDependencyTree</code></li>
-	 * </ol>
-	 *
-	 * @public
-	 * @typedef {object} @ui5/project/build/ProjectBuilder~DependencyIncludes
-	 * @property {boolean} includeAllDependencies
-	 *   Whether all dependencies should be part of the build result
-	 *	 This parameter has the lowest priority and basically includes all remaining (not excluded) projects as include
-	 * @property {string[]} includeDependency
-	 *   The dependencies to be considered in <code>includedDependencies</code>; the
-	 *   <code>*</code> character can be used as wildcard for all dependencies and
-	 *   is an alias for the CLI option <code>--all</code>
-	 * @property {string[]} includeDependencyRegExp
-	 *   Strings which are interpreted as regular expressions
-	 *   to describe the selection of dependencies to be considered in <code>includedDependencies</code>
-	 * @property {string[]} includeDependencyTree
-	 *   The dependencies to be considered in <code>includedDependencies</code>;
-	 *   transitive dependencies are also appended
-	 * @property {string[]} excludeDependency
-	 *   The dependencies to be considered in <code>excludedDependencies</code>
-	 * @property {string[]} excludeDependencyRegExp
-	 *   Strings which are interpreted as regular expressions
-	 *   to describe the selection of dependencies to be considered in <code>excludedDependencies</code>
-	 * @property {string[]} excludeDependencyTree
-	 *   The dependencies to be considered in <code>excludedDependencies</code>;
-	 *   transitive dependencies are also appended
-	 * @property {string[]} defaultIncludeDependency
-	 *   Same as <code>includeDependency</code> parameter;
-	 *   typically used in project build settings
-	 * @property {string[]} defaultIncludeDependencyRegExp
-	 *   Same as <code>includeDependencyRegExp</code> parameter;
-	 *   typically used in project build settings
-	 * @property {string[]} defaultIncludeDependencyTree
-	 *   Same as <code>includeDependencyTree</code> parameter;
-	 *   typically used in project build settings
-	 */
-
-	/**
-	 * Executes a project build, including all necessary or requested dependencies
-	 *
-	 * @public
 	 * @param {object} parameters
-	 * @param {@ui5/project/graph/ProjectGraph} parameters.graph Project graph
-	 * @param {@ui5/project/build/ProjectBuilder~BuildConfiguration} [parameters.buildConfig] Build configuration
-	 * @param {@ui5/builder/tasks/taskRepository} parameters.taskRepository Task Repository module to use
+	 * @param {object} parameters.graph
+	 * @param {object} parameters.project
+	 * @param {GroupLogger} parameters.parentLogger Logger to use
+	 * @param {object} parameters.taskUtil
 	 */
-	constructor({graph, buildConfig, taskRepository}) {
-		if (!graph) {
-			throw new Error(`Missing parameter 'graph'`);
-		}
-		if (!taskRepository) {
-			throw new Error(`Missing parameter 'taskRepository'`);
-		}
-		if (!graph.isSealed()) {
-			throw new Error(
-				`Can not build project graph with root node ${graph.getRoot().getName()}: Graph is not sealed`);
-		}
-
+	constructor({graph, project, parentLogger, taskUtil}) {
+		this._project = project;
 		this._graph = graph;
-		this._buildContext = new BuildContext(graph, taskRepository, buildConfig);
-		this.#log = new BuildLogger("ProjectBuilder");
+		this._taskUtil = taskUtil;
+
+		this._log = parentLogger.createSubLogger(project.getType() + " " + project.getName(), 0.2);
+		this._taskLog = this._log.createTaskLogger("🔨");
+
+		this._tasks = {};
+		this._taskExecutionOrder = [];
+
+		let buildDefinition;
+		switch (project.getType()) {
+		case "application":
+			buildDefinition = require("./definitions/application");
+			break;
+		case "library":
+			buildDefinition = require("./definitions/library");
+			break;
+		case "module":
+			buildDefinition = require("./definitions/module");
+			break;
+		case "theme-library":
+			buildDefinition = require("./definitions/themeLibrary");
+			break;
+		default:
+			throw new Error(`Unknown project type ${project.getType()}`);
+		}
+
+		const standardTasks = buildDefinition({
+			project,
+			taskUtil,
+			getTask
+		});
+
+		for (const [taskName, params] of standardTasks) {
+			this._addTask(taskName, params);
+		}
+
+		this._addCustomTasks({
+			graph,
+			project,
+			taskUtil
+		});
 	}
 
 	/**
-	 * Executes a project build, including all necessary or requested dependencies
+	 * Takes a list of tasks which should be executed from the available task list of the current builder
 	 *
-	 * @public
-	 * @param {object} parameters Parameters
-	 * @param {string} parameters.destPath Target path
-	 * @param {boolean} [parameters.cleanDest=false] Decides whether project should clean the target path before build
-	 * @param {Array.<string|RegExp>} [parameters.includedDependencies=[]]
-	 *   List of names of projects to include in the build result
-	 *   If the wildcard '*' is provided, all dependencies will be included in the build result.
-	 * @param {Array.<string|RegExp>} [parameters.excludedDependencies=[]]
-	 *   List of names of projects to exclude from the build result.
-	 * @param {@ui5/project/build/ProjectBuilder~DependencyIncludes} [parameters.dependencyIncludes]
-	 *   Alternative to the <code>includedDependencies</code> and <code>excludedDependencies</code> parameters.
-	 *   Allows for a more sophisticated configuration for defining which dependencies should be
-	 *   part of the build result. If this is provided, the other mentioned parameters are ignored.
-	 * @returns {Promise} Promise resolving once the build has finished
+	 * @param {object} buildConfig
+	 * @param {boolean} buildConfig.selfContained
+	 *			True if a the build should be self-contained or false for prelead build bundles
+	 * @param {boolean} buildConfig.jsdoc True if a JSDoc build should be executed
+	 * @param {Array} buildConfig.includedTasks Task list to be included from build
+	 * @param {Array} buildConfig.excludedTasks Task list to be excluded from build
+	 * @param {object} buildParams
+	 * @param {module:@ui5/fs.DuplexCollection} buildParams.workspace Workspace of the current project
+	 * @param {module:@ui5/fs.ReaderCollection} buildParams.dependencies Dependencies reader collection
+	 * @returns {Promise} Returns promise chain with tasks
 	 */
-	async build({
-		destPath, cleanDest = false,
-		includedDependencies = [], excludedDependencies = [],
-		dependencyIncludes
-	}) {
-		if (!destPath) {
-			throw new Error(`Missing parameter 'destPath'`);
-		}
-		if (dependencyIncludes) {
-			if (includedDependencies.length || excludedDependencies.length) {
-				throw new Error(
-					"Parameter 'dependencyIncludes' can't be used in conjunction " +
-					"with parameters 'includedDependencies' or 'excludedDependencies");
-			}
-		}
-		const rootProjectName = this._graph.getRoot().getName();
-		this.#log.info(`Preparing build for project ${rootProjectName}`);
-		this.#log.info(`  Target directory: ${destPath}`);
-
-		// Get project filter function based on include/exclude params
-		// (also logs some info to console)
-		const filterProject = await this._getProjectFilter({
-			explicitIncludes: includedDependencies,
-			explicitExcludes: excludedDependencies,
-			dependencyIncludes
+	async build(buildConfig, buildParams) {
+		const tasksToRun = composeTaskList(Object.keys(this._tasks), buildConfig);
+		const allTasks = this._taskExecutionOrder.filter((taskName) => {
+			// There might be a numeric suffix in case a custom task is configured multiple times.
+			// The suffix needs to be removed in order to check against the list of tasks to run.
+			//
+			// Note: The 'tasksToRun' parameter only allows to specify the custom task name
+			// (without suffix), so it executes either all or nothing.
+			// It's currently not possible to just execute some occurrences of a custom task.
+			// This would require a more robust contract to identify task executions
+			// (e.g. via an 'id' that can be assigned to a specific execution in the configuration).
+			const taskWithoutSuffixCounter = taskName.replace(/--\d+$/, "");
+			return tasksToRun.includes(taskWithoutSuffixCounter);
 		});
 
-		// Count total number of projects to build based on input
-		const requestedProjects = this._graph.getProjectNames().filter(function(projectName) {
-			return filterProject(projectName);
-		});
+		this._taskLog.addWork(allTasks.length);
 
-		if (requestedProjects.length > 1) {
-			const {createBuildManifest} = this._buildContext.getBuildConfig();
-			if (createBuildManifest) {
-				throw new Error(
-					`It is currently not supported to request the creation of a build manifest ` +
-					`while including any dependencies into the build result`);
+		for (const taskName of allTasks) {
+			const taskFunction = this._tasks[taskName].task;
+
+			if (typeof taskFunction === "function") {
+				await this._executeTask(taskName, taskFunction, buildParams);
 			}
-		}
-
-		const projectBuildContexts = await this._createRequiredBuildContexts(requestedProjects);
-		const cleanupSigHooks = this._registerCleanupSigHooks();
-		const fsTarget = resourceFactory.createAdapter({
-			fsBasePath: destPath,
-			virBasePath: "/"
-		});
-
-		const queue = [];
-		const alreadyBuilt = [];
-
-		// Create build queue based on graph depth-first search to ensure correct build order
-		await this._graph.traverseDepthFirst(async ({project}) => {
-			const projectName = project.getName();
-			const projectBuildContext = projectBuildContexts.get(projectName);
-			if (projectBuildContext) {
-				// Build context exists
-				//	=> This project needs to be built or, in case it has already
-				//		been built, it's build result needs to be written out (if requested)
-				queue.push(projectBuildContext);
-				if (!projectBuildContext.requiresBuild()) {
-					alreadyBuilt.push(projectName);
-				}
-			}
-		});
-
-		this.#log.setProjects(queue.map((projectBuildContext) => {
-			return projectBuildContext.getProject().getName();
-		}));
-		if (queue.length > 1) { // Do not log if only the root project is being built
-			this.#log.info(`Processing ${queue.length} projects`);
-			if (alreadyBuilt.length) {
-				this.#log.info(`  Reusing build results of ${alreadyBuilt.length} projects`);
-				this.#log.info(`  Building ${queue.length - alreadyBuilt.length} projects`);
-			}
-
-			if (this.#log.isLevelEnabled("verbose")) {
-				this.#log.verbose(`  Required projects:`);
-				this.#log.verbose(`    ${queue
-					.map((projectBuildContext) => {
-						const projectName = projectBuildContext.getProject().getName();
-						let msg;
-						if (alreadyBuilt.includes(projectName)) {
-							const buildMetadata = projectBuildContext.getBuildMetadata();
-							const ts = new Date(buildMetadata.timestamp).toUTCString();
-							msg = `*> ${projectName} /// already built at ${ts}`;
-						} else {
-							msg = `=> ${projectName}`;
-						}
-						return msg;
-					})
-					.join("\n    ")}`);
-			}
-		}
-
-		if (cleanDest) {
-			this.#log.info(`Cleaning target directory...`);
-			await rmrf(destPath);
-		}
-		const startTime = process.hrtime();
-		try {
-			const pWrites = [];
-			for (const projectBuildContext of queue) {
-				const projectName = projectBuildContext.getProject().getName();
-				const projectType = projectBuildContext.getProject().getType();
-				this.#log.verbose(`Processing project ${projectName}...`);
-
-				// Only build projects that are not already build (i.e. provide a matching build manifest)
-				if (alreadyBuilt.includes(projectName)) {
-					this.#log.skipProjectBuild(projectName, projectType);
-				} else {
-					this.#log.startProjectBuild(projectName, projectType);
-					await projectBuildContext.getTaskRunner().runTasks();
-					this.#log.endProjectBuild(projectName, projectType);
-				}
-				if (!requestedProjects.includes(projectName)) {
-					// Project has not been requested
-					//	=> Its resources shall not be part of the build result
-					continue;
-				}
-
-				this.#log.verbose(`Writing out files...`);
-				pWrites.push(this._writeResults(projectBuildContext, fsTarget));
-			}
-			await Promise.all(pWrites);
-			this.#log.info(`Build succeeded in ${this._getElapsedTime(startTime)}`);
-		} catch (err) {
-			this.#log.error(`Build failed in ${this._getElapsedTime(startTime)}`);
-			throw err;
-		} finally {
-			this._deregisterCleanupSigHooks(cleanupSigHooks);
-			await this._executeCleanupTasks();
-		}
-	}
-
-	async _createRequiredBuildContexts(requestedProjects) {
-		const requiredProjects = new Set(this._graph.getProjectNames().filter((projectName) => {
-			return requestedProjects.includes(projectName);
-		}));
-
-		const projectBuildContexts = new Map();
-
-		for (const projectName of requiredProjects) {
-			this.#log.verbose(`Creating build context for project ${projectName}...`);
-			const projectBuildContext = this._buildContext.createProjectContext({
-				project: this._graph.getProject(projectName)
-			});
-
-			projectBuildContexts.set(projectName, projectBuildContext);
-
-			if (projectBuildContext.requiresBuild()) {
-				const taskRunner = projectBuildContext.getTaskRunner();
-				const requiredDependencies = await taskRunner.getRequiredDependencies();
-
-				if (requiredDependencies.size === 0) {
-					continue;
-				}
-				// This project needs to be built and required dependencies to be built as well
-				this._graph.getDependencies(projectName).forEach((depName) => {
-					if (projectBuildContexts.has(depName)) {
-						// Build context already exists
-						//	=> Dependency will be built
-						return;
-					}
-					if (!requiredDependencies.has(depName)) {
-						return;
-					}
-					// Add dependency to list of projects to build
-					requiredProjects.add(depName);
-				});
-			}
-		}
-
-		return projectBuildContexts;
-	}
-
-	async _getProjectFilter({
-		dependencyIncludes,
-		explicitIncludes,
-		explicitExcludes
-	}) {
-		const {includedDependencies, excludedDependencies} = await composeProjectList(
-			this._graph,
-			dependencyIncludes || {
-				includeDependencyTree: explicitIncludes,
-				excludeDependencyTree: explicitExcludes
-			}
-		);
-
-		if (includedDependencies.length) {
-			if (includedDependencies.length === this._graph.getSize() - 1) {
-				this.#log.info(`  Including all dependencies`);
-			} else {
-				this.#log.info(`  Requested dependencies:`);
-				this.#log.info(`    + ${includedDependencies.join("\n    + ")}`);
-			}
-		}
-		if (excludedDependencies.length) {
-			this.#log.info(`  Excluded dependencies:`);
-			this.#log.info(`    - ${excludedDependencies.join("\n    + ")}`);
-		}
-
-		const rootProjectName = this._graph.getRoot().getName();
-		return function projectFilter(projectName) {
-			function projectMatchesAny(deps) {
-				return deps.some((dep) => dep instanceof RegExp ?
-					dep.test(projectName) : dep === projectName);
-			}
-
-			if (projectName === rootProjectName) {
-				// Always include the root project
-				return true;
-			}
-
-			if (projectMatchesAny(excludedDependencies)) {
-				return false;
-			}
-
-			if (includedDependencies.includes("*") || projectMatchesAny(includedDependencies)) {
-				return true;
-			}
-
-			return false;
-		};
-	}
-
-	async _writeResults(projectBuildContext, target) {
-		const project = projectBuildContext.getProject();
-		const taskUtil = projectBuildContext.getTaskUtil();
-		const buildConfig = this._buildContext.getBuildConfig();
-		const {createBuildManifest, outputStyle} = buildConfig;
-		// Output styles are applied only for the root project
-		const isRootProject = taskUtil.isRootProject();
-
-		let readerStyle = "dist";
-		if (createBuildManifest ||
-			(isRootProject && outputStyle === OutputStyleEnum.Namespace && project.getType() === "application")) {
-			// Ensure buildtime (=namespaced) style when writing with a build manifest or when explicitly requested
-			readerStyle = "buildtime";
-		} else if (isRootProject && outputStyle === OutputStyleEnum.Flat) {
-			readerStyle = "flat";
-		}
-
-		const reader = project.getReader({
-			style: readerStyle
-		});
-		const resources = await reader.byGlob("/**/*");
-
-		if (createBuildManifest) {
-			// Create and write a build manifest metadata file
-			const {
-				default: createBuildManifest
-			} = await import("./helpers/createBuildManifest.js");
-			const metadata = await createBuildManifest(project, buildConfig, this._buildContext.getTaskRepository());
-			await target.write(resourceFactory.createResource({
-				path: `/.ui5/build-manifest.json`,
-				string: JSON.stringify(metadata, null, "\t")
-			}));
-		}
-
-		await Promise.all(resources.map((resource) => {
-			if (taskUtil.getTag(resource, taskUtil.STANDARD_TAGS.OmitFromBuildResult)) {
-				this.#log.silly(`Skipping write of resource tagged as "OmitFromBuildResult": ` +
-					resource.getPath());
-				return; // Skip target write for this resource
-			}
-			return target.write(resource);
-		}));
-
-		if (isRootProject &&
-			outputStyle === OutputStyleEnum.Flat &&
-			project.getType() !== "application" /* application type is with a default flat build output structure */) {
-			const namespace = project.getNamespace();
-			const libraryResourcesPrefix = `/resources/${namespace}/`;
-			const testResourcesPrefix = "/test-resources/";
-			const namespacedRegex = new RegExp(`/(resources|test-resources)/${namespace}`);
-			const processedResourcesSet = resources.reduce((acc, resource) => acc.add(resource.getPath()), new Set());
-
-			// If outputStyle === "Flat", then the FlatReader would have filtered
-			// some resources. We now need to get all of the available resources and
-			// do an intersection with the processed/bundled ones.
-			const defaultReader = project.getReader();
-			const defaultResources = await defaultReader.byGlob("/**/*");
-			const flatDefaultResources = defaultResources.map((resource) => ({
-				flatResource: resource.getPath().replace(namespacedRegex, ""),
-				originalPath: resource.getPath(),
-			}));
-
-			const skippedResources = flatDefaultResources.filter((resource) => {
-				return processedResourcesSet.has(resource.flatResource) === false;
-			});
-
-			skippedResources.forEach((resource) => {
-				if (resource.originalPath.startsWith(testResourcesPrefix)) {
-					this.#log.verbose(
-						`Omitting ${resource.originalPath} from build result. File is part of ${testResourcesPrefix}.`
-					);
-				} else if (!resource.originalPath.startsWith(libraryResourcesPrefix)) {
-					this.#log.warn(
-						`Omitting ${resource.originalPath} from build result. ` +
-							`File is not within project namespace '${namespace}'.`
-					);
-				}
-			});
-		}
-	}
-
-	async _executeCleanupTasks(force) {
-		this.#log.info("Executing cleanup tasks...");
-
-		await this._buildContext.executeCleanupTasks(force);
-	}
-
-	_registerCleanupSigHooks() {
-		const that = this;
-		function createListener(exitCode) {
-			return function() {
-				// Asynchronously cleanup resources, then exit
-				that._executeCleanupTasks(true).then(() => {
-					process.exit(exitCode);
-				});
-			};
-		}
-
-		const processSignals = {
-			"SIGHUP": createListener(128 + 1),
-			"SIGINT": createListener(128 + 2),
-			"SIGTERM": createListener(128 + 15),
-			"SIGBREAK": createListener(128 + 21)
-		};
-
-		for (const signal of Object.keys(processSignals)) {
-			process.on(signal, processSignals[signal]);
-		}
-
-		// TODO: Also cleanup for unhandled rejections and exceptions?
-		// Add additional events like signals since they are registered on the process
-		//	event emitter in a similar fashion
-		// processSignals["unhandledRejection"] = createListener(1);
-		// process.once("unhandledRejection", processSignals["unhandledRejection"]);
-		// processSignals["uncaughtException"] = function(err, origin) {
-		// 	const fs = require("fs");
-		// 	fs.writeSync(
-		// 		process.stderr.fd,
-		// 		`Caught exception: ${err}\n` +
-		// 		`Exception origin: ${origin}`
-		// 	);
-		// 	createListener(1)();
-		// };
-		// process.once("uncaughtException", processSignals["uncaughtException"]);
-
-		return processSignals;
-	}
-
-	_deregisterCleanupSigHooks(signals) {
-		for (const signal of Object.keys(signals)) {
-			process.removeListener(signal, signals[signal]);
 		}
 	}
 
 	/**
-	 * Calculates the elapsed build time and returns a prettified output
+	 * Takes a list of tasks which should be executed from the available task list of the current builder
+	 *
+	 * @param {object} buildConfig
+	 * @param {boolean} buildConfig.selfContained
+	 *			True if a the build should be self-contained or false for prelead build bundles
+	 * @param {boolean} buildConfig.jsdoc True if a JSDoc build should be executed
+	 * @param {Array} buildConfig.includedTasks Task list to be included from build
+	 * @param {Array} buildConfig.excludedTasks Task list to be excluded from build
+	 * @returns {Promise} Returns promise chain with tasks
+	 */
+	requiresDependencies(buildConfig) {
+		const tasksToRun = composeTaskList(Object.keys(this._tasks), buildConfig);
+		const allTasks = this._taskExecutionOrder.filter((taskName) => {
+			// There might be a numeric suffix in case a custom task is configured multiple times.
+			// The suffix needs to be removed in order to check against the list of tasks to run.
+			//
+			// Note: The 'tasksToRun' parameter only allows to specify the custom task name
+			// (without suffix), so it executes either all or nothing.
+			// It's currently not possible to just execute some occurrences of a custom task.
+			// This would require a more robust contract to identify task executions
+			// (e.g. via an 'id' that can be assigned to a specific execution in the configuration).
+			const taskWithoutSuffixCounter = taskName.replace(/--\d+$/, "");
+			return tasksToRun.includes(taskWithoutSuffixCounter);
+		});
+		return allTasks.some((taskName) => {
+			if (this._tasks[taskName].requiresDependencies) {
+				this._log.verbose(`Task ${taskName} for project ${this._project.getName()} requires dependencies`);
+				return true;
+			}
+			return false;
+		});
+	}
+
+	/**
+	 * Adds an executable task to the builder
+	 *
+	 * The order this function is being called defines the build order. FIFO.
+	 *
+	 * @param {string} taskName Name of the task which should be in the list availableTasks.
+	 * @param {object} [parameters]
+	 * @param {boolean} [parameters.requiresDependencies]
+	 * @param {object} [parameters.options]
+	 * @param {Function} [parameters.taskFunction]
+	 */
+	_addTask(taskName, {requiresDependencies = false, options = {}, taskFunction} = {}) {
+		if (this._tasks[taskName]) {
+			throw new Error(`Failed to add duplicate task ${taskName} for project ${this._project.getName()}`);
+		}
+		if (this._taskExecutionOrder.includes(taskName)) {
+			throw new Error(`Failed to add task ${taskName} for project ${this._project.getName()}. ` +
+				`It has already been scheduled for execution`);
+		}
+
+		const task = async ({workspace, dependencies}, log) => {
+			options.projectName = this._project.getName();
+			options.projectNamespace = this._project.getNamespace();
+
+			const params = {
+				workspace,
+				taskUtil: this._taskUtil,
+				options
+			};
+
+			if (requiresDependencies) {
+				params.dependencies = dependencies;
+			}
+
+			if (!taskFunction) {
+				taskFunction = getTask(taskName).task;
+			}
+			return taskFunction(params);
+		};
+		this._tasks[taskName] = {
+			task,
+			requiresDependencies
+		};
+		this._taskExecutionOrder.push(taskName);
+	}
+
+	/**
+	 * Adds custom tasks to execute
 	 *
 	 * @private
-	 * @param {Array} startTime Array provided by <code>process.hrtime()</code>
-	 * @returns {string} Difference between now and the provided time array as formatted string
+	 * @param {object} parameters
+	 * @param {object} parameters.graph
+	 * @param {object} parameters.project
+	 * @param {object} parameters.taskUtil
 	 */
-	_getElapsedTime(startTime) {
-		const timeDiff = process.hrtime(startTime);
-		return prettyHrtime(timeDiff);
+	_addCustomTasks({graph, project, taskUtil}) {
+		const projectCustomTasks = project.getCustomTasks();
+		if (!projectCustomTasks || projectCustomTasks.length === 0) {
+			return; // No custom tasks defined
+		}
+		for (let i = 0; i < projectCustomTasks.length; i++) {
+			const taskDef = projectCustomTasks[i];
+			if (!taskDef.name) {
+				throw new Error(`Missing name for custom task in configuration of project ${project.getName()}`);
+			}
+			if (taskDef.beforeTask && taskDef.afterTask) {
+				throw new Error(`Custom task definition ${taskDef.name} of project ${project.getName()} ` +
+					`defines both "beforeTask" and "afterTask" parameters. Only one must be defined.`);
+			}
+			if (this._taskExecutionOrder.length && !taskDef.beforeTask && !taskDef.afterTask) {
+				// Iff there are tasks configured, beforeTask or afterTask must be given
+				throw new Error(`Custom task definition ${taskDef.name} of project ${project.getName()} ` +
+					`defines neither a "beforeTask" nor an "afterTask" parameter. One must be defined.`);
+			}
+			let standardTask;
+			try {
+				standardTask = getTask(taskDef.name);
+			} catch (e) {/* We expect this to fail with an "Unknown Task" error */}
+			if (standardTask) {
+				throw new Error(
+					`Custom task configuration of project ${project.getName()} ` +
+					`references standard task ${taskDef.name}. Only custom tasks must be provided here.`);
+			}
+
+			let newTaskName = taskDef.name;
+			if (this._tasks[newTaskName]) {
+				// Task is already known
+				// => add a suffix to allow for multiple configurations of the same task
+				let suffixCounter = 1;
+				while (this._tasks[newTaskName]) {
+					suffixCounter++; // Start at 2
+					newTaskName = `${taskDef.name}--${suffixCounter}`;
+				}
+			}
+			const task = graph.getExtension(taskDef.name);
+			if (!task) {
+				throw new Error(
+					`Could not find custom task ${taskDef.name}, referenced by project ${project.getName()} ` +
+					`in project graph with root node ${graph.getRoot().getName()}`);
+			}
+			// TODO: Create callback for custom tasks to configure "requiresDependencies" and "enabled"
+			// 		Input: task "options" and build mode ("standalone", "preload", etc.)
+			const requiresDependencies = true; // Default to true for old spec versions
+			const execTask = async function({workspace, dependencies}, log) {
+				/* Custom Task Interface
+					Parameters:
+						{Object} parameters Parameters
+						{module:@ui5/fs.DuplexCollection} parameters.workspace DuplexCollection to read and write files
+						{module:@ui5/fs.AbstractReader} parameters.dependencies
+							Reader or Collection to read dependency files
+						{Object} parameters.taskUtil Specification Version dependent interface to a
+							[TaskUtil]{@link module:@ui5/builder.tasks.TaskUtil} instance
+						{Object} parameters.options Options
+						{string} parameters.options.projectName Project name
+						{string} [parameters.options.projectNamespace] Project namespace if available
+						{string} [parameters.options.configuration] Task configuration if given in ui5.yaml
+					Returns:
+						{Promise<undefined>} Promise resolving with undefined once data has been written
+				*/
+				const params = {
+					workspace,
+					options: {
+						projectName: project.getName(),
+						projectNamespace: project.getNamespace(),
+						configuration: taskDef.configuration,
+					}
+				};
+
+				if (requiresDependencies) {
+					params.dependencies = dependencies;
+				}
+
+				if (task.getSpecVersion() === "2.7") {
+					params.log = log;
+					params.taskName = newTaskName;
+				}
+
+				const taskUtilInterface = taskUtil.getInterface(task.getSpecVersion());
+				// Interface is undefined if specVersion does not support taskUtil
+				if (taskUtilInterface) {
+					params.taskUtil = taskUtilInterface;
+				}
+				return task.getTask()(params);
+			};
+
+			this._tasks[newTaskName] = {
+				task: execTask,
+				requiresDependencies
+			};
+
+			if (this._taskExecutionOrder.length) {
+				// There is at least one task configured. Use before- and afterTask to add the custom task
+				const refTaskName = taskDef.beforeTask || taskDef.afterTask;
+				let refTaskIdx = this._taskExecutionOrder.indexOf(refTaskName);
+				if (refTaskIdx === -1) {
+					throw new Error(`Could not find task ${refTaskName}, referenced by custom task ${newTaskName}, ` +
+						`to be scheduled for project ${project.getName()}`);
+				}
+				if (taskDef.afterTask) {
+					// Insert after index of referenced task
+					refTaskIdx++;
+				}
+				this._taskExecutionOrder.splice(refTaskIdx, 0, newTaskName);
+			} else {
+				// There is no task configured so far. Just add the custom task
+				this._taskExecutionOrder.push(newTaskName);
+			}
+		}
+	}
+
+	/**
+	 * Adds progress related functionality to task function.
+	 *
+	 * @private
+	 * @param {string} taskName Name of the task
+	 * @param {Function} taskFunction Function which executed the task
+	 * @param {object} taskParams Base parameters for all tasks
+	 * @returns {Promise} Resolves when task has finished
+	 */
+	async _executeTask(taskName, taskFunction, taskParams) {
+		this._taskLog.startWork(`Running task ${taskName}...`);
+		this._taskStart = performance.now();
+		await taskFunction(taskParams, this._taskLog);
+		this._taskLog.completeWork(1);
+		if (process.env.UI5_LOG_TASK_PERF) {
+			this._taskLog.info(`Task succeeded in ${Math.round((performance.now() - this._taskStart))} ms`);
+		}
 	}
 }
 
-export default ProjectBuilder;
+module.exports = ProjectBuilder;
