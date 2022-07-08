@@ -1,5 +1,4 @@
-import {enhancePatternWithExcludes} from "./_utils.js";
-import {enhanceBundlesWithDefaults} from "../../validation/validator.js";
+const {enhancePatternWithExcludes} = require("./_utils");
 
 /**
  * Get tasks and their configuration for a given application project
@@ -10,7 +9,7 @@ import {enhanceBundlesWithDefaults} from "../../validation/validator.js";
  * @param {object} parameters.taskUtil
  * @param {Function} parameters.getTask
  */
-export default function({project, taskUtil, getTask}) {
+module.exports = function({project, taskUtil, getTask}) {
 	const tasks = new Map();
 	tasks.set("escapeNonAsciiCharacters", {
 		options: {
@@ -35,7 +34,7 @@ export default function({project, taskUtil, getTask}) {
 
 	tasks.set("replaceBuildtime", {
 		options: {
-			pattern: "/resources/sap/ui/{Global,core/Core}.js"
+			pattern: "/resources/sap/ui/Global.js"
 		}
 	});
 
@@ -50,8 +49,8 @@ export default function({project, taskUtil, getTask}) {
 					return `!/resources/${pattern}`;
 				}));
 			}
-			const generateJsdocTask = await getTask("generateJsdoc");
-			return generateJsdocTask.task({
+
+			return getTask("generateJsdoc").task({
 				workspace,
 				dependencies,
 				taskUtil,
@@ -74,7 +73,7 @@ export default function({project, taskUtil, getTask}) {
 
 	// Support rules should not be minified to have readable code in the Support Assistant
 	const minificationPattern = ["/resources/**/*.js", "!**/*.support.js"];
-	if (project.getSpecVersion().gte("2.6")) {
+	if (["2.6"].includes(project.getSpecVersion())) {
 		const minificationExcludes = project.getMinificationExcludes();
 		if (minificationExcludes.length) {
 			enhancePatternWithExcludes(minificationPattern, minificationExcludes, "/resources/");
@@ -88,8 +87,7 @@ export default function({project, taskUtil, getTask}) {
 	});
 
 	tasks.set("generateLibraryManifest", {});
-
-	tasks.set("enhanceManifest", {});
+	tasks.set("generateManifestBundle", {});
 
 	const bundles = project.getBundles();
 	const existingBundleDefinitionNames =
@@ -106,8 +104,6 @@ export default function({project, taskUtil, getTask}) {
 				skipBundles: existingBundleDefinitionNames
 			}
 		});
-	} else {
-		tasks.set("generateComponentPreload", {taskFunction: null});
 	}
 
 	tasks.set("generateLibraryPreload", {
@@ -121,13 +117,9 @@ export default function({project, taskUtil, getTask}) {
 		tasks.set("generateBundle", {
 			requiresDependencies: true,
 			taskFunction: async ({workspace, dependencies, taskUtil, options}) => {
-				const generateBundleTask = await getTask("generateBundle");
-				// Async resolve default values for bundle definitions and options
-				const bundlesDefaults = await enhanceBundlesWithDefaults(bundles, taskUtil.getProject());
-
-				return bundlesDefaults.reduce(function(sequence, bundle) {
+				return bundles.reduce(function(sequence, bundle) {
 					return sequence.then(function() {
-						return generateBundleTask.task({
+						return getTask("generateBundle").task({
 							workspace,
 							dependencies,
 							taskUtil,
@@ -141,8 +133,6 @@ export default function({project, taskUtil, getTask}) {
 				}, Promise.resolve());
 			}
 		});
-	} else {
-		tasks.set("generateBundle", {taskFunction: null});
 	}
 
 	tasks.set("buildThemes", {
@@ -156,20 +146,16 @@ export default function({project, taskUtil, getTask}) {
 		}
 	});
 
-	if (project.isFrameworkProject()) {
-		tasks.set("generateThemeDesignerResources", {
-			requiresDependencies: true,
-			options: {
-				version: project.getVersion()
-			}
-		});
-	} else {
-		tasks.set("generateThemeDesignerResources", {taskFunction: null});
-	}
+	tasks.set("generateThemeDesignerResources", {
+		requiresDependencies: true,
+		options: {
+			version: project.getVersion()
+		}
+	});
 
 	tasks.set("generateResourcesJson", {
 		requiresDependencies: true
 	});
 
 	return tasks;
-}
+};
