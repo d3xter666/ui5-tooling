@@ -8,7 +8,7 @@
  * @param {object} parameters.taskUtil
  * @param {Function} parameters.getTask
  */
-export default function({project, taskUtil, getTask}) {
+module.exports = function({project, taskUtil, getTask}) {
 	const tasks = new Map();
 	tasks.set("replaceCopyright", {
 		options: {
@@ -35,17 +35,13 @@ export default function({project, taskUtil, getTask}) {
 		}
 	});
 
-	if (project.isFrameworkProject()) {
-		tasks.set("generateThemeDesignerResources", {
-			requiresDependencies: true,
-			options: {
-				version: project.getVersion()
-			}
-		});
-	} else {
-		tasks.set("generateThemeDesignerResources", {taskFunction: null});
-	}
+	tasks.set("generateThemeDesignerResources", {
+		requiresDependencies: true,
+		options: {
+			version: project.getVersion()
+		}
+	});
 
 	tasks.set("generateResourcesJson", {requiresDependencies: true});
 	return tasks;
-}
+};
