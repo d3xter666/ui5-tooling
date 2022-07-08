@@ -1,3 +1,5 @@
+const log = require("@ui5/logger").getLogger("build:helpers:composeTaskList");
+
 /**
  * Creates the list of tasks to be executed by the build process
  *
@@ -7,17 +9,22 @@
  *
  * @private
  * @param {string[]} allTasks
- * @param {@ui5/project/build/ProjectBuilder~BuildConfiguration} buildConfig
- * 			Build configuration
- * @returns {Array} List of tasks to be executed
+ * @param {object} parameters
+ * @param {boolean} parameters.selfContained
+ *			True if a the build should be self-contained or false for prelead build bundles
+ * @param {boolean} parameters.jsdoc True if a JSDoc build should be executed
+ * @param {Array} parameters.includedTasks Task list to be included from build
+ * @param {Array} parameters.excludedTasks Task list to be excluded from build
+ * @returns {Array} Return a task list for the builder
  */
-export default function composeTaskList(allTasks, {selfContained, jsdoc, includedTasks, excludedTasks}) {
+module.exports = function composeTaskList(allTasks, {selfContained, jsdoc, includedTasks, excludedTasks}) {
 	let selectedTasks = allTasks.reduce((list, key) => {
 		list[key] = true;
 		return list;
 	}, {});
 
 	// Exclude non default tasks
+	selectedTasks.generateManifestBundle = false;
 	selectedTasks.generateStandaloneAppBundle = false;
 	selectedTasks.transformBootstrapHtml = false;
 	selectedTasks.generateJsdoc = false;
@@ -45,7 +52,6 @@ export default function composeTaskList(allTasks, {selfContained, jsdoc, include
 		selectedTasks.generateJsdoc = true;
 		selectedTasks.executeJsdocSdkTransformation = true;
 		selectedTasks.generateApiIndex = true;
-		selectedTasks.generateVersionInfo = true;
 
 		// Include theme build as required for SDK
 		selectedTasks.buildThemes = true;
@@ -59,6 +65,7 @@ export default function composeTaskList(allTasks, {selfContained, jsdoc, include
 		selectedTasks.generateLibraryManifest = false;
 		selectedTasks.minify = false;
 		selectedTasks.generateFlexChangesBundle = false;
+		selectedTasks.generateManifestBundle = false;
 	}
 
 	// Exclude tasks
@@ -72,6 +79,8 @@ export default function composeTaskList(allTasks, {selfContained, jsdoc, include
 		}
 		if (selectedTasks[taskName] === true) {
 			selectedTasks[taskName] = false;
+		} else if (typeof selectedTasks[taskName] === "undefined") {
+			log.warn(`Unable to exclude task '${taskName}': Task is unknown`);
 		}
 	}
 
@@ -86,6 +95,8 @@ export default function composeTaskList(allTasks, {selfContained, jsdoc, include
 		}
 		if (selectedTasks[taskName] === false) {
 			selectedTasks[taskName] = true;
+		} else if (typeof selectedTasks[taskName] === "undefined") {
+			log.warn(`Unable to include task '${taskName}': Task is unknown`);
 		}
 	}
 
@@ -93,4 +104,4 @@ export default function composeTaskList(allTasks, {selfContained, jsdoc, include
 	selectedTasks = Object.keys(selectedTasks).filter((task) => selectedTasks[task]);
 
 	return selectedTasks;
-}
+};
