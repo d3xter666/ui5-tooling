@@ -1,6 +1,7 @@
-import test from "ava";
-import sinon from "sinon";
-import application from "../../../../lib/build/definitions/application.js";
+const test = require("ava");
+const sinon = require("sinon");
+
+const application = require("../../../../lib/build/definitions/application");
 
 function emptyarray() {
 	return [];
@@ -14,12 +15,7 @@ function getMockProject() {
 		getPropertiesFileSourceEncoding: () => "UTF-412",
 		getCopyright: () => "copyright",
 		getVersion: () => "version",
-		getSpecVersion: () => {
-			return {
-				toString: () => "2.6",
-				gte: () => true
-			};
-		},
+		getSpecVersion: () => "2.6",
 		getMinificationExcludes: emptyarray,
 		getComponentPreloadPaths: emptyarray,
 		getComponentPreloadNamespaces: emptyarray,
@@ -31,18 +27,17 @@ function getMockProject() {
 }
 
 test.beforeEach((t) => {
-	t.context.project = getMockProject();
 	t.context.taskUtil = {
-		getProject: sinon.stub().returns(t.context.project),
 		isRootProject: sinon.stub().returns(true),
 		getBuildOption: sinon.stub(),
 		getInterface: sinon.stub()
 	};
 
+	t.context.project = getMockProject();
 	t.context.getTask = sinon.stub();
 });
 
-test("Standard build", (t) => {
+test("Standard build", async (t) => {
 	const {project, taskUtil, getTask} = t.context;
 	const tasks = application({
 		project, taskUtil, getTask
@@ -72,8 +67,8 @@ test("Standard build", (t) => {
 				]
 			}
 		},
-		enhanceManifest: {},
 		generateFlexChangesBundle: {},
+		generateManifestBundle: {},
 		generateComponentPreload: {
 			options: {
 				namespaces: ["project/b"],
@@ -85,9 +80,6 @@ test("Standard build", (t) => {
 			requiresDependencies: true
 		},
 		transformBootstrapHtml: {},
-		generateBundle: {
-			taskFunction: null
-		},
 		generateVersionInfo: {
 			requiresDependencies: true,
 			options: {
@@ -111,14 +103,9 @@ test("Standard build", (t) => {
 	t.is(taskUtil.getBuildOption.callCount, 0, "taskUtil#getBuildOption has not been called");
 });
 
-test("Standard build with legacy spec version", (t) => {
+test("Standard build with legacy spec version", async (t) => {
 	const {project, taskUtil, getTask} = t.context;
-	project.getSpecVersion = () => {
-		return {
-			toString: () => "0.1",
-			gte: () => false
-		};
-	};
+	project.getSpecVersion = () => "0.1";
 	const generateBundleTaskStub = sinon.stub();
 	getTask.returns({
 		task: generateBundleTaskStub
@@ -152,8 +139,8 @@ test("Standard build with legacy spec version", (t) => {
 				]
 			}
 		},
-		enhanceManifest: {},
 		generateFlexChangesBundle: {},
+		generateManifestBundle: {},
 		generateComponentPreload: {
 			options: {
 				namespaces: ["project/b"],
@@ -165,9 +152,6 @@ test("Standard build with legacy spec version", (t) => {
 			requiresDependencies: true
 		},
 		transformBootstrapHtml: {},
-		generateBundle: {
-			taskFunction: null
-		},
 		generateVersionInfo: {
 			requiresDependencies: true,
 			options: {
@@ -201,14 +185,12 @@ test("Custom bundles", async (t) => {
 					"project/b/sectionsA/",
 					"!project/b/sectionsA/section2**",
 				]
-			}]
+			}],
+			sort: true
 		},
 		bundleOptions: {
 			optimize: true,
-			usePredefineCalls: true,
-			addTryCatchRestartWrapper: false,
-			decorateBootstrapModule: true,
-			numberOfParts: 1,
+			usePredefinedCalls: true
 		}
 	}, {
 		bundleDefinition: {
@@ -220,14 +202,12 @@ test("Custom bundles", async (t) => {
 					"project/b/sectionsB/",
 					"!project/b/sectionsB/section2**",
 				]
-			}]
+			}],
+			sort: true
 		},
 		bundleOptions: {
 			optimize: false,
-			usePredefineCalls: true,
-			addTryCatchRestartWrapper: false,
-			decorateBootstrapModule: true,
-			numberOfParts: 1,
+			usePredefinedCalls: true
 		}
 	}];
 
@@ -265,8 +245,8 @@ test("Custom bundles", async (t) => {
 				]
 			}
 		},
-		enhanceManifest: {},
 		generateFlexChangesBundle: {},
+		generateManifestBundle: {},
 		generateComponentPreload: {
 			options: {
 				namespaces: ["project/b"],
@@ -330,20 +310,13 @@ test("Custom bundles", async (t) => {
 					filters: [
 						"project/b/sectionsA/",
 						"!project/b/sectionsA/section2**",
-					],
-					declareRawModules: false,
-					renderer: false,
-					resolve: false,
-					resolveConditional: false,
-					sort: true,
-				}]
+					]
+				}],
+				sort: true
 			},
 			bundleOptions: {
 				optimize: true,
-				usePredefineCalls: true,
-				addTryCatchRestartWrapper: false,
-				decorateBootstrapModule: true,
-				numberOfParts: 1,
+				usePredefinedCalls: true
 			}
 		}
 	}, "generateBundle task got called with correct arguments");
@@ -361,26 +334,19 @@ test("Custom bundles", async (t) => {
 					filters: [
 						"project/b/sectionsB/",
 						"!project/b/sectionsB/section2**",
-					],
-					declareRawModules: false,
-					renderer: false,
-					resolve: false,
-					resolveConditional: false,
-					sort: true,
-				}]
+					]
+				}],
+				sort: true
 			},
 			bundleOptions: {
 				optimize: false,
-				usePredefineCalls: true,
-				addTryCatchRestartWrapper: false,
-				decorateBootstrapModule: true,
-				numberOfParts: 1,
+				usePredefinedCalls: true
 			}
 		}
 	}, "generateBundle task got called with correct arguments");
 });
 
-test("Minification excludes", (t) => {
+test("Minification excludes", async (t) => {
 	const {project, taskUtil, getTask} = t.context;
 	project.getMinificationExcludes = () => ["**.html"];
 
@@ -400,14 +366,9 @@ test("Minification excludes", (t) => {
 	}, "Correct minify task definition");
 });
 
-test("Minification excludes not applied for legacy specVersion", (t) => {
+test("Minification excludes not applied for legacy specVersion", async (t) => {
 	const {project, taskUtil, getTask} = t.context;
-	project.getSpecVersion = () => {
-		return {
-			toString: () => "2.5",
-			gte: () => false
-		};
-	};
+	project.getSpecVersion = () => "2.5";
 	project.getMinificationExcludes = () => ["**.html"];
 
 	const tasks = application({
@@ -425,7 +386,7 @@ test("Minification excludes not applied for legacy specVersion", (t) => {
 	}, "Correct minify task definition");
 });
 
-test("generateComponentPreload with custom paths, excludes and custom bundle", (t) => {
+test("generateComponentPreload with custom paths, excludes and custom bundle", async (t) => {
 	const {project, taskUtil, getTask} = t.context;
 	project.getBundles = () => [{
 		bundleDefinition: {
@@ -437,14 +398,12 @@ test("generateComponentPreload with custom paths, excludes and custom bundle", (
 					"project/b/sectionsA/",
 					"!project/b/sectionsA/section2**",
 				]
-			}]
+			}],
+			sort: true
 		},
 		bundleOptions: {
 			optimize: true,
-			usePredefineCalls: true,
-			addTryCatchRestartWrapper: false,
-			decorateBootstrapModule: true,
-			numberOfParts: 1,
+			usePredefinedCalls: true
 		}
 	}];
 
@@ -474,7 +433,7 @@ test("generateComponentPreload with custom paths, excludes and custom bundle", (
 	}, "Correct generateComponentPreload task definition");
 });
 
-test("generateComponentPreload with custom namespaces and excludes", (t) => {
+test("generateComponentPreload with custom namespaces and excludes", async (t) => {
 	const {project, taskUtil, getTask} = t.context;
 	project.getComponentPreloadNamespaces = () => [
 		"project/b/componentA",
@@ -500,7 +459,7 @@ test("generateComponentPreload with custom namespaces and excludes", (t) => {
 	}, "Correct generateComponentPreload task definition");
 });
 
-test("generateComponentPreload with excludes", (t) => {
+test("generateComponentPreload with excludes", async (t) => {
 	const {project, taskUtil, getTask} = t.context;
 	project.getComponentPreloadExcludes = () => ["project/b/componentA/dir/**"];
 

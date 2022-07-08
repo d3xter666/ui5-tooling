@@ -1,10 +1,9 @@
-import test from "ava";
-import sinon from "sinon";
-import esmock from "esmock";
-import path from "node:path";
-import {graphFromObject} from "../../../../lib/graph/graph.js";
-
-const __dirname = import.meta.dirname;
+const test = require("ava");
+const sinon = require("sinon");
+const mock = require("mock-require");
+const path = require("path");
+const logger = require("@ui5/logger");
+const generateProjectGraph = require("../../../../lib/generateProjectGraph");
 
 const applicationAPath = path.join(__dirname, "..", "..", "..", "fixtures", "application.a");
 const libraryEPath = path.join(__dirname, "..", "..", "..", "fixtures", "library.e");
@@ -12,19 +11,18 @@ const libraryFPath = path.join(__dirname, "..", "..", "..", "fixtures", "library
 const libraryGPath = path.join(__dirname, "..", "..", "..", "fixtures", "library.g");
 const libraryDDependerPath = path.join(__dirname, "..", "..", "..", "fixtures", "library.d-depender");
 
-test.beforeEach(async (t) => {
+test.beforeEach((t) => {
 	t.context.log = {
 		warn: sinon.stub()
 	};
-	t.context.composeProjectList = await esmock("../../../../lib/build/helpers/composeProjectList", {
-		"@ui5/logger": {
-			getLogger: sinon.stub().withArgs("build:helpers:composeProjectList").returns(t.context.log)
-		}
-	});
+	sinon.stub(logger, "getLogger").callThrough()
+		.withArgs("build:helpers:composeProjectList").returns(t.context.log);
+	t.context.composeProjectList = mock.reRequire("../../../../lib/build/helpers/composeProjectList");
 });
 
 test.afterEach.always((t) => {
 	sinon.restore();
+	mock.stopAll();
 });
 
 test.serial("_getFlattenedDependencyTree", async (t) => {
@@ -80,7 +78,7 @@ test.serial("_getFlattenedDependencyTree", async (t) => {
 			}]
 		}]
 	};
-	const graph = await graphFromObject({dependencyTree: tree});
+	const graph = await generateProjectGraph.usingObject({dependencyTree: tree});
 
 	t.deepEqual(await _getFlattenedDependencyTree(graph), {
 		"library.e": ["library.d", "library.a", "library.b", "library.c"],
@@ -97,8 +95,7 @@ async function assertCreateDependencyLists(t, {
 	includeDependency, includeDependencyRegExp, includeDependencyTree,
 	excludeDependency, excludeDependencyRegExp, excludeDependencyTree,
 	defaultIncludeDependency, defaultIncludeDependencyRegExp, defaultIncludeDependencyTree,
-	expectedIncludedDependencies, expectedExcludedDependencies,
-	expectedLogWarnCallCount = 0
+	expectedIncludedDependencies, expectedExcludedDependencies
 }) {
 	const tree = { // Does not reflect actual dependencies in fixtures
 		id: "application.a.id",
@@ -162,7 +159,7 @@ async function assertCreateDependencyLists(t, {
 		}]
 	};
 
-	const graph = await graphFromObject({dependencyTree: tree});
+	const graph = await generateProjectGraph.usingObject({dependencyTree: tree});
 
 	const {includedDependencies, excludedDependencies} = await t.context.composeProjectList(graph, {
 		includeAllDependencies,
@@ -178,8 +175,6 @@ async function assertCreateDependencyLists(t, {
 	});
 	t.deepEqual(includedDependencies, expectedIncludedDependencies, "Correct set of included dependencies");
 	t.deepEqual(excludedDependencies, expectedExcludedDependencies, "Correct set of excluded dependencies");
-
-	t.is(t.context.log.warn.callCount, expectedLogWarnCallCount);
 }
 
 test.serial("createDependencyLists: only includes", async (t) => {
@@ -310,17 +305,4 @@ test.serial("createDependencyLists: defaultIncludeDependencyTree has lower prior
 		expectedIncludedDependencies: ["library.f", "library.d", "library.c"],
 		expectedExcludedDependencies: ["library.a", "library.b"]
 	});
-});
-
-test.serial("createDependencyLists: Could not find dependency", async (t) => {
-	await assertCreateDependencyLists(t, {
-		includeAllDependencies: false,
-		includeDependency: ["not.in.dependency.tree"],
-		expectedIncludedDependencies: [],
-		expectedExcludedDependencies: [],
-		expectedLogWarnCallCount: 1
-	});
-	t.deepEqual(t.context.log.warn.getCall(0).args, [
-		`Could not find dependency "not.in.dependency.tree" for project application.a. Dependency filter is ignored`
-	]);
 });
