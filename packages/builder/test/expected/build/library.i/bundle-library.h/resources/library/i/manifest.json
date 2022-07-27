@@ -4,13 +4,7 @@
     "id": "library.i",
     "type": "library",
     "embeds": [],
-    "i18n": {
-      "bundleUrl": "i18nf/custommessagebundle.properties",
-      "supportedLocales": [
-        ""
-      ],
-      "fallbackLocale": ""
-    },
+    "i18n": "(i18nPathRelativeToLibrary)",
     "applicationVersion": {
       "version": "1.0.0"
     },
