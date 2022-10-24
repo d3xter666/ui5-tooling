@@ -1,10 +1,11 @@
 import test from "ava";
 import path from "node:path";
+import {fileURLToPath} from "node:url";
 import sinonGlobal from "sinon";
 
 import {graphFromStaticFile} from "../../../lib/graph/graph.js";
 
-const __dirname = import.meta.dirname;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const applicationHPath = path.join(__dirname, "..", "..", "fixtures", "application.h");
 const applicationAPath = path.join(__dirname, "..", "..", "fixtures", "application.a");
@@ -104,7 +105,7 @@ test("rootConfiguration", async (t) => {
 test("rootConfig", async (t) => {
 	const projectGraph = await graphFromStaticFile({
 		cwd: applicationHPath,
-		rootConfigPath: "../application.a/ui5-test-configPath.yaml"
+		rootConfigPath: "ui5-test-configPath.yaml"
 	});
 	t.deepEqual(projectGraph.getRoot().getCustomConfiguration(), {
 		configPathTest: true
