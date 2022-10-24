@@ -1,7 +1,7 @@
 import test from "ava";
 import {createRequire} from "node:module";
 
-// Using CommonsJS require since JSON module imports are still experimental
+// Using CommonsJS require as importing json files causes an ExperimentalWarning
 const require = createRequire(import.meta.url);
 
 // package.json should be exported to allow reading version (e.g. from @ui5/cli)
@@ -13,18 +13,13 @@ test("export of package.json", (t) => {
 // Check number of definied exports
 test("check number of exports", (t) => {
 	const packageJson = require("@ui5/project/package.json");
-	t.is(Object.keys(packageJson.exports).length, 13);
+	t.is(Object.keys(packageJson.exports).length, 8);
 });
 
 // Public API contract (exported modules)
 [
-	"config/Configuration",
-	"specifications/Specification",
-	"specifications/SpecificationVersion",
 	"ui5Framework/Openui5Resolver",
 	"ui5Framework/Sapui5Resolver",
-	"ui5Framework/Sapui5MavenSnapshotResolver",
-	"ui5Framework/maven/CacheMode",
 	"validation/validator",
 	"validation/ValidationError",
 	"graph/ProjectGraph",
