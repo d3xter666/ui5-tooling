@@ -1,7 +1,7 @@
 import test from "ava";
 import {createRequire} from "node:module";
 
-// Using CommonsJS require since JSON module imports are still experimental
+// Using CommonsJS require as importing json files causes an ExperimentalWarning
 const require = createRequire(import.meta.url);
 
 // package.json should be exported to allow reading version (e.g. from @ui5/cli)
@@ -9,15 +9,16 @@ test("export of package.json", (t) => {
 	t.truthy(require("@ui5/builder/package.json").version);
 });
 
-// Check number of defined exports
+// Check number of definied exports
 test("check number of exports", (t) => {
 	const packageJson = require("@ui5/builder/package.json");
-	t.is(Object.keys(packageJson.exports).length, 9);
+	t.is(Object.keys(packageJson.exports).length, 8);
 });
 
 // Public API contract (exported modules)
 [
 	"processors/bundlers/flexChangesBundler",
+	"processors/bundlers/manifestBundler",
 	"processors/bundlers/moduleBundler",
 	"processors/jsdoc/apiIndexGenerator",
 	"processors/jsdoc/jsdocGenerator",
@@ -26,7 +27,6 @@ test("check number of exports", (t) => {
 	"processors/minifier",
 	"processors/libraryLessGenerator",
 	"processors/manifestCreator",
-	"processors/manifestEnhancer",
 	"processors/nonAsciiEscaper",
 	"processors/stringReplacer",
 	"processors/themeBuilder",
@@ -34,6 +34,7 @@ test("check number of exports", (t) => {
 	"tasks/bundlers/generateComponentPreload",
 	"tasks/bundlers/generateFlexChangesBundle",
 	"tasks/bundlers/generateLibraryPreload",
+	"tasks/bundlers/generateManifestBundle",
 	"tasks/bundlers/generateStandaloneAppBundle",
 	"tasks/bundlers/generateBundle",
 	"tasks/generateCachebusterInfo",
@@ -49,7 +50,6 @@ test("check number of exports", (t) => {
 	"tasks/replaceVersion",
 	"tasks/replaceBuildtime",
 	"tasks/transformBootstrapHtml",
-	"tasks/enhanceManifest",
 
 	// Internal modules (only to be used by @ui5/* packages)
 	{exportedSpecifier: "internal/taskRepository", mappedModule: "../../lib/tasks/taskRepository.js"},
@@ -74,37 +74,25 @@ test("check number of exports", (t) => {
 
 test("no export of processors/jsdoc/lib/ui5/plugin", async (t) => {
 	await t.throwsAsync(import("@ui5/builder/processors/jsdoc/lib/ui5/plugin"), {
-		code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
-		any: true
+		code: "ERR_PACKAGE_PATH_NOT_EXPORTED"
 	});
-	await t.throwsAsync(import("@ui5/builder/processors/jsdoc/lib/ui5/plugin.js"), {
-		code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
-		any: true
-	});
-});
-
-test("no export of tasks/utils/dotTheming", async (t) => {
-	await t.throwsAsync(import("@ui5/builder/tasks/utils/dotTheming"), {
-		code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
-		any: true
+	await t.throwsAsync(import("@ui5/builder/processors/jsdoc/lib/ui5/plugin.cjs"), {
+		code: "ERR_PACKAGE_PATH_NOT_EXPORTED"
 	});
 });
 
 test("no export of tasks/bundlers/utils/createModuleNameMapping", async (t) => {
 	await t.throwsAsync(import("@ui5/builder/tasks/bundlers/utils/createModuleNameMapping"), {
-		code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
-		any: true
+		code: "ERR_PACKAGE_PATH_NOT_EXPORTED"
 	});
 	await t.throwsAsync(import("@ui5/builder/tasks/bundlers/utils/createModuleNameMapping.js"), {
-		code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
-		any: true
+		code: "ERR_PACKAGE_PATH_NOT_EXPORTED"
 	});
 });
 
 test("no export of tasks/taskRepository", async (t) => {
 	// Should only be exported as @ui5/builder/internal/taskRepository
 	await t.throwsAsync(import("@ui5/builder/tasks/taskRepository"), {
-		code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
-		any: true
+		code: "ERR_PACKAGE_PATH_NOT_EXPORTED"
 	});
 });
