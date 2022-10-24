@@ -1,10 +1,11 @@
 import test from "ava";
 import path from "node:path";
+import {fileURLToPath} from "node:url";
 import sinonGlobal from "sinon";
 import esmock from "esmock";
 import ValidationError from "../../../lib/validation/ValidationError.js";
 
-const __dirname = import.meta.dirname;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const applicationAPath = path.join(__dirname, "..", "..", "fixtures", "application.a");
 const applicationBPath = path.join(__dirname, "..", "..", "fixtures", "application.b");
@@ -23,11 +24,10 @@ test.beforeEach(async (t) => {
 	const sinon = t.context.sinon = sinonGlobal.createSandbox();
 
 	t.context.log = {
-		error: sinon.stub(),
 		warn: sinon.stub(),
-		info: sinon.stub(),
 		verbose: sinon.stub(),
-		silly: sinon.stub(),
+		error: sinon.stub(),
+		info: sinon.stub(),
 		isLevelEnabled: () => true
 	};
 
@@ -81,8 +81,8 @@ test("Application Cycle A: Traverse project graph breadth first with cycles", as
 	t.is(callbackStub.callCount, 4, "Four projects have been visited");
 
 	t.is(error.message,
-		"Detected cyclic dependency chain: *application.cycle.a* -> component.cycle.a " +
-		"-> *application.cycle.a*",
+		"Detected cyclic dependency chain: application.cycle.a* -> component.cycle.a " +
+		"-> application.cycle.a*",
 		"Threw with expected error message");
 
 	const callbackCalls = callbackStub.getCalls().map((call) => call.args[0].project.getName());
@@ -143,8 +143,8 @@ test("Application Cycle A: Traverse project graph depth first with cycles", asyn
 	t.is(callbackStub.callCount, 0, "Zero projects have been visited");
 
 	t.is(error.message,
-		"Detected cyclic dependency chain: *application.cycle.a* -> component.cycle.a " +
-		"-> *application.cycle.a*",
+		"Detected cyclic dependency chain: application.cycle.a* -> component.cycle.a " +
+		"-> application.cycle.a*",
 		"Threw with expected error message");
 });
 
@@ -157,8 +157,8 @@ test("Application Cycle B: Traverse project graph depth first with cycles", asyn
 	t.is(callbackStub.callCount, 0, "Zero projects have been visited");
 
 	t.is(error.message,
-		"Detected cyclic dependency chain: application.cycle.b -> *module.d* " +
-		"-> module.e -> *module.d*",
+		"Detected cyclic dependency chain: application.cycle.b -> module.d* " +
+		"-> module.e -> module.d*",
 		"Threw with expected error message");
 });
 
@@ -312,13 +312,13 @@ test("Missing configuration file for root project", async (t) => {
 	const tree = {
 		id: "application.a.id",
 		version: "1.0.0",
-		path: "/non-existent",
+		path: "non-existent",
 		dependencies: []
 	};
 	await t.throwsAsync(graphFromObject({dependencyTree: tree}),
 		{
 			message:
-				"Failed to create a UI5 project from module application.a.id at /non-existent. " +
+				"Failed to create a UI5 project from module application.a.id at non-existent. " +
 				"Make sure the path is correct and a project configuration is present or supplied."
 		},
 		"Rejected with error");
@@ -686,47 +686,47 @@ function getApplicationATree() {
 
 
 const applicationCycleATreeIncDeduped = {
-	id: "@ui5-internal/application.cycle.a",
+	id: "application.cycle.a",
 	version: "1.0.0",
-	path: path.join(cycleDepsBasePath, "@ui5-internal", "application.cycle.a"),
+	path: path.join(cycleDepsBasePath, "application.cycle.a"),
 	dependencies: [
 		{
-			id: "@ui5-internal/component.cycle.a",
+			id: "component.cycle.a",
 			version: "1.0.0",
-			path: path.join(cycleDepsBasePath, "@ui5-internal", "component.cycle.a"),
+			path: path.join(cycleDepsBasePath, "component.cycle.a"),
 			dependencies: [
 				{
-					id: "@ui5-internal/library.cycle.a",
+					id: "library.cycle.a",
 					version: "1.0.0",
-					path: path.join(cycleDepsBasePath, "@ui5-internal", "library.cycle.a"),
+					path: path.join(cycleDepsBasePath, "library.cycle.a"),
 					dependencies: [
 						{
-							id: "@ui5-internal/component.cycle.a",
+							id: "component.cycle.a",
 							version: "1.0.0",
-							path: path.join(cycleDepsBasePath, "@ui5-internal", "component.cycle.a"),
+							path: path.join(cycleDepsBasePath, "component.cycle.a"),
 							dependencies: [],
 							deduped: true
 						}
 					]
 				},
 				{
-					id: "@ui5-internal/library.cycle.b",
+					id: "library.cycle.b",
 					version: "1.0.0",
-					path: path.join(cycleDepsBasePath, "@ui5-internal", "library.cycle.b"),
+					path: path.join(cycleDepsBasePath, "library.cycle.b"),
 					dependencies: [
 						{
-							id: "@ui5-internal/component.cycle.a",
+							id: "component.cycle.a",
 							version: "1.0.0",
-							path: path.join(cycleDepsBasePath, "@ui5-internal", "component.cycle.a"),
+							path: path.join(cycleDepsBasePath, "component.cycle.a"),
 							dependencies: [],
 							deduped: true
 						}
 					]
 				},
 				{
-					id: "@ui5-internal/application.cycle.a",
+					id: "application.cycle.a",
 					version: "1.0.0",
-					path: path.join(cycleDepsBasePath, "@ui5-internal", "application.cycle.a"),
+					path: path.join(cycleDepsBasePath, "application.cycle.a"),
 					dependencies: [],
 					deduped: true
 				}
@@ -736,24 +736,24 @@ const applicationCycleATreeIncDeduped = {
 };
 
 const applicationCycleBTreeIncDeduped = {
-	id: "@ui5-internal/application.cycle.b",
+	id: "application.cycle.b",
 	version: "1.0.0",
-	path: path.join(cycleDepsBasePath, "@ui5-internal", "application.cycle.b"),
+	path: path.join(cycleDepsBasePath, "application.cycle.b"),
 	dependencies: [
 		{
-			id: "@ui5-internal/module.d",
+			id: "module.d",
 			version: "1.0.0",
-			path: path.join(cycleDepsBasePath, "@ui5-internal", "module.d"),
+			path: path.join(cycleDepsBasePath, "module.d"),
 			dependencies: [
 				{
-					id: "@ui5-internal/module.e",
+					id: "module.e",
 					version: "1.0.0",
-					path: path.join(cycleDepsBasePath, "@ui5-internal", "module.e"),
+					path: path.join(cycleDepsBasePath, "module.e"),
 					dependencies: [
 						{
-							id: "@ui5-internal/module.d",
+							id: "module.d",
 							version: "1.0.0",
-							path: path.join(cycleDepsBasePath, "@ui5-internal", "module.d"),
+							path: path.join(cycleDepsBasePath, "module.d"),
 							dependencies: [],
 							deduped: true
 						}
@@ -762,19 +762,19 @@ const applicationCycleBTreeIncDeduped = {
 			]
 		},
 		{
-			id: "@ui5-internal/module.e",
+			id: "module.e",
 			version: "1.0.0",
-			path: path.join(cycleDepsBasePath, "@ui5-internal", "module.e"),
+			path: path.join(cycleDepsBasePath, "module.e"),
 			dependencies: [
 				{
-					id: "@ui5-internal/module.d",
+					id: "module.d",
 					version: "1.0.0",
-					path: path.join(cycleDepsBasePath, "@ui5-internal", "module.d"),
+					path: path.join(cycleDepsBasePath, "module.d"),
 					dependencies: [
 						{
-							id: "@ui5-internal/module.e",
+							id: "module.e",
 							version: "1.0.0",
-							path: path.join(cycleDepsBasePath, "@ui5-internal", "module.e"),
+							path: path.join(cycleDepsBasePath, "module.e"),
 							dependencies: [],
 							deduped: true
 						}
@@ -1655,8 +1655,7 @@ test("rootConfig", async (t) => {
 	const {graphFromObject} = t.context;
 	const projectGraph = await graphFromObject({
 		dependencyTree: getApplicationATree(),
-		cwd: applicationAPath,
-		rootConfigPath: "ui5-test-configPath.yaml",
+		rootConfigPath: "ui5-test-configPath.yaml"
 	});
 	t.deepEqual(projectGraph.getRoot().getCustomConfiguration(), {
 		configPathTest: true
