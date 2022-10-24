@@ -1,2 +1,1 @@
-export default () => "extension module";
-export function determineRequiredDependencies () { return "required dependencies function" };
+export default "extension module";
