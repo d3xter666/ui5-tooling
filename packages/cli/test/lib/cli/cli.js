@@ -4,8 +4,6 @@ import esmock from "esmock";
 import {fileURLToPath} from "node:url";
 
 test.beforeEach(async (t) => {
-	t.context.originalNodeEnv = process.env.NODE_ENV;
-
 	t.context.updateNotifierNotify = sinon.stub();
 	t.context.updateNotifier = sinon.stub().returns({
 		notify: t.context.updateNotifierNotify
@@ -71,7 +69,6 @@ test.beforeEach(async (t) => {
 test.afterEach.always((t) => {
 	sinon.restore();
 	esmock.purge(t.context.cli);
-	process.env.NODE_ENV = t.context.originalNodeEnv;
 });
 
 test.serial("CLI", async (t) => {
@@ -83,9 +80,6 @@ test.serial("CLI", async (t) => {
 	const pkg = {
 		version: "0.0.0-test"
 	};
-
-	// Remove NODE_ENV=test to allow execution of update-notifier
-	delete process.env.NODE_ENV;
 
 	await cli(pkg);
 
@@ -105,12 +99,12 @@ test.serial("CLI", async (t) => {
 
 	t.is(setVersion.callCount, 1);
 	t.deepEqual(setVersion.getCall(0).args, [
-		`0.0.0-test (from ${fileURLToPath(new URL("../../../bin/ui5.cjs", import.meta.url))})`
+		`0.0.0-test (from ${fileURLToPath(new URL("../../../bin/ui5.js", import.meta.url))})`
 	]);
 
 	t.is(yargsInstance.version.callCount, 1);
 	t.deepEqual(yargsInstance.version.getCall(0).args, [
-		`0.0.0-test (from ${fileURLToPath(new URL("../../../bin/ui5.cjs", import.meta.url))})`
+		`0.0.0-test (from ${fileURLToPath(new URL("../../../bin/ui5.js", import.meta.url))})`
 	]);
 
 	t.is(yargsInstance.scriptName.callCount, 1);
@@ -148,18 +142,4 @@ test.serial("CLI", async (t) => {
 		yargsInstance.wrap,
 		argvGetter
 	);
-});
-
-test.serial("CLI (NODE_ENV=test disables update-notifier)", async (t) => {
-	const {
-		cli, updateNotifier
-	} = t.context;
-
-	const pkg = {
-		version: "0.0.0-test"
-	};
-
-	await cli(pkg);
-
-	t.is(updateNotifier.callCount, 0);
 });
