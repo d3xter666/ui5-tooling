@@ -348,3 +348,21 @@ sap.ui.define(["Bar"], function(Bar){
     }
 });
 ```
+
+
+#### Multiple variable declarations: Syntax.ObjectPattern, Syntax.VariableDeclaration, Syntax.ArrowFunctionExpression
+
+**⛔️ Not supported:**
+```javascript
+({a} /* Syntax.ObjectPattern */, b) => { // Syntax.ArrowFunctionExpression
+    console.log(a);
+    var { b : a } = { b }; // Syntax.VariableDeclaration
+    console.log(a);
+}
+```
+
+The variable 'a' has couple definitions:
+- as (destructured) function argument
+- as (destructured and renamed) variable declaration
+
+✅ JSDoc analyzes only variables with a single definition. The cases like the one in the sample are simply ignored.
