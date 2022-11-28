@@ -48,7 +48,7 @@ jobs:
     - name: ls
       run: ls -l
     - name: ls 2
-      run: ls ../ -l
+      run: ls ./site/ -l
     - name: Copy the API to gh-pages
       run: |
         cp -R ./site/api ./gh-pages/$MIKE_VERSION/api
