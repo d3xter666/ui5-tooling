@@ -4,8 +4,7 @@ const SPEC_VERSION_PATTERN = /^\d+\.\d+$/;
 const SUPPORTED_VERSIONS = [
 	"0.1", "1.0", "1.1",
 	"2.0", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6",
-	"3.0", "3.1", "3.2",
-	"4.0"
+	"3.0"
 ];
 
 /**
@@ -64,8 +63,8 @@ class SpecificationVersion {
 	 * Test whether the instance's Specification Version falls into the provided range
 	 *
 	 * @public
-	 * @param {string} range [Semver]{@link https://www.npmjs.com/package/semver}-style version range,
-	 * for example <code>2.2 - 2.4</code> or <code>=3.0</code>
+@param {string} range [Semver]{@link https://www.npmjs.com/package/semver}-style version range,
+for example <code>2.2 - 2.4</code>
 	 * @returns {boolean} True if the instance's Specification Version falls into the provided range
 	 */
 	satisfies(range) {
@@ -264,27 +263,11 @@ class SpecificationVersion {
 		const comparator = new SpecificationVersion(specVersion);
 		return comparator.neq(testVersion);
 	}
-
-	/**
-	 * Creates an array of Specification Versions that match with the provided range. This is mainly used
-	 * for testing purposes. I.e. to execute identical tests for a range of specification versions.
-	 *
-	 * @public
-	 * @param {string} range [Semver]{@link https://www.npmjs.com/package/semver}-style version range,
-	 * for example <code>2.2 - 2.4</code> or <code>=3.0</code>
-	 * @returns {string[]} Array of versions that match the specified range
-	 */
-	static getVersionsForRange(range) {
-		return SUPPORTED_VERSIONS.filter((specVersion) => {
-			const comparator = new SpecificationVersion(specVersion);
-			return comparator.satisfies(range);
-		});
-	}
 }
 
 function getUnsupportedSpecVersionMessage(specVersion) {
 	return `Unsupported Specification Version ${specVersion} defined. Your UI5 CLI installation might be outdated. ` +
-		`For details, see https://ui5.github.io/cli/pages/Configuration/#specification-versions`;
+		`For details, see https://sap.github.io/ui5-tooling/pages/Configuration/#specification-versions`;
 }
 
 function getSemverCompatibleVersion(specVersion) {
