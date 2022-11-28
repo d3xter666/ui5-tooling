@@ -47,15 +47,11 @@ jobs:
       with:
         ref: gh-pages
         path: gh-pages
-    - name: ls
-      run: ls -l
-    - name: ls 2
-      run: ls ./site/ -l
     - name: Copy the API to gh-pages
       run: |
-        cp -R ./site/api ./gh-pages/$MIKE_VERSION/api
-        cp ./scripts/resources/custom404.html ./gh-pages/404.html
-    - name: Publish Docs
+        cp -R ./site/api ./gh-pages/$MIKE_VERSION/api 2>/dev/null
+        cp ./scripts/resources/custom404.html ./gh-pages/404.html 2>/dev/null
+    - name: Publish API
       run: |
         cd ./gh-pages
         git config --local user.email $GH_EMAIL
