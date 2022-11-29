@@ -50,9 +50,9 @@ jobs:
         path: gh-pages
     - name: Copy the API to gh-pages
       run: |
-        cp -R ./site/api ./gh-pages/$MIKE_VERSION/api 2>/dev/null || :
-        cp ./scripts/resources/custom404.html ./gh-pages/404.html 2>/dev/null || :
-    - name: Publish API
+        cp -R ./site/api ./gh-pages/$MIKE_VERSION/api
+        cp ./scripts/resources/custom404.html ./gh-pages/404.html
+    - name: Publish Docs
       run: |
         cd ./gh-pages
         git config --local user.email $GIT_COMMITTER_EMAIL
