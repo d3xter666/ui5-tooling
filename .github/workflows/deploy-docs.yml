@@ -45,6 +45,7 @@ jobs:
     - name: Checkout gh-pages
       uses: actions/checkout@v3
       with:
+        fetch-depth: 2
         ref: gh-pages
         path: gh-pages
     - name: Copy the API to gh-pages
