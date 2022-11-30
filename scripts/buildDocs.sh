@@ -10,6 +10,12 @@ if [[ -z "${MIKE_VERSION}" ]]; then
 	MIKE_ALIAS=latest
 fi
 
+# If not provided, set default values for building the docs
+if [[ -z "${GIT_COMMITTER_EMAIL}" ]]; then
+	GIT_COMMITTER_NAME="OpenUI5 Bot"
+	GIT_COMMITTER_EMAIL="openui5@sap.com"
+fi
+
 cd "$(dirname -- "$0")/.."
 
 echo "Changed directory to $(pwd)"
@@ -27,8 +33,25 @@ fi
 
 npm run generate-cli-doc
 
+# Setup Git config for mike & stash local settings to prevent overwrites
+LOCAL_GH_NAME=$(git config --default "" --get user.name --local)
+LOCAL_GH_EMAIL=$(git config --default "" --get user.email --local)
+RESET_GH_NAMES="${LOCAL_GH_NAME}${LOCAL_GH_EMAIL}"
+
+if [[ -z "${RESET_GH_NAMES}" ]]; then
+	echo "Setting temporary git local user.name and user.email ${GIT_COMMITTER_NAME}<${GIT_COMMITTER_EMAIL}>"
+	git config --local user.name $GIT_COMMITTER_NAME
+	git config --local user.email $GIT_COMMITTER_EMAIL
+fi
+
 # Build with MkDocs/Mike
 docker run --rm -v $(pwd):/docs $DOCKER_IMAGE mike deploy $MIKE_VERSION $MIKE_ALIAS --rebase --update-aliases
+
+if [[ -z "${RESET_GH_NAMES}" ]]; then
+	echo "Cleanup git --local records"
+	git config --local --unset user.name
+	git config --local --unset user.email
+fi
 
 npm run jsdoc-generate
 
