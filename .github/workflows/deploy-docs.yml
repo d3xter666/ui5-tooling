@@ -54,8 +54,8 @@ jobs:
     - name: Publish Docs
       run: |
         cd ./gh-pages
-        git config --local user.email $GH_EMAIL
-        git config --local user.name $GH_NAME
+        git config --local user.email $GIT_COMMITTER_EMAIL
+        git config --local user.name $GIT_COMMITTER_NAME
         git add .
         git commit -m "$(git log -1 --pretty=%B)"
         git push --force
