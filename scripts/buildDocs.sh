@@ -34,8 +34,8 @@ fi
 npm run generate-cli-doc
 
 # Setup Git config for mike & stash local settings to prevent overwrites
-LOCAL_GH_NAME=$(git config --default "" --get user.name --local)
-LOCAL_GH_EMAIL=$(git config --default "" --get user.email --local)
+LOCAL_GH_NAME=$(git config --default "" --local --get user.name)
+LOCAL_GH_EMAIL=$(git config --default "" --local --get user.email)
 RESET_GH_NAMES="${LOCAL_GH_NAME}${LOCAL_GH_EMAIL}"
 
 if [[ -z "${RESET_GH_NAMES}" ]]; then
