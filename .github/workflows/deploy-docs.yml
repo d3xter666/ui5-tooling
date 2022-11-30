@@ -24,8 +24,8 @@ jobs:
     - name: GitHub Configuration
       run: |
         git fetch origin gh-pages --depth=1
-        git config --local user.email $GIT_COMMITTER_NAME
-        git config --local user.name $GIT_COMMITTER_EMAIL
+        git config --local user.email $GIT_COMMITTER_EMAIL
+        git config --local user.name $GIT_COMMITTER_NAME
 
     - name: Build docs with Mike
       run: |
@@ -38,7 +38,7 @@ jobs:
     - name: Set /site ownership to current user
       run: sudo chown -R $(id -u):$(id -g) ./site
     - name: Build JSDoc
-      run: npm run jsdoc-generate
+      run: npm run jsdoc-generate-local
     - name: Build Schema
       run: npm run schema-generate
 
