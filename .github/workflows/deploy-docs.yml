@@ -22,7 +22,10 @@ jobs:
       run: npm ci
 
     - name: GitHub Configuration
-      run: git fetch origin gh-pages --depth=1
+      run: |
+        git fetch origin gh-pages --depth=1
+        git config --local user.email $GIT_COMMITTER_NAME
+        git config --local user.name $GIT_COMMITTER_EMAIL
 
     - name: Build docs with Mike
       run: |
