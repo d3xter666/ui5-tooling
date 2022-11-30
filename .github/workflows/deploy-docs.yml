@@ -11,8 +11,8 @@ jobs:
       MIKE_VERSION: v3
       MIKE_ALIAS: latest
       DOCKER_IMAGE: squidfunk/mkdocs-material-modified:8.5.9
-      GH_NAME: "OpenUI5 Bot"
-      GH_EMAIL: "openui5@sap.com"
+      GIT_COMMITTER_NAME: "OpenUI5 Bot"
+      GIT_COMMITTER_EMAIL: "openui5@sap.com"
 
     steps:
     - name: Checkout
@@ -22,10 +22,7 @@ jobs:
       run: npm ci
 
     - name: GitHub Configuration
-      run: |
-        git fetch origin gh-pages --depth=1
-        git config --local user.email $GH_EMAIL
-        git config --local user.name $GH_NAME
+      run: git fetch origin gh-pages --depth=1
 
     - name: Build docs with Mike
       run: |
@@ -49,8 +46,8 @@ jobs:
         path: gh-pages
     - name: Copy the API to gh-pages
       run: |
-        cp -R ./site/api ./gh-pages/$MIKE_VERSION/api 2>/dev/null || :
-        cp ./scripts/resources/custom404.html ./gh-pages/404.html 2>/dev/null || :
+        cp -R ./site/api ./gh-pages/$MIKE_VERSION/api
+        cp ./scripts/resources/custom404.html ./gh-pages/404.html
     - name: Publish Docs
       run: |
         cd ./gh-pages
