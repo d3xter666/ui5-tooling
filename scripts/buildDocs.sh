@@ -33,7 +33,7 @@ fi
 npm run generate-cli-doc
 
 # Build with MkDocs/Mike
-docker run --rm -v $(pwd):/docs --env GIT_COMMITTER_NAME=$GIT_COMMITTER_NAME --env GIT_COMMITTER_EMAIL=$GIT_COMMITTER_EMAIL $DOCKER_IMAGE mike deploy $MIKE_VERSION $MIKE_ALIAS --rebase --update-aliases
+docker run --rm -v $(pwd):/docs --env GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME}" --env GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL}" $DOCKER_IMAGE mike deploy $MIKE_VERSION $MIKE_ALIAS --rebase --update-aliases
 
 npm run jsdoc-generate
 

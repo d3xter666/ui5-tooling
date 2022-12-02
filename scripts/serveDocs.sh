@@ -2,7 +2,7 @@
 set -e
 
 # Store docker image name
-DOCKER_IMAGE=ui5-tooling/mkdocs-material:8.5.9
+DOCKER_IMAGE=ui5-tooling/mkdocs-material
 
 cd "$(dirname -- "$0")/.."
 
@@ -12,7 +12,7 @@ npm run generate-cli-doc
 
 # Build image if not existent
 if [[ "$(docker images -q $DOCKER_IMAGE 2> /dev/null)" == "" ]]; then
-  bash ./scripts/buildImage.sh
+  ./scripts/buildImage.sh
 fi
 
 docker run --rm -it -p 8000:8000 -v $(pwd):/docs $DOCKER_IMAGE
