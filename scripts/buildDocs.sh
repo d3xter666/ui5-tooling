@@ -3,8 +3,10 @@ set -e
 
 # Store docker image name
 DOCKER_IMAGE=ui5-tooling/mkdocs-material
-GIT_COMMITTER_NAME: "OpenUI5 Bot"
-GIT_COMMITTER_EMAIL: "openui5@sap.com"
+if [[ -z "${GIT_COMMITTER_NAME}" ]]; then
+	GIT_COMMITTER_NAME: "OpenUI5 Bot"
+	GIT_COMMITTER_EMAIL: "openui5@sap.com"
+fi
 
 # If not provided, set default values for building the docs
 if [[ -z "${MIKE_VERSION}" ]]; then
