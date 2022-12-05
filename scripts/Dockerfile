@@ -5,9 +5,3 @@ RUN pip install -e git+https://github.com/jimporter/mike.git@e77357960886f9d9bf2
 # Define env variables for mike
 ENV GIT_COMMITTER_NAME="OpenUI5 Bot"
 ENV GIT_COMMITTER_EMAIL="openui5@sap.com"
-
-# Overwrite ENTRYPOINT from squidfunk/mkdocs-material:8.5.9
-ENTRYPOINT [""]
-
-# Start mkdocs development server by default
-CMD [ "mkdocs", "serve", "--dev-addr=0.0.0.0:8000" ]

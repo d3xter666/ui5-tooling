@@ -15,4 +15,4 @@ if [[ "$(docker images -q $DOCKER_IMAGE 2> /dev/null)" == "" ]]; then
   ./scripts/buildImage.sh
 fi
 
-docker run --rm -it -p 8000:8000 -v $(pwd):/docs $DOCKER_IMAGE
+docker run --rm -it -p 8000:8000 -v $(pwd):/docs --entrypoint mike $DOCKER_IMAGE
