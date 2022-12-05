@@ -1,6 +1,6 @@
 FROM squidfunk/mkdocs-material:8.5.9
 
-RUN pip install mike
+# RUN pip install mike
 RUN pip install -e git+https://github.com/jimporter/mike.git@e77357960886f9d9bf2e6ecbc39c7ca6991a2179#egg=mike
 
 # Define env variables for mike
