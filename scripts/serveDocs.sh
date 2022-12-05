@@ -4,10 +4,6 @@ set -e
 # Store docker image name
 DOCKER_IMAGE=ui5-tooling/mkdocs-material
 
-cd "$(dirname -- "$0")/.."
-
-echo "Changed directory to $(pwd)"
-
 npm run generate-cli-doc
 
 # Build image if not existent

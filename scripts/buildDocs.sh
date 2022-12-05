@@ -15,9 +15,6 @@ if [[ -z "${MIKE_VERSION}" ]]; then
 	MIKE_ALIAS=latest
 fi
 
-cd "$(dirname -- "$0")/.."
-echo "Changed directory to $(pwd)"
-
 docker builder prune --force
 
 # Build image if not existent
