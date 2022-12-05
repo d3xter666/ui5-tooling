@@ -15,6 +15,9 @@ if [[ -z "${MIKE_VERSION}" ]]; then
 	MIKE_ALIAS=latest
 fi
 
+
+docker builder prune --force
+
 # Build image if not existent
 if [[ "$(docker images -q $DOCKER_IMAGE 2> /dev/null)" == "" ]]; then
   ./scripts/buildImage.sh
@@ -27,6 +30,16 @@ if [[ $MIKE_ALIAS ]]; then
 fi
 
 npm run generate-cli-doc
+
+
+
+docker run --rm -v $(pwd):/docs --entrypoint pip \
+	--env GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME}" --env GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL}"  \
+	$DOCKER_IMAGE list
+
+docker run --rm -v $(pwd):/docs --entrypoint pip \
+	--env GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME}" --env GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL}"  \
+	$DOCKER_IMAGE show mike
 
 # Build with MkDocs/Mike
 docker run --rm -v $(pwd):/docs --entrypoint mike \
