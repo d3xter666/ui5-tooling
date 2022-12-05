@@ -30,12 +30,6 @@ fi
 
 npm run generate-cli-doc
 
-echo "--------------->" $(pwd);
-
-# docker run --rm -v $(pwd):/docs --entrypoint ls \
-# 	--env GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME}" --env GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL}"  \
-# 	$DOCKER_IMAGE -l ./ && ls -l ./docs
-
 # Build with MkDocs/Mike
 docker run --rm -v $(pwd):/docs --entrypoint mike \
 	--env GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME}" --env GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL}"  \
