@@ -9,10 +9,16 @@ FROM squidfunk/mkdocs-material:8.5.9
 # git clone https://github.com/jimporter/mike.git && git checkout e77357960886f9d9bf2e6ecbc39c7ca6991a2179
 
 # RUN pip install mike
-# RUN pip install -e git+https://github.com/jimporter/mike.git@e77357960886f9d9bf2e6ecbc39c7ca6991a2179#egg=mike
-RUN git clone https://github.com/jimporter/mike.git && cd mike && git checkout e77357960886f9d9bf2e6ecbc39c7ca6991a2179
-RUN pip install -e ./mike
-RUN ls -l
+
+# RUN git clone https://github.com/jimporter/mike.git && cd mike && git checkout e77357960886f9d9bf2e6ecbc39c7ca6991a2179 && cd ..
+# RUN pip install -e ./mike
+# RUN ls -l
+
+RUN pip install -e git+https://github.com/jimporter/mike.git@e77357960886f9d9bf2e6ecbc39c7ca6991a2179#egg=mike
+
+RUN pip list
+
+RUN pip show mike
 
 # Define env variables for mike
 ENV GIT_COMMITTER_NAME="OpenUI5 Bot"

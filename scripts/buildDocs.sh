@@ -15,6 +15,8 @@ if [[ -z "${MIKE_VERSION}" ]]; then
 	MIKE_ALIAS=latest
 fi
 
+cd "$(dirname -- "$0")/.."
+echo "Changed directory to $(pwd)"
 
 docker builder prune --force
 
@@ -31,9 +33,11 @@ fi
 
 npm run generate-cli-doc
 
-docker run --rm -v $(pwd):/docs --entrypoint ls \
-	--env GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME}" --env GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL}"  \
-	$DOCKER_IMAGE -l ./ && ls -l ./docs
+echo "--------------->" $(pwd);
+
+# docker run --rm -v $(pwd):/docs --entrypoint ls \
+# 	--env GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME}" --env GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL}"  \
+# 	$DOCKER_IMAGE -l ./ && ls -l ./docs
 
 # Build with MkDocs/Mike
 docker run --rm -v $(pwd):/docs --entrypoint mike \
