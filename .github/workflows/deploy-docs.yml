@@ -33,7 +33,7 @@ jobs:
     - name: Set /site ownership to current user
       run: sudo chown -R $(id -u):$(id -g) ./site
     - name: Build JSDoc
-      run: npm run jsdoc-generate
+      run: npm run jsdoc-generate-local
     - name: Build Schema
       run: npm run schema-generate
 
