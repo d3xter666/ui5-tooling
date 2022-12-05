@@ -24,9 +24,6 @@ jobs:
     - name: GitHub Configuration
       run: git fetch origin gh-pages --depth=1
 
-    - name: Set /src ownership to current user
-      run: sudo chown -R $(id -u):$(id -g) ./src
-
     - name: Build docs with Mike
       run: ./scripts/buildDocs.sh
 
