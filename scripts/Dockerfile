@@ -20,6 +20,8 @@ RUN pip list
 
 RUN pip show mike
 
+RUN mike --version
+
 # Define env variables for mike
 ENV GIT_COMMITTER_NAME="OpenUI5 Bot"
 ENV GIT_COMMITTER_EMAIL="openui5@sap.com"

@@ -26,7 +26,8 @@ jobs:
 
     - name: Set /src ownership to current user
       run: |
-        mkdir ./src
+        ls -l ./
+        mkdir -p ./src
         sudo chown -R $(id -u):$(id -g) ./src
 
     - name: Build docs with Mike
