@@ -1,7 +1,10 @@
 FROM squidfunk/mkdocs-material:8.5.9
 
+RUN mkdir ./src
+RUN sudo chown -R $(id -u):$(id -g) ./src
+
 # RUN pip install mike
-RUN pip install -e git+https://github.com/jimporter/mike.git@e77357960886f9d9bf2e6ecbc39c7ca6991a2179#egg=mike
+RUN pip install -e git+https://github.com/jimporter/mike.git@e77357960886f9d9bf2e6ecbc39c7ca6991a2179#egg=mike --target ./src
 
 # Define env variables for mike
 ENV GIT_COMMITTER_NAME="OpenUI5 Bot"
