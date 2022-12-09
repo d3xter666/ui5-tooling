@@ -44,9 +44,7 @@ jobs:
         path: gh-pages
     - name: Copy the API & JSON Schem to gh-pages
       run: |
-        mkdir ./gh-pages/schema
-        mkdir ./gh-pages/$MIKE_VERSION/api
-        cp -R ./site/schema/ ./gh-pages/schema/ 2>/dev/null || :
+        cp -R ./site/schema ./gh-pages/schema 2>/dev/null || :
         cp -R ./site/api ./gh-pages/$MIKE_VERSION/api 2>/dev/null || :
         cp ./scripts/resources/custom404.html ./gh-pages/404.html
     - name: Publish Docs
