@@ -1,5 +1,6 @@
 import test from "ava";
 import path from "node:path";
+import {fileURLToPath} from "node:url";
 import sinon from "sinon";
 import Specification from "../../../../lib/specifications/Specification.js";
 import ProjectShim from "../../../../lib/specifications/extensions/ProjectShim.js";
@@ -8,7 +9,7 @@ function clone(obj) {
 	return JSON.parse(JSON.stringify(obj));
 }
 
-const __dirname = import.meta.dirname;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const nonExistingPath = path.join(__dirname, "..", "..", "..", "fixtures", "does-not-exist");
 const basicProjectShimInput = {
