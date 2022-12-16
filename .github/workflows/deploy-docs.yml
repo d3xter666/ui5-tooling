@@ -8,8 +8,8 @@ jobs:
     name: Build and Deploy
     runs-on: ubuntu-20.04
     env:
-      MIKE_VERSION: v3
-      MIKE_ALIAS: next
+      MIKE_VERSION: v2
+      MIKE_ALIAS: stable
       DOCKER_IMAGE: ui5-tooling/mkdocs-material
       GIT_COMMITTER_NAME: "OpenUI5 Bot"
       GIT_COMMITTER_EMAIL: "openui5@sap.com"
@@ -37,8 +37,6 @@ jobs:
 
     - name: Build JSDoc
       run: npm run jsdoc-generate
-    - name: Build Schema
-      run: npm run schema-generate
 
     - name: Checkout gh-pages
       uses: actions/checkout@v3
@@ -47,11 +45,8 @@ jobs:
         path: gh-pages
     - name: Copy the additional resources to gh-pages
       run: |
-        rm -rf ./gh-pages/schema
-        cp -R ./site/schema ./gh-pages/
         rm -rf ./gh-pages/$MIKE_VERSION/api
         cp -R ./site/api ./gh-pages/$MIKE_VERSION/
-        cp ./scripts/resources/custom404.html ./gh-pages/404.html
     - name: Publish Docs
       run: |
         cd ./gh-pages
