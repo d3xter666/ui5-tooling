@@ -55,7 +55,5 @@ jobs:
         git config --local user.email $GIT_COMMITTER_EMAIL
         git config --local user.name $GIT_COMMITTER_NAME
         git add .
-        echo "Files added"
         git commit --amend --no-edit
-        echo "Amended"
         git push --force
