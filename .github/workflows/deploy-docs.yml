@@ -2,7 +2,7 @@ name: Build and Deploy Docs
 on:
   push:
     branches:
-      - v2
+      - v2-docs-versioning
 jobs:
   build-and-deploy:
     name: Build and Deploy
