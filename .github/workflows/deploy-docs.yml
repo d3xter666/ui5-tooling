@@ -22,7 +22,9 @@ jobs:
       run: npm ci
 
     - name: Fetch gh-pages branch
-      run: git fetch origin gh-pages --depth=1
+      run: |
+        git fetch origin gh-pages --depth=1
+        git branch gh-pages origin/gh-pages
 
     - name: Set /site ownership to current user
       run: |
