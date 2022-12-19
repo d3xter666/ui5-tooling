@@ -22,7 +22,7 @@ jobs:
       run: npm ci
 
     - name: Fetch gh-pages branch
-      run: git fetch origin gh-pages --depth=1
+      run: git fetch origin gh-pages --depth=10
 
     - name: Set /site ownership to current user
       run: |
@@ -56,5 +56,5 @@ jobs:
         git config --local user.email $GIT_COMMITTER_EMAIL
         git config --local user.name $GIT_COMMITTER_NAME
         git add .
-        git commit -m "Test message"
+        git commit --amend --no-edit
         git push --force
