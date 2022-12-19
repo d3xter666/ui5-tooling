@@ -23,7 +23,7 @@ jobs:
 
     - name: Fetch gh-pages branch
       run: |
-        git fetch origin gh-pages
+        git fetch origin gh-pages --depth=0
         git branch gh-pages origin/gh-pages
 
     - name: Set /site ownership to current user
