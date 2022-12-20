@@ -1,7 +1,6 @@
 import test from "ava";
 import Ajv from "ajv";
 import ajvErrors from "ajv-errors";
-import SpecificationVersion from "../../../../../../lib/specifications/SpecificationVersion.js";
 import AjvCoverage from "../../../../../utils/AjvCoverage.js";
 import {_Validator as Validator} from "../../../../../../lib/validation/validator.js";
 import ValidationError from "../../../../../../lib/validation/ValidationError.js";
@@ -23,7 +22,7 @@ async function assertValidation(t, config, expectedErrors = undefined) {
 }
 
 test.before((t) => {
-	t.context.validator = new Validator({Ajv, ajvErrors, schemaName: "ui5"});
+	t.context.validator = new Validator({Ajv, ajvErrors});
 	t.context.ajvCoverage = new AjvCoverage(t.context.validator.ajv, {
 		includes: ["schema/specVersion/kind/extension.json"]
 	});
@@ -39,8 +38,7 @@ test.after.always((t) => {
 	};
 	t.context.ajvCoverage.verify(thresholds);
 });
-
-SpecificationVersion.getVersionsForRange(">=2.0").forEach((specVersion) => {
+["3.0", "2.6", "2.5", "2.4", "2.3", "2.2", "2.1", "2.0"].forEach((specVersion) => {
 	test(`Type project-shim (${specVersion})`, async (t) => {
 		await assertValidation(t, {
 			"specVersion": specVersion,
@@ -152,45 +150,5 @@ SpecificationVersion.getVersionsForRange(">=2.0").forEach((specVersion) => {
 				missingProperty: "metadata",
 			}
 		}]);
-	});
-});
-
-test("Legacy: Special characters in name (task)", async (t) => {
-	await assertValidation(t, {
-		"specVersion": "2.0",
-		"kind": "extension",
-		"type": "task",
-		"metadata": {
-			"name": "ä".repeat(81)
-		},
-		"task": {
-			"path": "task.js"
-		}
-	});
-});
-
-test("Legacy: Special characters in name (server-middleware)", async (t) => {
-	await assertValidation(t, {
-		"specVersion": "2.0",
-		"kind": "extension",
-		"type": "server-middleware",
-		"metadata": {
-			"name": "@my(middleware)"
-		},
-		"middleware": {
-			"path": "middleware.js"
-		}
-	});
-});
-
-test("Legacy: Special characters in name (project-shim)", async (t) => {
-	await assertValidation(t, {
-		"specVersion": "2.0",
-		"kind": "extension",
-		"type": "project-shim",
-		"metadata": {
-			"name": "my/(project)-shim"
-		},
-		"shims": {}
 	});
 });
