@@ -1,7 +1,6 @@
 import test from "ava";
 import Ajv from "ajv";
 import ajvErrors from "ajv-errors";
-import SpecificationVersion from "../../../../../../../lib/specifications/SpecificationVersion.js";
 import AjvCoverage from "../../../../../../utils/AjvCoverage.js";
 import {_Validator as Validator} from "../../../../../../../lib/validation/validator.js";
 import ValidationError from "../../../../../../../lib/validation/ValidationError.js";
@@ -16,11 +15,6 @@ async function assertValidation(t, config, expectedErrors = undefined) {
 		});
 		validationError.errors.forEach((error) => {
 			delete error.schemaPath;
-			if (error.params && Array.isArray(error.params.errors)) {
-				error.params.errors.forEach(($) => {
-					delete $.schemaPath;
-				});
-			}
 		});
 		t.deepEqual(validationError.errors, expectedErrors);
 	} else {
@@ -29,7 +23,7 @@ async function assertValidation(t, config, expectedErrors = undefined) {
 }
 
 test.before((t) => {
-	t.context.validator = new Validator({Ajv, ajvErrors, schemaName: "ui5"});
+	t.context.validator = new Validator({Ajv, ajvErrors});
 	t.context.ajvCoverage = new AjvCoverage(t.context.validator.ajv, {
 		includes: ["schema/specVersion/kind/extension/project-shim.json"]
 	});
@@ -46,7 +40,7 @@ test.after.always((t) => {
 	t.context.ajvCoverage.verify(thresholds);
 });
 
-SpecificationVersion.getVersionsForRange(">=2.0").forEach((specVersion) => {
+["3.0", "2.6", "2.5", "2.4", "2.3", "2.2", "2.1", "2.0"].forEach((specVersion) => {
 	test(`kind: extension / type: project-shim (${specVersion})`, async (t) => {
 		await assertValidation(t, {
 			"specVersion": specVersion,
@@ -128,79 +122,6 @@ SpecificationVersion.getVersionsForRange(">=2.0").forEach((specVersion) => {
 	});
 });
 
-SpecificationVersion.getVersionsForRange(">=3.0").forEach(function(specVersion) {
-	test(`Invalid extension name (specVersion ${specVersion})`, async (t) => {
-		await assertValidation(t, {
-			"specVersion": specVersion,
-			"kind": "extension",
-			"type": "project-shim",
-			"metadata": {
-				"name": "illegal/name"
-			},
-			"shims": {}
-		}, [{
-			dataPath: "/metadata/name",
-			keyword: "errorMessage",
-			message: `Not a valid extension name. It must consist of lowercase alphanumeric characters, dash, underscore, and period only. Additionally, it may contain an npm-style package scope. For details, see: https://ui5.github.io/cli/stable/pages/Configuration/#name`,
-			params: {
-				errors: [{
-					dataPath: "/metadata/name",
-					keyword: "pattern",
-					message: `should match pattern "^(?:@[0-9a-z-_.]+\\/)?[a-z][0-9a-z-_.]*$"`,
-					params: {
-						pattern: "^(?:@[0-9a-z-_.]+\\/)?[a-z][0-9a-z-_.]*$",
-					}
-				}]
-			},
-		}]);
-		await assertValidation(t, {
-			"specVersion": specVersion,
-			"kind": "extension",
-			"type": "project-shim",
-			"metadata": {
-				"name": "a"
-			},
-			"shims": {}
-		}, [{
-			dataPath: "/metadata/name",
-			keyword: "errorMessage",
-			message: `Not a valid extension name. It must consist of lowercase alphanumeric characters, dash, underscore, and period only. Additionally, it may contain an npm-style package scope. For details, see: https://ui5.github.io/cli/stable/pages/Configuration/#name`,
-			params: {
-				errors: [{
-					dataPath: "/metadata/name",
-					keyword: "minLength",
-					message: "should NOT be shorter than 3 characters",
-					params: {
-						limit: 3,
-					}
-				}]
-			},
-		}]);
-		await assertValidation(t, {
-			"specVersion": specVersion,
-			"kind": "extension",
-			"type": "project-shim",
-			"metadata": {
-				"name": "a".repeat(81)
-			},
-			"shims": {}
-		}, [{
-			dataPath: "/metadata/name",
-			keyword: "errorMessage",
-			message: `Not a valid extension name. It must consist of lowercase alphanumeric characters, dash, underscore, and period only. Additionally, it may contain an npm-style package scope. For details, see: https://ui5.github.io/cli/stable/pages/Configuration/#name`,
-			params: {
-				errors: [{
-					dataPath: "/metadata/name",
-					keyword: "maxLength",
-					message: "should NOT be longer than 80 characters",
-					params: {
-						limit: 80,
-					}
-				}]
-			},
-		}]);
-	});
-});
 
 const additionalConfiguration = {
 	"shims": {
