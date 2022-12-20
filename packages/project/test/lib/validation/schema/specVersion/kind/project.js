@@ -22,7 +22,7 @@ async function assertValidation(t, config, expectedErrors = undefined) {
 }
 
 test.before((t) => {
-	t.context.validator = new Validator({Ajv, ajvErrors, schemaName: "ui5"});
+	t.context.validator = new Validator({Ajv, ajvErrors});
 	t.context.ajvCoverage = new AjvCoverage(t.context.validator.ajv, {
 		includes: ["schema/specVersion/kind/project.json"]
 	});
@@ -194,44 +194,4 @@ test("No specVersion", async (t) => {
 			missingProperty: "specVersion",
 		}
 	}]);
-});
-
-test("Legacy: Special characters in name (application)", async (t) => {
-	await assertValidation(t, {
-		"specVersion": "2.0",
-		"type": "application",
-		"metadata": {
-			"name": "/".repeat(81)
-		}
-	});
-});
-
-test("Legacy: Special characters in name (library)", async (t) => {
-	await assertValidation(t, {
-		"specVersion": "2.0",
-		"type": "library",
-		"metadata": {
-			"name": "my/(library)"
-		}
-	});
-});
-
-test("Legacy: Special characters in name (theme-library)", async (t) => {
-	await assertValidation(t, {
-		"specVersion": "2.0",
-		"type": "theme-library",
-		"metadata": {
-			"name": "my/(theme)-library"
-		}
-	});
-});
-
-test("Legacy: Special characters in name (module)", async (t) => {
-	await assertValidation(t, {
-		"specVersion": "2.0",
-		"type": "module",
-		"metadata": {
-			"name": "my/(module)"
-		}
-	});
 });
