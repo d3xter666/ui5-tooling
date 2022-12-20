@@ -1,7 +1,6 @@
 import test from "ava";
 import Ajv from "ajv";
 import ajvErrors from "ajv-errors";
-import SpecificationVersion from "../../../../../../../lib/specifications/SpecificationVersion.js";
 import AjvCoverage from "../../../../../../utils/AjvCoverage.js";
 import {_Validator as Validator} from "../../../../../../../lib/validation/validator.js";
 import ValidationError from "../../../../../../../lib/validation/ValidationError.js";
@@ -29,7 +28,7 @@ async function assertValidation(t, config, expectedErrors = undefined) {
 }
 
 test.before((t) => {
-	t.context.validator = new Validator({Ajv, ajvErrors, schemaName: "ui5"});
+	t.context.validator = new Validator({Ajv, ajvErrors});
 	t.context.ajvCoverage = new AjvCoverage(t.context.validator.ajv, {
 		includes: ["schema/specVersion/kind/project/theme-library.json"]
 	});
@@ -46,7 +45,8 @@ test.after.always((t) => {
 	t.context.ajvCoverage.verify(thresholds);
 });
 
-SpecificationVersion.getVersionsForRange(">=2.0").forEach(function(specVersion) {
+
+["3.0", "2.6", "2.5", "2.4", "2.3", "2.2", "2.1", "2.0"].forEach(function(specVersion) {
 	test(`Valid configuration (specVersion ${specVersion})`, async (t) => {
 		await assertValidation(t, {
 			"specVersion": specVersion,
@@ -167,7 +167,7 @@ SpecificationVersion.getVersionsForRange(">=2.0").forEach(function(specVersion) 
 	});
 });
 
-SpecificationVersion.getVersionsForRange(">=2.5").forEach(function(specVersion) {
+["3.0", "2.6", "2.5"].forEach(function(specVersion) {
 	test(`theme-library (specVersion ${specVersion}): builder/settings/includeDependency*`, async (t) => {
 		await assertValidation(t, {
 			"specVersion": specVersion,
@@ -348,71 +348,4 @@ SpecificationVersion.getVersionsForRange(">=2.5").forEach(function(specVersion) 
 	});
 });
 
-SpecificationVersion.getVersionsForRange(">=3.0").forEach(function(specVersion) {
-	test(`Invalid project name (specVersion ${specVersion})`, async (t) => {
-		await assertValidation(t, {
-			"specVersion": specVersion,
-			"type": "theme-library",
-			"metadata": {
-				"name": "illegal-🦜"
-			}
-		}, [{
-			dataPath: "/metadata/name",
-			keyword: "errorMessage",
-			message: `Not a valid project name. It must consist of lowercase alphanumeric characters, dash, underscore, and period only. Additionally, it may contain an npm-style package scope. For details, see: https://ui5.github.io/cli/stable/pages/Configuration/#name`,
-			params: {
-				errors: [{
-					dataPath: "/metadata/name",
-					keyword: "pattern",
-					message: `should match pattern "^(?:@[0-9a-z-_.]+\\/)?[a-z][0-9a-z-_.]*$"`,
-					params: {
-						pattern: "^(?:@[0-9a-z-_.]+\\/)?[a-z][0-9a-z-_.]*$",
-					},
-				}]
-			},
-		}]);
-		await assertValidation(t, {
-			"specVersion": specVersion,
-			"type": "theme-library",
-			"metadata": {
-				"name": "a"
-			}
-		}, [{
-			dataPath: "/metadata/name",
-			keyword: "errorMessage",
-			message: `Not a valid project name. It must consist of lowercase alphanumeric characters, dash, underscore, and period only. Additionally, it may contain an npm-style package scope. For details, see: https://ui5.github.io/cli/stable/pages/Configuration/#name`,
-			params: {
-				errors: [{
-					dataPath: "/metadata/name",
-					keyword: "minLength",
-					message: "should NOT be shorter than 3 characters",
-					params: {
-						limit: 3,
-					},
-				}]
-			},
-		}]);
-		await assertValidation(t, {
-			"specVersion": specVersion,
-			"type": "theme-library",
-			"metadata": {
-				"name": "a".repeat(81)
-			}
-		}, [{
-			dataPath: "/metadata/name",
-			keyword: "errorMessage",
-			message: `Not a valid project name. It must consist of lowercase alphanumeric characters, dash, underscore, and period only. Additionally, it may contain an npm-style package scope. For details, see: https://ui5.github.io/cli/stable/pages/Configuration/#name`,
-			params: {
-				errors: [{
-					dataPath: "/metadata/name",
-					keyword: "maxLength",
-					message: "should NOT be longer than 80 characters",
-					params: {
-						limit: 80,
-					},
-				}]
-			},
-		}]);
-	});
-});
 project.defineTests(test, assertValidation, "theme-library");
