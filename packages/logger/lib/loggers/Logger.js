@@ -2,14 +2,14 @@ import process from "node:process";
 import {inspect} from "node:util";
 
 // Module name must not contain any other characters than alphanumerical and some specials
-const rIllegalModuleNameChars = /[^0-9a-zA-Z-_:@./]/i;
+const rIllegalModuleNameChars = /[^0-9a-zA-Z-_:@.]/i;
 
 /**
- * Standard logging module for UI5 CLI and extensions.
+ * Standard logging module for UI5 Tooling and extensions.
  * <br><br>
  * Emits <code>ui5.log</code> events on the [<code>process</code>]{@link https://nodejs.org/api/process.html} object,
- * which can be handled by dedicated writers,
- * like [@ui5/logger/writers/Console]{@link @ui5/logger/writers/Console}.
+ * which can be handled by dedicated handlers,
+ * like [@ui5/logger/handlers/ConsoleHandler]{@link @ui5/logger/handlers/ConsoleHandler}.
  * <br><br>
  * If no listener is attached to an event, messages are written directly to the <code>process.stderr</code> stream.
  *
