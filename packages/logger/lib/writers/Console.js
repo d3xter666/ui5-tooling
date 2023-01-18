@@ -7,7 +7,7 @@ import Logger from "../loggers/Logger.js";
 /**
  * Standard handler for events emitted by @ui5/logger modules. Writes messages to
  * [<code>process.stderr</code>]{@link https://nodejs.org/api/process.html#processstderr} stream
- * and renders a progress bar for UI5 CLI build processes.
+ * and renders a progress bar for UI5 Tooling build processes.
  * <br><br>
  * The progress bar is only used in interactive terminals. If verbose logging is enabled, the progress
  * bar is disabled.
@@ -28,7 +28,6 @@ class Console {
 		this._handleProjectBuildStatusEvent = this.#handleProjectBuildStatusEvent.bind(this);
 		this._handleBuildMetadataEvent = this.#handleBuildMetadataEvent.bind(this);
 		this._handleProjectBuildMetadataEvent = this.#handleProjectBuildMetadataEvent.bind(this);
-		this._handleStop = this.disable.bind(this);
 	}
 
 	/**
@@ -42,7 +41,6 @@ class Console {
 		process.on("ui5.project-build-metadata", this._handleProjectBuildMetadataEvent);
 		process.on("ui5.build-status", this._handleBuildStatusEvent);
 		process.on("ui5.project-build-status", this._handleProjectBuildStatusEvent);
-		process.on("ui5.log.stop-console", this._handleStop);
 	}
 
 	/**
@@ -56,7 +54,6 @@ class Console {
 		process.off("ui5.project-build-metadata", this._handleProjectBuildMetadataEvent);
 		process.off("ui5.build-status", this._handleBuildStatusEvent);
 		process.off("ui5.project-build-status", this._handleProjectBuildStatusEvent);
-		process.off("ui5.log.stop-console", this._handleStop);
 		if (this.#progressBarContainer) {
 			this.#progressBar.stop();
 			this.#progressBarContainer.stop(); // Will fire internal stop event
@@ -141,7 +138,6 @@ class Console {
 	}
 
 	#handleBuildMetadataEvent({projectsToBuild}) {
-		this.#projectMetadata = new Map();
 		projectsToBuild.forEach((projectName) => {
 			this.#projectMetadata.set(projectName, {
 				buildStarted: false,
@@ -369,10 +365,6 @@ class Console {
 		const cH = new Console();
 		cH.enable();
 		return cH;
-	}
-
-	static stop() {
-		process.emit("ui5.log.stop-console");
 	}
 }
 
