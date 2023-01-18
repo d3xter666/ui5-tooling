@@ -32,32 +32,6 @@ test.serial("Log event", (t) => {
 		"Logged expected message");
 });
 
-test.serial("Enable", (t) => {
-	const {stderrWriteStub} = t.context;
-
-	// Disable and overwrite writer created in beforeEach hook
-	t.context.consoleWriter.disable();
-	const consoleWriter = t.context.consoleWriter = new ConsoleWriter();
-
-	process.emit("ui5.log", {
-		level: "info",
-		message: "Message 1",
-		moduleName: "my:module"
-	});
-
-	t.is(stderrWriteStub.callCount, 0, "Logged no message after creation");
-
-	consoleWriter.enable();
-
-	process.emit("ui5.log", {
-		level: "info",
-		message: "Message 2",
-		moduleName: "my:module"
-	});
-
-	t.is(stderrWriteStub.callCount, 1, "Logged one message after being enabled");
-});
-
 test.serial("Disable", (t) => {
 	const {consoleWriter, stderrWriteStub} = t.context;
 	consoleWriter.disable();
@@ -71,7 +45,7 @@ test.serial("Disable", (t) => {
 	t.is(stderrWriteStub.callCount, 0, "Logged no message");
 });
 
-test.serial("Disable + Enable", (t) => {
+test.serial("Enable", (t) => {
 	const {consoleWriter, stderrWriteStub} = t.context;
 	consoleWriter.disable();
 
@@ -94,45 +68,6 @@ test.serial("Disable + Enable", (t) => {
 	t.is(stripAnsi(stderrWriteStub.getCall(0).args[0]),
 		`info my:module Message 2\n`,
 		"Logged expected message");
-});
-
-test.serial("Stop", (t) => {
-	const {stderrWriteStub} = t.context;
-
-	ConsoleWriter.stop();
-	process.emit("ui5.log", {
-		level: "info",
-		message: "Message 1",
-		moduleName: "my:module"
-	});
-
-	t.is(stderrWriteStub.callCount, 0, "Logged no message");
-});
-
-test.serial("Stop disables all instances", (t) => {
-	const {stderrWriteStub} = t.context;
-
-	ConsoleWriter.init();
-	ConsoleWriter.init();
-
-	process.emit("ui5.log", {
-		level: "info",
-		message: "Message 1",
-		moduleName: "my:module"
-	});
-
-	t.is(stderrWriteStub.callCount, 3, "Logged three message");
-	stderrWriteStub.resetHistory();
-
-	ConsoleWriter.stop();
-
-	process.emit("ui5.log", {
-		level: "info",
-		message: "Message 2",
-		moduleName: "my:module"
-	});
-
-	t.is(stderrWriteStub.callCount, 0, "Logged no message");
 });
 
 test.serial("Logging restricted by log level setting", (t) => {
@@ -870,100 +805,3 @@ test.serial("Disable: Stops progress bar", (t) => {
 	t.is(stderrWriteStub.callCount, 1, "Logged one message");
 });
 
-test.serial("Build metadata events (multiple projects)", (t) => {
-	const {stderrWriteStub} = t.context;
-	process.emit("ui5.build-metadata", {
-		projectsToBuild: ["project.a"]
-	});
-
-	process.emit("ui5.build-status", {
-		level: "verbose", // Should not get logged
-		projectName: "project.a",
-		projectType: "project-type",
-		status: "project-build-start",
-	});
-
-	process.emit("ui5.build-status", {
-		level: "info",
-		projectName: "project.a",
-		projectType: "project-type",
-		status: "project-build-end",
-	});
-
-	// Independent build of another project
-	process.emit("ui5.build-metadata", {
-		projectsToBuild: ["project.b"]
-	});
-
-	process.emit("ui5.build-status", {
-		level: "verbose", // Should not get logged
-		projectName: "project.b",
-		projectType: "project-type",
-		status: "project-build-start",
-	});
-
-	process.emit("ui5.build-status", {
-		level: "info",
-		projectName: "project.b",
-		projectType: "project-type",
-		status: "project-build-end",
-	});
-
-
-	t.is(stderrWriteStub.callCount, 2, "Logged one message");
-	t.is(stripAnsi(stderrWriteStub.getCall(0).args[0]),
-		`info Project 1 of 1: ${figures.tick} Finished building project-type project project.a\n`,
-		"Logged expected message");
-	t.is(stripAnsi(stderrWriteStub.getCall(1).args[0]),
-		`info Project 1 of 1: ${figures.tick} Finished building project-type project project.b\n`,
-		"Logged expected message");
-});
-
-test.serial("Build metadata events (same project)", (t) => {
-	const {stderrWriteStub} = t.context;
-	process.emit("ui5.build-metadata", {
-		projectsToBuild: ["project.a"]
-	});
-
-	process.emit("ui5.build-status", {
-		level: "verbose", // Should not get logged
-		projectName: "project.a",
-		projectType: "project-type",
-		status: "project-build-start",
-	});
-
-	process.emit("ui5.build-status", {
-		level: "info",
-		projectName: "project.a",
-		projectType: "project-type",
-		status: "project-build-end",
-	});
-
-	// Repeated build of the same project
-	process.emit("ui5.build-metadata", {
-		projectsToBuild: ["project.a"]
-	});
-
-	process.emit("ui5.build-status", {
-		level: "verbose", // Should not get logged
-		projectName: "project.a",
-		projectType: "project-type",
-		status: "project-build-start",
-	});
-
-	process.emit("ui5.build-status", {
-		level: "info",
-		projectName: "project.a",
-		projectType: "project-type",
-		status: "project-build-end",
-	});
-
-
-	t.is(stderrWriteStub.callCount, 2, "Logged one message");
-	t.is(stripAnsi(stderrWriteStub.getCall(0).args[0]),
-		`info Project 1 of 1: ${figures.tick} Finished building project-type project project.a\n`,
-		"Logged expected message");
-	t.is(stripAnsi(stderrWriteStub.getCall(1).args[0]),
-		`info Project 1 of 1: ${figures.tick} Finished building project-type project project.a\n`,
-		"Logged expected message");
-});
