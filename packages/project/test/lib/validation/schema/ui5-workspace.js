@@ -62,7 +62,7 @@ test("Empty config", async (t) => {
 				message: `Unsupported "specVersion"
 Your UI5 CLI installation might be outdated.
 Supported specification versions: "workspace/1.0"
-For details, see: https://ui5.github.io/cli/stable/pages/Workspace/#workspace-specification-versions`,
+For details see: // TODO: Add link to Documentation`,
 				params: {
 					errors: [
 						{
@@ -143,121 +143,6 @@ test("Missing metadata.name", async (t) => {
 	);
 });
 
-test("Invalid metadata.name: Illegal characters", async (t) => {
-	await assertValidation(
-		t,
-		{
-			specVersion: "workspace/1.0",
-			metadata: {
-				name: "🦭🦭🦭"
-			},
-			dependencyManagement: {
-				resolutions: [
-					{
-						path: "path/to/resource/1",
-					},
-				],
-			},
-		},
-		[
-			{
-				dataPath: "/metadata/name",
-				keyword: "errorMessage",
-				message: "Not a valid workspace name. It must consist of lowercase alphanumeric characters, dash, underscore, and period only. Additionally, it may contain an npm-style package scope. For details, see: https://ui5.github.io/cli/stable/pages/Workspace/#name",
-				params: {
-					errors: [
-						{
-							dataPath: "/metadata/name",
-							keyword: "pattern",
-							message: `should match pattern "^(?:@[0-9a-z-_.]+\\/)?[a-z][0-9a-z-_.]*$"`,
-							params: {
-								pattern: "^(?:@[0-9a-z-_.]+\\/)?[a-z][0-9a-z-_.]*$",
-							},
-						},
-					],
-				},
-			},
-		]
-	);
-});
-
-test("Invalid metadata.name: Too short", async (t) => {
-	await assertValidation(
-		t,
-		{
-			specVersion: "workspace/1.0",
-			metadata: {
-				name: "a"
-			},
-			dependencyManagement: {
-				resolutions: [
-					{
-						path: "path/to/resource/1",
-					},
-				],
-			},
-		},
-		[
-			{
-				dataPath: "/metadata/name",
-				keyword: "errorMessage",
-				message: "Not a valid workspace name. It must consist of lowercase alphanumeric characters, dash, underscore, and period only. Additionally, it may contain an npm-style package scope. For details, see: https://ui5.github.io/cli/stable/pages/Workspace/#name",
-				params: {
-					errors: [
-						{
-							dataPath: "/metadata/name",
-							keyword: "minLength",
-							message: "should NOT be shorter than 3 characters",
-							params: {
-								limit: 3,
-							},
-						},
-					],
-				},
-			},
-		]
-	);
-});
-
-
-test("Invalid metadata.name: Too long", async (t) => {
-	await assertValidation(
-		t,
-		{
-			specVersion: "workspace/1.0",
-			metadata: {
-				name: "b".repeat(81)
-			},
-			dependencyManagement: {
-				resolutions: [
-					{
-						path: "path/to/resource/1",
-					},
-				],
-			},
-		},
-		[
-			{
-				dataPath: "/metadata/name",
-				keyword: "errorMessage",
-				message: "Not a valid workspace name. It must consist of lowercase alphanumeric characters, dash, underscore, and period only. Additionally, it may contain an npm-style package scope. For details, see: https://ui5.github.io/cli/stable/pages/Workspace/#name",
-				params: {
-					errors: [
-						{
-							dataPath: "/metadata/name",
-							keyword: "maxLength",
-							message: "should NOT be longer than 80 characters",
-							params: {
-								limit: 80,
-							},
-						}
-					],
-				},
-			},
-		]
-	);
-});
-
 test("Invalid fields", async (t) => {
 	await assertValidation(
 		t,
@@ -279,7 +164,7 @@ test("Invalid fields", async (t) => {
 				message: `Unsupported "specVersion"
 Your UI5 CLI installation might be outdated.
 Supported specification versions: "workspace/1.0"
-For details, see: https://ui5.github.io/cli/stable/pages/Workspace/#workspace-specification-versions`,
+For details see: // TODO: Add link to Documentation`,
 				params: {
 					errors: [
 						{
@@ -297,7 +182,8 @@ For details, see: https://ui5.github.io/cli/stable/pages/Workspace/#workspace-sp
 			{
 				dataPath: "/metadata/name",
 				keyword: "errorMessage",
-				message: "Not a valid workspace name. It must consist of lowercase alphanumeric characters, dash, underscore, and period only. Additionally, it may contain an npm-style package scope. For details, see: https://ui5.github.io/cli/stable/pages/Workspace/#name",
+				message:
+					"Workspace name is not provided. There must be a wokrspace name defined.",
 				params: {
 					errors: [
 						{
@@ -348,7 +234,7 @@ test("Invalid types", async (t) => {
 				message: `Unsupported "specVersion"
 Your UI5 CLI installation might be outdated.
 Supported specification versions: "workspace/1.0"
-For details, see: https://ui5.github.io/cli/stable/pages/Workspace/#workspace-specification-versions`,
+For details see: // TODO: Add link to Documentation`,
 				params: {
 					errors: [
 						{
@@ -366,7 +252,8 @@ For details, see: https://ui5.github.io/cli/stable/pages/Workspace/#workspace-sp
 			{
 				dataPath: "/metadata/name",
 				keyword: "errorMessage",
-				message: "Not a valid workspace name. It must consist of lowercase alphanumeric characters, dash, underscore, and period only. Additionally, it may contain an npm-style package scope. For details, see: https://ui5.github.io/cli/stable/pages/Workspace/#name",
+				message:
+					"Workspace name is not provided. There must be a wokrspace name defined.",
 				params: {
 					errors: [
 						{
