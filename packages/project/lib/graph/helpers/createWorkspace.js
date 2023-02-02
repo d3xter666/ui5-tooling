@@ -37,7 +37,8 @@ export default async function createWorkspace({
 			filePath = path.join(cwd, configPath);
 		}
 		try {
-			const workspaceConfigs = await readWorkspaceConfigFile(filePath);
+			const workspaceConfigs =
+				await readWorkspaceConfigFile(filePath, );
 			const configuration = workspaceConfigs.find((config) => {
 				return config.metadata.name === name;
 			});
@@ -68,7 +69,7 @@ export default async function createWorkspace({
 	}
 }
 
-async function readWorkspaceConfigFile(filePath) {
+async function readWorkspaceConfigFile(filePath, throwIfMissing) {
 	const {
 		default: fs
 	} = await import("graceful-fs");
@@ -91,7 +92,13 @@ async function readWorkspaceConfigFile(filePath) {
 			filename: filePath,
 		});
 	} catch (err) {
-		throw new Error(`Failed to parse workspace configuration at ${filePath}\nError: ${err.message}`);
+		if (err.name === "YAMLException") {
+			throw new Error(`Failed to parse workspace configuration at ` +
+			`${filePath}\nError: ${err.message}`);
+		} else {
+			throw new Error(
+				`Failed to parse workspace configuration at ${filePath}: ${err.message}`);
+		}
 	}
 
 	if (!configs || !configs.length) {
