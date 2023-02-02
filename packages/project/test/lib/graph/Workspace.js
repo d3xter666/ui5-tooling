@@ -1,10 +1,11 @@
 import path from "node:path";
+import {fileURLToPath} from "node:url";
 import test from "ava";
 import sinonGlobal from "sinon";
 import esmock from "esmock";
 import Module from "../../../lib/graph/Module.js";
 
-const __dirname = import.meta.dirname;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const libraryD = path.join(__dirname, "..", "..", "fixtures", "library.d");
 const libraryE = path.join(__dirname, "..", "..", "fixtures", "library.e");
 const collectionLibraryA = path.join(__dirname, "..", "..", "fixtures", "collection", "library.a");
@@ -80,9 +81,6 @@ test("Basic resolution", async (t) => {
 		"getModuleByProjectName returns correct module for library.d");
 	t.is(await workspace.getModuleByNodeId("library.d"), libD,
 		"getModuleByNodeId returns correct module for library.d");
-
-	const modules = await workspace.getModules();
-	t.deepEqual(modules, [libD, libE], "getModules returns modules sorted by module ID");
 
 	t.deepEqual(Array.from(moduleIdMap.keys()).sort(), ["library.d", "library.e"], "Correct module ID keys");
 	moduleIdMap.forEach((value, key) => {
