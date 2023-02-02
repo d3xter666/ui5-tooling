@@ -1,10 +1,10 @@
 import test from "ava";
+import {fileURLToPath} from "node:url";
 import path from "node:path";
 import sinonGlobal from "sinon";
 import esmock from "esmock";
 import Workspace from "../../../lib/graph/Workspace.js";
-import CacheMode from "../../../lib/ui5Framework/maven/CacheMode.js";
-const __dirname = import.meta.dirname;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const fixturesPath = path.join(__dirname, "..", "..", "fixtures");
 const libraryHPath = path.join(fixturesPath, "library.h");
@@ -47,7 +47,7 @@ test.serial("graphFromPackageDependencies with workspace object", async (t) => {
 	const res = await graphFromPackageDependencies({
 		cwd: "cwd",
 		rootConfiguration: "rootConfiguration",
-		rootConfigPath: "/rootConfigPath",
+		rootConfigPath: "rootConfigPath",
 		versionOverride: "versionOverride",
 		workspaceConfiguration: {
 			specVersion: "workspace/1.0",
@@ -68,7 +68,7 @@ test.serial("graphFromPackageDependencies with workspace object", async (t) => {
 	t.deepEqual(npmProviderConstructorStub.getCall(0).args[0], {
 		cwd: path.join(__dirname, "..", "..", "..", "cwd"),
 		rootConfiguration: "rootConfiguration",
-		rootConfigPath: "/rootConfigPath",
+		rootConfigPath: "rootConfigPath",
 	}, "Created NodePackageDependencies provider instance with correct parameters");
 
 	t.is(projectGraphBuilderStub.callCount, 1, "projectGraphBuilder got called once");
@@ -96,7 +96,7 @@ test.serial("graphFromPackageDependencies with workspace object and workspace na
 	const res = await graphFromPackageDependencies({
 		cwd: "cwd",
 		rootConfiguration: "rootConfiguration",
-		rootConfigPath: "/rootConfigPath",
+		rootConfigPath: "rootConfigPath",
 		versionOverride: "versionOverride",
 		workspaceName: "dolphin",
 		workspaceConfiguration: {
@@ -118,7 +118,7 @@ test.serial("graphFromPackageDependencies with workspace object and workspace na
 	t.deepEqual(npmProviderConstructorStub.getCall(0).args[0], {
 		cwd: path.join(__dirname, "..", "..", "..", "cwd"),
 		rootConfiguration: "rootConfiguration",
-		rootConfigPath: "/rootConfigPath",
+		rootConfigPath: "rootConfigPath",
 	}, "Created NodePackageDependencies provider instance with correct parameters");
 
 	t.is(projectGraphBuilderStub.callCount, 1, "projectGraphBuilder got called once");
@@ -142,7 +142,7 @@ test.serial("graphFromPackageDependencies with workspace object not matching wor
 	await t.throwsAsync(graphFromPackageDependencies({
 		cwd: "cwd",
 		rootConfiguration: "rootConfiguration",
-		rootConfigPath: "/rootConfigPath",
+		rootConfigPath: "rootConfigPath",
 		versionOverride: "versionOverride",
 		workspaceName: "other",
 		workspaceConfiguration: {
@@ -171,7 +171,7 @@ test.serial("graphFromPackageDependencies with workspace file", async (t) => {
 	const res = await graphFromPackageDependencies({
 		cwd: libraryHPath,
 		rootConfiguration: "rootConfiguration",
-		rootConfigPath: "/rootConfigPath",
+		rootConfigPath: "rootConfigPath",
 		versionOverride: "versionOverride",
 		workspaceName: "default",
 	});
@@ -182,7 +182,7 @@ test.serial("graphFromPackageDependencies with workspace file", async (t) => {
 	t.deepEqual(npmProviderConstructorStub.getCall(0).args[0], {
 		cwd: libraryHPath,
 		rootConfiguration: "rootConfiguration",
-		rootConfigPath: "/rootConfigPath"
+		rootConfigPath: "rootConfigPath"
 	}, "Created NodePackageDependencies provider instance with correct parameters");
 
 	t.is(projectGraphBuilderStub.callCount, 1, "projectGraphBuilder got called once");
@@ -210,7 +210,7 @@ test.serial("graphFromPackageDependencies with workspace file at custom path", a
 	const res = await graphFromPackageDependencies({
 		cwd: "cwd",
 		rootConfiguration: "rootConfiguration",
-		rootConfigPath: "/rootConfigPath",
+		rootConfigPath: "rootConfigPath",
 		versionOverride: "versionOverride",
 		workspaceName: "default",
 		workspaceConfigPath: path.join(libraryHPath, "ui5-workspace.yaml")
@@ -222,7 +222,7 @@ test.serial("graphFromPackageDependencies with workspace file at custom path", a
 	t.deepEqual(npmProviderConstructorStub.getCall(0).args[0], {
 		cwd: path.join(__dirname, "..", "..", "..", "cwd"),
 		rootConfiguration: "rootConfiguration",
-		rootConfigPath: "/rootConfigPath"
+		rootConfigPath: "rootConfigPath"
 	}, "Created NodePackageDependencies provider instance with correct parameters");
 
 	t.is(projectGraphBuilderStub.callCount, 1, "projectGraphBuilder got called once");
@@ -250,11 +250,10 @@ test.serial("graphFromPackageDependencies with inactive workspace file at custom
 	const res = await graphFromPackageDependencies({
 		cwd: "cwd",
 		rootConfiguration: "rootConfiguration",
-		rootConfigPath: "/rootConfigPath",
+		rootConfigPath: "rootConfigPath",
 		versionOverride: "versionOverride",
 		workspaceName: "default",
-		workspaceConfigPath: path.join(libraryHPath, "custom-ui5-workspace.yaml"),
-		cacheMode: CacheMode.Force
+		workspaceConfigPath: path.join(libraryHPath, "custom-ui5-workspace.yaml")
 	});
 
 	t.is(res, "graph");
@@ -263,7 +262,7 @@ test.serial("graphFromPackageDependencies with inactive workspace file at custom
 	t.deepEqual(npmProviderConstructorStub.getCall(0).args[0], {
 		cwd: path.join(__dirname, "..", "..", "..", "cwd"),
 		rootConfiguration: "rootConfiguration",
-		rootConfigPath: "/rootConfigPath"
+		rootConfigPath: "rootConfigPath"
 	}, "Created NodePackageDependencies provider instance with correct parameters");
 
 	t.is(projectGraphBuilderStub.callCount, 1, "projectGraphBuilder got called once");
@@ -277,7 +276,6 @@ test.serial("graphFromPackageDependencies with inactive workspace file at custom
 		"enrichProjectGraph got called with graph");
 	t.deepEqual(enrichProjectGraphStub.getCall(0).args[1], {
 		versionOverride: "versionOverride",
-		workspace: null,
-		cacheMode: "Force"
+		workspace: null
 	}, "enrichProjectGraph got called with correct options");
 });
