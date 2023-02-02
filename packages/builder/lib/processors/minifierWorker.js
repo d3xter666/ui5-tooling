@@ -30,7 +30,6 @@ const copyrightCommentsAndBundleCommentPattern = /copyright|\(c\)(?:[0-9]+|\s+[0
  * @param {string} parameters.filename
  * @param {string} parameters.dbgFilename
  * @param {string} parameters.code
- * @param {string} parameters.resourcePath
  * @param {object} parameters.sourceMapOptions
  * @returns {Promise<undefined>} Promise resolving once minification of the resource has finished
  */
@@ -38,7 +37,6 @@ export default async function execMinification({
 	filename,
 	dbgFilename,
 	code,
-	resourcePath,
 	sourceMapOptions
 }) {
 	try {
@@ -63,10 +61,8 @@ export default async function execMinification({
 	} catch (err) {
 		// Note: err.filename contains the debug-name
 		throw new Error(
-			`Minification failed with error: ${err.message} in file ${resourcePath} ` +
-			`(line ${err.line}, col ${err.col}, pos ${err.pos})`, {
-				cause: err
-			});
+			`Minification failed with error: ${err.message} in file ${filename} ` +
+			`(line ${err.line}, col ${err.col}, pos ${err.pos})`);
 	}
 }
 
