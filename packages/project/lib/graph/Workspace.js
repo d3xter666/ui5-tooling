@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/check-tag-names */
 import fs from "graceful-fs";
 import {globby, isDynamicPattern} from "globby";
 import path from "node:path";
@@ -12,20 +11,19 @@ const log = getLogger("graph:Workspace");
 
 
 /**
- * Workspace configuration. For details, refer to the
- * [UI5 Workspaces documentation]{@link https://ui5.github.io/cli/v4/pages/Workspace/#configuration}
+ * Dependency graph node representing a module
  *
  * @public
  * @typedef {object} @ui5/project/graph/Workspace~Configuration
- * @property {string} node.specVersion Workspace Specification Version
- * @property {object} node.metadata
+ * @property {string} node.specVersion
+ * @property {object} node.metadata Version of the project
  * @property {string} node.metadata.name Name of the workspace configuration
  * @property {object} node.dependencyManagement
  * @property {@ui5/project/graph/Workspace~DependencyManagementResolutions[]} node.dependencyManagement.resolutions
  */
 
 /**
- * A resolution entry for the dependency management section of the workspace configuration
+ * A resolution entry for the dependency management section of the configuration
  *
  * @public
  * @typedef {object} @ui5/project/graph/Workspace~DependencyManagementResolution
@@ -33,7 +31,7 @@ const log = getLogger("graph:Workspace");
  */
 
 /**
- * UI5 Workspace
+ * Workspace representation
  *
  * @public
  * @class
@@ -76,20 +74,6 @@ class Workspace {
 	}
 
 	/**
-	 * Returns an array of [Module]{@ui5/project/graph/Module} instances found in the configured
-	 * dependency-management resolution paths of this workspace, sorted by module ID.
-	 *
-	 * @public
-	 * @returns {Promise<@ui5/project/graph/Module[]>}
-	 *   Array of Module instances sorted by module ID
-	 */
-	async getModules() {
-		const {moduleIdMap} = await this._getResolvedModules();
-		const sortedMap = new Map([...moduleIdMap].sort((a, b) => String(a[0]).localeCompare(b[0])));
-		return Array.from(sortedMap.values());
-	}
-
-	/**
 	 * For a given project name (e.g. the value of the <code>metadata.name</code> property in a ui5.yaml),
 	 * returns a [Module]{@ui5/project/graph/Module} instance or <code>undefined</code> depending on whether the project
 	 * has been found in the configured dependency-management resolution paths of this workspace
@@ -97,7 +81,7 @@ class Workspace {
 	 * @public
 	 * @param {string} projectName Name of the project
 	 * @returns {Promise<@ui5/project/graph/Module|undefined>}
-	 *   Module instance, or <code>undefined</code> if none is found
+	 *   Module instance of <code>undefined</code> if none is found
 	 */
 	async getModuleByProjectName(projectName) {
 		const {projectNameMap} = await this._getResolvedModules();
@@ -106,14 +90,14 @@ class Workspace {
 
 	/**
 	 * For a given node id (e.g. the value of the name property in a package.json),
-	 * returns a [Module]{@ui5/project/graph/Module} instance or <code>undefined</code> depending on whether the module
+	 * returns a [Module]{@eId Node ID of} instance or <code>undefined</code> depending on whether the module
 	 * has been found in the configured dependency-management resolution paths of this workspace
 	 * and contains at least one project or extension
 	 *
 	 * @public
 	 * @param {string} nodeId Node ID of the module
 	 * @returns {Promise<@ui5/project/graph/Module|undefined>}
-	 *   Module instance, or <code>undefined</code> if none is found
+	 *   Module instance of <code>undefined</code> if none is found
 	 */
 	async getModuleByNodeId(nodeId) {
 		const {moduleIdMap} = await this._getResolvedModules();
@@ -175,7 +159,7 @@ class Workspace {
 		};
 	}
 
-	async _getModulesFromPath(cwd, relPath, failOnMissingFiles = true) {
+	async _getModulesFromPath(cwd, relPath) {
 		const nodePath = path.join(cwd, relPath);
 		if (this.#visitedNodePaths.has(nodePath)) {
 			log.verbose(`Module located at ${nodePath} has already been visited`);
@@ -190,12 +174,6 @@ class Workspace {
 					`package.json must contain fields 'name' and 'version'`);
 			}
 		} catch (err) {
-			if (!failOnMissingFiles && err.code === "ENOENT") {
-				// When resolving a dynamic workspace pattern (not a static path), ignore modules that
-				// are missing a package.json (this might simply indicate an empty directory)
-				log.verbose(`Ignoring module at path ${nodePath}: Directory does not contain a package.json`);
-				return [];
-			}
 			throw new Error(
 				`Failed to resolve workspace dependency resolution path ${relPath} to ${nodePath}: ${err.message}`);
 		}
@@ -235,7 +213,7 @@ class Workspace {
 
 			const resolvedModules = new Map();
 			await Promise.all(searchPaths.map(async (pkgPath) => {
-				const modules = await this._getModulesFromPath(nodePath, pkgPath, staticPatterns.includes(pkgPath));
+				const modules = await this._getModulesFromPath(nodePath, pkgPath);
 				modules.forEach((module) => {
 					const id = module.getId();
 					if (!resolvedModules.get(id)) {
