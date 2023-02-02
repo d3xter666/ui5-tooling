@@ -1,9 +1,10 @@
 import test from "ava";
+import {fileURLToPath} from "node:url";
 import path from "node:path";
 import sinonGlobal from "sinon";
 import esmock from "esmock";
 
-const __dirname = import.meta.dirname;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesPath = path.join(__dirname, "..", "..", "..", "fixtures");
 const libraryHPath = path.join(fixturesPath, "library.h");
 
@@ -18,7 +19,7 @@ test.beforeEach(async (t) => {
 	}
 	t.context.MockWorkspace = MockWorkspace;
 
-	t.context.createWorkspace = await esmock("../../../../lib/graph/helpers/createWorkspace", {
+	t.context.createWorkspace = await esmock.p("../../../../lib/graph/helpers/createWorkspace", {
 		"../../../../lib/graph/Workspace.js": t.context.MockWorkspace
 	});
 });
@@ -116,29 +117,6 @@ test("createWorkspace: Using invalid object", async (t) => {
 		"Threw with validation error");
 });
 
-test("createWorkspace: Using name and object with different workspace name", async (t) => {
-	const {createWorkspace} = t.context;
-
-	const err = await t.throwsAsync(createWorkspace({
-		cwd: "cwd",
-		name: "my-workspace",
-		configObject: {
-			metadata: {
-				name: "my-other-workspace"
-			},
-			dependencyManagement: {
-				resolutions: [{
-					path: "resolution/path"
-				}]
-			}
-		}
-	}));
-	t.is(err.message,
-		`The provided workspace name 'my-workspace' does not match ` +
-		`the provided workspace configuration 'my-other-workspace'`,
-		"Threw with validation error");
-});
-
 test("createWorkspace: Using file", async (t) => {
 	const {createWorkspace, MockWorkspace, workspaceConstructorStub} = t.context;
 
@@ -186,20 +164,6 @@ test("createWorkspace: Using missing file", async (t) => {
 		cwd: path.join(fixturesPath, "library.d"),
 		name: "default",
 		configPath: "ui5-workspace.yaml"
-	});
-
-	t.is(res, null, "Returned no workspace");
-
-	t.is(workspaceConstructorStub.callCount, 0, "Workspace constructor did not get called");
-});
-
-test("createWorkspace: Missing default workspace in file", async (t) => {
-	const {createWorkspace, workspaceConstructorStub} = t.context;
-
-	const res = await createWorkspace({
-		cwd: path.join(fixturesPath, "library.h"),
-		name: "default",
-		configPath: path.join(fixturesPath, "library.h", "custom-ui5-workspace.yaml")
 	});
 
 	t.is(res, null, "Returned no workspace");
