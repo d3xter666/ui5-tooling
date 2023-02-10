@@ -5,7 +5,6 @@
 
 [![REUSE status](https://api.reuse.software/badge/github.com/SAP/ui5-tooling)](https://api.reuse.software/info/github.com/SAP/ui5-tooling)
 [![OpenUI5 Community Slack (#tooling channel)](https://img.shields.io/badge/slack-join-44cc11.svg)](https://ui5-slack-invite.cfapps.eu10.hana.ondemand.com/)
-[![Travis CI Build Status](https://travis-ci.org/SAP/ui5-tooling.svg?branch=main)](https://travis-ci.org/SAP/ui5-tooling)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
 
 > :warning: There are two major versions of UI5 Tooling currently available:
@@ -13,10 +12,10 @@
 > - [UI5 Tooling v3](https://sap.github.io/ui5-tooling/next)- Development version.
 
 ## Resources
-- [Documentation](https://sap.github.io/ui5-tooling/)
-- [API Reference](https://sap.github.io/ui5-tooling/api/)
-- [CLI Documentation](https://sap.github.io/ui5-tooling/pages/CLI/)
-- [Project Configuration](https://sap.github.io/ui5-tooling/pages/Configuration/)
+- [Documentation](https://sap.github.io/ui5-tooling/v3/)
+- [API Reference](https://sap.github.io/ui5-tooling/v3/api/)
+- [CLI Documentation](https://sap.github.io/ui5-tooling/v3/pages/CLI/)
+- [Project Configuration](https://sap.github.io/ui5-tooling/v3/pages/Configuration/)
 - 🎬 [UI5con@SAP 2018 Talk](https://www.youtube.com/watch?v=iQ07oe26y_k)
 - 🎬 [UI5con@SAP 2020 Talk](https://www.youtube.com/watch?v=8IHoVJLKN34)
 - [Contribution Guidelines](https://github.com/SAP/ui5-tooling/blob/main/CONTRIBUTING.md)

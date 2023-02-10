@@ -2,7 +2,7 @@
 
 The [UI5 Server](https://github.com/SAP/ui5-server) module provides server capabilities for local development of UI5 projects.
 
-[**API Reference**](https://sap.github.io/ui5-tooling/api/module-@ui5_server.html){: .md-button .sap-icon-initiative }
+[**API Reference**](https://sap.github.io/ui5-tooling/v3/api/module-@ui5_server.html){: .md-button .sap-icon-initiative }
 
 ## Standard Middleware
 
@@ -20,7 +20,6 @@ A project can also add custom middleware to the server by using the [Custom Serv
 | `testRunner` | See chapter [testRunner](#testrunner) |
 | `serveThemes` | See chapter [serveThemes](#servethemes)  |
 | `versionInfo` | See chapter [versionInfo](#versioninfo)  |
-| `connectUi5Proxy` | See chapter [connectUi5Proxy](#connectui5proxy)  |
 | `nonReadRequests` | See chapter [nonReadRequests](#nonreadrequests)  |
 | `serveIndex` | See chapter [serveIndex](#serveindex)  |
 
@@ -63,9 +62,6 @@ Changes made to these `*.less` files while the server is running will automatica
 
 ### versionInfo
 Generates and serves the version info file `/resources/sap-ui-version.json`, which is required for several framework functionalities.
-
-### connectUi5Proxy
-Provides basic proxy functionality using the proxy offered by [`connect-openui5`](https://github.com/SAP/connect-openui5#proxy) under the endpoint `/proxy`.
 
 ### nonReadRequests
 Answers all non-read requests (POST, PUT, DELETE, etc.) that have not been answered by any other middleware with the 404 "Not Found" status code . This signals the client that these operations are not supported by the server.

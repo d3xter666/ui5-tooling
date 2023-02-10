@@ -6,7 +6,7 @@ on:
 jobs:
   build-and-deploy:
     name: Build and Deploy
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     env:
       MIKE_VERSION: v3
       MIKE_ALIAS: next
@@ -17,6 +17,11 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v3
+
+    - name: Use Node.js LTS 18.x
+      uses: actions/setup-node@v3.6.0
+      with:
+        node-version: 18.x
 
     - name: Install npm dependencies
       run: npm ci
@@ -36,7 +41,9 @@ jobs:
       run: docker run --rm -v $(pwd):/docs --entrypoint mike --env GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME}" --env GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL}" $DOCKER_IMAGE set-default stable --push
 
     - name: Build Schema
-      run: npm run schema-generate
+      run: |
+        npm run schema-generate
+        npm run schema-workspace-generate
 
     - name: Checkout gh-pages
       uses: actions/checkout@v3
