@@ -6,8 +6,7 @@ const StreamZip = _StreamZip.async;
 import {promisify} from "node:util";
 import Registry from "./Registry.js";
 import AbstractInstaller from "../AbstractInstaller.js";
-import CacheMode from "./CacheMode.js";
-import {rmrf} from "../../utils/fs.js";
+import rimraf from "rimraf";
 const stat = promisify(fs.stat);
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -22,30 +21,38 @@ const CACHE_TIME = 32400000; // 9 hours
 class Installer extends AbstractInstaller {
 	/**
 	 * @param {object} parameters Parameters
-	 * @param {string} parameters.ui5DataDir UI5 home directory location. This will be used to store packages,
+	 * @param {string} parameters.ui5HomeDir UI5 home directory location. This will be used to store packages,
 	 * metadata and configuration used by the resolvers.
 	 * @param {Function} parameters.snapshotEndpointUrlCb Callback that returns a Promise <string>,
 	 * 	resolving to the Maven repository URL.
 	 * 	Example: <code>https://registry.corp/vendor/build-snapshots/</code>
-	 * @param {module:@ui5/project/ui5Framework/maven/CacheMode} [parameters.cacheMode=Default] Cache mode to use
+	 * @param {string} [parameters.cacheMode="default"] Can be "default" (cache everything, invalidate after 9 hours),
+	 * 	"off" (do not cache), "force" (use cache only - no requests)
+	 * @param {string} [parameters.artifactsDir="${ui5HomeDir}/framework/artifacts"] Where to install Maven artifacts
+	 * @param {string} [parameters.packagesDir="${ui5HomeDir}/framework/packages"] Where to install packages
+	 * @param {string} [parameters.metadataDir="${ui5HomeDir}/framework/metadata"] Where to store the
+	 * 	metadata for Maven artifacts
+	 * @param {string} [parameters.stagingDir="${ui5HomeDir}/framework/staging"] The staging directory for
+	 * 	artifacts and packages
 	 */
-	constructor({ui5DataDir, snapshotEndpointUrlCb, cacheMode = CacheMode.Default}) {
-		super(ui5DataDir);
+	constructor({ui5HomeDir, snapshotEndpointUrlCb, cacheMode = "default", artifactsDir,
+		packagesDir, metadataDir, stagingDir}) {
+		super(ui5HomeDir);
 
-		this._artifactsDir = path.join(ui5DataDir, "framework", "artifacts");
-		this._packagesDir = path.join(ui5DataDir, "framework", "packages");
-		this._metadataDir = path.join(ui5DataDir, "framework", "metadata");
-		this._stagingDir = path.join(ui5DataDir, "framework", "staging");
+		this._artifactsDir = artifactsDir ?
+			path.resolve(artifactsDir) : path.join(ui5HomeDir, "framework", "artifacts");
+		this._packagesDir = packagesDir ?
+			path.resolve(packagesDir) : path.join(ui5HomeDir, "framework", "packages");
+		this._metadataDir = metadataDir ?
+			path.resolve(metadataDir) : path.join(ui5HomeDir, "framework", "metadata");
+		this._stagingDir = stagingDir ?
+			path.resolve(stagingDir) : path.join(ui5HomeDir, "framework", "staging");
 
 		this._cacheMode = cacheMode;
 		this._snapshotEndpointUrlCb = snapshotEndpointUrlCb;
 
 		if (!this._snapshotEndpointUrlCb) {
 			throw new Error(`Installer: Missing Snapshot-Endpoint URL callback parameter`);
-		}
-		if (!Object.values(CacheMode).includes(cacheMode)) {
-			throw new Error(`Installer: Invalid value '${cacheMode}' for cacheMode parameter. ` +
-				`Must be one of ${Object.values(CacheMode).join(", ")}`);
 		}
 
 		log.verbose(`Installing Maven artifacts to: ${this._artifactsDir}`);
@@ -57,17 +64,17 @@ class Installer extends AbstractInstaller {
 		if (this._cachedRegistry) {
 			return this._cachedRegistry;
 		}
-		return (this._cachedRegistry = Promise.resolve().then(async () => {
-			const snapshotEndpointUrl = await this._snapshotEndpointUrlCb();
-			if (!snapshotEndpointUrl) {
-				throw new Error(
-					`Installer: Missing or empty Maven repository URL for snapshot consumption. ` +
-					`This URL is required for consuming snapshot versions of UI5 libraries. ` +
-					`Please configure the correct URL using the following command: ` +
-					`'ui5 config set mavenSnapshotEndpointUrl <url>'`);
-			} else {
-				return new Registry({endpointUrl: snapshotEndpointUrl});
-			}
+		return (this._cachedRegistry = new Promise((resolve, reject) => {
+			this._snapshotEndpointUrlCb().then((snapshotEndpointUrl) => {
+				if (!snapshotEndpointUrl) {
+					reject(new Error(
+						`Installer: Missing or empty Maven repository URL for snapshot consumption. ` +
+						`Please configure the correct URL using the following command: ` +
+						`ui5 config set snapshotEndpointUrl https://registry.corp/vendor/build-snapshots/`));
+				}
+
+				resolve(new Registry({endpointUrl: snapshotEndpointUrl}));
+			});
 		}));
 	}
 
@@ -92,18 +99,6 @@ class Installer extends AbstractInstaller {
 		});
 	}
 
-
-	/**
-	 * Metadata for an artifact as identified by it's Maven coordinates
-	 *
-	 * @typedef {object} @ui5/project/ui5Framework/maven/Installer~LocalMetadata
-	 * @property {integer} lastCheck Timestamp of the last time these metadata have been compared with the repository
-	 * @property {integer} lastUpdate Timestamp of the last time the artifact has been updated in the repository
-	 *   (typically older than last check)
-	 * @property {string} revision Current revision of the artifact
-	 * @property {string[]} staleRevisions Previously installed revisions of the artifact
-	 */
-
 	/**
 	 * Fills and maintains locally cached metadata for the given artifact coordinates
 	 *
@@ -111,10 +106,11 @@ class Installer extends AbstractInstaller {
 	 * @param {string} coordinates.groupId GroupId of the requested artifact
 	 * @param {string} coordinates.artifactId ArtifactId of the requested artifact
 	 * @param {string} coordinates.version Version of the requested artifact
-	 * @param {string|null} coordinates.classifier Classifier of the requested artifact
+	 * @param {string} coordinates.classifier Classifier of the requested artifact
 	 * @param {string} coordinates.extension Extension of the requested artifact
 	 * @param {string} [coordinates.pkgName] npm package name the artifact corresponds to (if any)
 	 * @returns {@ui5/project/ui5Framework/maven/Installer~LocalMetadata}
+	 *
 	 */
 	async _fetchArtifactMetadata(coordinates) {
 		const fsId = this._generateFsIdFromCoordinates(coordinates);
@@ -122,7 +118,7 @@ class Installer extends AbstractInstaller {
 		return this._synchronize("metadata-" + fsId, async () => {
 			const localMetadata = await this._getLocalArtifactMetadata(fsId);
 
-			if (this._cacheMode === CacheMode.Force && !localMetadata.revision) {
+			if (this._cacheMode === "force" && !localMetadata.revision) {
 				throw new Error(`Could not find artifact ` +
 					`${logId} in local cache`);
 			}
@@ -130,8 +126,8 @@ class Installer extends AbstractInstaller {
 			const now = new Date().getTime();
 			const timeSinceLastCheck = now - localMetadata.lastCheck;
 
-			if (this._cacheMode !== CacheMode.Force &&
-				(timeSinceLastCheck > CACHE_TIME || this._cacheMode === CacheMode.Off)) {
+			if (this._cacheMode !== "force" &&
+				(timeSinceLastCheck > CACHE_TIME || this._cacheMode === "off")) {
 				// No cached metadata (-> timeSinceLastCheck equals time since 1970) or
 				// too old metadata or disabled cache
 				// => Retrieve metadata from repository
@@ -169,17 +165,6 @@ class Installer extends AbstractInstaller {
 		});
 	}
 
-	/**
-	 * Fills and maintains locally cached metadata for the given artifact coordinates
-	 *
-	 * @param {object} coordinates
-	 * @param {string} coordinates.groupId GroupId of the requested artifact
-	 * @param {string} coordinates.artifactId ArtifactId of the requested artifact
-	 * @param {string} coordinates.version Version of the requested artifact
-	 * @param {string|null} coordinates.classifier Classifier of the requested artifact
-	 * @param {string} coordinates.extension Extension of the requested artifact
-	 * @returns {@ui5/project/ui5Framework/maven/Installer~LocalMetadata}
-	 */
 	async _getRemoteArtifactMetadata({groupId, artifactId, version, classifier, extension}) {
 		const reg = await this.getRegistry();
 		const metadata = await reg.requestMavenMetadata({groupId, artifactId, version});
@@ -195,9 +180,8 @@ class Installer extends AbstractInstaller {
 		}) => (!classifier || candidateClassifier === classifier) && candidateExtension === extension);
 
 		if (!deploymentMetadata) {
-			const optionalClassifier = classifier ? `${classifier}.` : "";
 			throw new Error(
-				`Could not find ${optionalClassifier}${extension} deployment for artifact ` +
+				`Could not find deployment ${classifier}.${extension} for artifact ` +
 				`${groupId}:${artifactId}:${version} in snapshot metadata:\n` +
 				`${JSON.stringify(snapshotVersion)}`);
 		}
@@ -216,12 +200,6 @@ class Installer extends AbstractInstaller {
 		};
 	}
 
-	/**
-	 * Reads locally cached metadata for the given artifact coordinates
-	 *
-	 * @param {string} id File System identifier for the artifact. Typically derived from the coordinates
-	 * @returns {@ui5/project/ui5Framework/maven/Installer~LocalMetadata}
-	 */
 	async _getLocalArtifactMetadata(id) {
 		try {
 			return await this.readJson(path.join(this._metadataDir, `${id}.json`));
@@ -275,7 +253,7 @@ class Installer extends AbstractInstaller {
 			if (pkgName) {
 				const packageDir = this._getTargetDirForPackage(pkgName, revision);
 				log.verbose(`Removing directory ${packageDir}...`);
-				await rmrf(packageDir);
+				await rimraf(packageDir);
 			}
 		}
 	}
@@ -294,9 +272,10 @@ class Installer extends AbstractInstaller {
 	 * @param {string} parameters.groupId GroupId of the requested artifact
 	 * @param {string} parameters.artifactId ArtifactId of the requested artifact
 	 * @param {string} parameters.version Version of the requested artifact
-	 * @param {string|null} parameters.classifier Classifier of the requested artifact
+	 * @param {string} parameters.classifier Classifier of the requested artifact
 	 * @param {string} parameters.extension Extension of the requested artifact
 	 * @returns {@ui5/project/ui5Framework/maven/Installer~InstalledPackage}
+	 *
 	 */
 	async installPackage({pkgName, groupId, artifactId, version, classifier, extension}) {
 		const {revision} = await this._fetchArtifactMetadata({
@@ -326,7 +305,7 @@ class Installer extends AbstractInstaller {
 				// Check whether staging dir already exists and remove it
 				if (await this._pathExists(stagingDir)) {
 					log.verbose(`Removing stale staging directory at ${stagingDir}...`);
-					await rmrf(stagingDir);
+					await rimraf(stagingDir);
 				}
 
 				await mkdirp(stagingDir);
@@ -345,11 +324,11 @@ class Installer extends AbstractInstaller {
 				// Check whether target dir already exists and remove it
 				if (await this._pathExists(targetDir)) {
 					log.verbose(`Removing existing target directory at ${targetDir}...`);
-					await rmrf(targetDir);
+					await rimraf(targetDir);
 				}
 
 				// Do not create target dir itself to prevent EPERM error in following rename operation
-				// (https://github.com/UI5/cli/issues/487)
+				// (https://github.com/SAP/ui5-tooling/issues/487)
 				await mkdirp(path.dirname(targetDir));
 				log.verbose(`Promoting staging directory from ${stagingDir} to ${targetDir}...`);
 				await rename(stagingDir, targetDir);
@@ -376,11 +355,12 @@ class Installer extends AbstractInstaller {
 	 * @param {string} parameters.groupId GroupId of the requested artifact
 	 * @param {string} parameters.artifactId ArtifactId of the requested artifact
 	 * @param {string} parameters.version Version of the requested artifact
-	 * @param {string|null} parameters.classifier Classifier of the requested artifact
+	 * @param {string} parameters.classifier Classifier of the requested artifact
 	 * @param {string} parameters.extension Extension of the requested artifact
 	 * @param {string} [parameters.revision] Optional revision of the artifact to request.
 	 * 	If not provided, the latest revision will be determined from the registry metadata.
 	 * @returns {@ui5/project/ui5Framework/maven/Installer~InstalledArtifact}
+	 *
 	 */
 	async installArtifact({groupId, artifactId, version, classifier, extension, revision}) {
 		if (!revision) {
@@ -443,7 +423,11 @@ class Installer extends AbstractInstaller {
 	}
 
 	async _projectExists(targetDir) {
-		return this._pathExists(path.join(targetDir, "package.json"));
+		const markers = await Promise.all([
+			this._pathExists(path.join(targetDir, "package.json")),
+			this._pathExists(path.join(targetDir, ".ui5", "build-manifest.json"))
+		]);
+		return markers.includes(true);
 	}
 
 	async _pathExists(targetPath) {
