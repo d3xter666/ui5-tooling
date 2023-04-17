@@ -114,10 +114,8 @@ test.serial("Registry: requestMavenMetadata not found", async (t) => {
 		}),
 		{
 			message:
-				"Failed to connect to Maven registry at some-url/. " +
-				"Please check the correct endpoint URL is maintained and can be reached. "+
-				"You can change the configured URL " +
-				"using the following command: 'ui5 config set mavenSnapshotEndpointUrl <url>'"
+				"Failed to connect to Maven registry at some-url/. Please check the correct endpoint URL" +
+				" is maintained and can be reached. ",
 		}
 	);
 });
@@ -232,9 +230,7 @@ test.serial("Registry: requestArtifact not found", async (t) => {
 		{
 			message:
 				"Failed to connect to Maven registry at some-url/. " +
-				"Please check the correct endpoint URL is maintained and can be reached. "+
-				"You can change the configured URL " +
-				"using the following command: 'ui5 config set mavenSnapshotEndpointUrl <url>'"
+				"Please check the correct endpoint URL is maintained and can be reached. "
 		}
 	);
 });

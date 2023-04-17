@@ -61,9 +61,7 @@ class Registry {
 			if (err.code === "ENOTFOUND") {
 				throw new Error(
 					`Failed to connect to Maven registry at ${this._endpointUrl}. ` +
-					`Please check the correct endpoint URL is maintained and can be reached. ` +
-					`You can change the configured URL using the following command: ` +
-					`'ui5 config set mavenSnapshotEndpointUrl <url>'`);
+					`Please check the correct endpoint URL is maintained and can be reached. `);
 
 				// TODO: Allow cacheMode to be set from outside
 				// `You may be able to continue working offline. For this, set --cache-mode to "force"`);
@@ -84,15 +82,7 @@ class Registry {
 
 			log.verbose(`Fetching: ${url}`);
 			const res = await fetch(url, {
-				cache: "no-store", // Do not cache these large artifacts. We store them right away anyways
-
-				// Disable usage of shared keep-alive agents.
-				// make-fetch-happen uses a hard-coded 15 seconds freeSocketTimeout
-				// that can be easily reached (Error: Socket timeout) and there doesn't
-				// seem to be another way to disable or increase it.
-				// Also see: https://github.com/node-modules/agentkeepalive/issues/106
-				// The same applies in npm/Registry.js
-				agent: false,
+				cache: "no-store" // Do not cache these large artifacts. We store them right away anyways
 			});
 			if (!res.ok) {
 				throw new Error(`[HTTP Error] ${res.status} ${res.statusText}`);
@@ -104,9 +94,7 @@ class Registry {
 			if (err.code === "ENOTFOUND") {
 				throw new Error(
 					`Failed to connect to Maven registry at ${this._endpointUrl}. ` +
-					`Please check the correct endpoint URL is maintained and can be reached. ` +
-					`You can change the configured URL using the following command: ` +
-					`'ui5 config set mavenSnapshotEndpointUrl <url>'`);
+					`Please check the correct endpoint URL is maintained and can be reached. `);
 
 				// TODO: Allow cacheMode to be set from outside
 				// `You may be able to continue working offline. For this, set --cache-mode to "force"`);
