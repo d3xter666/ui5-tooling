@@ -1,6 +1,5 @@
 import path from "node:path";
 import os from "node:os";
-import semver from "semver";
 import AbstractResolver from "./AbstractResolver.js";
 import Installer from "./maven/Installer.js";
 import {getLogger} from "@ui5/logger";
@@ -25,37 +24,44 @@ const DIST_ARTIFACT_ID = "sapui5-sdk-dist";
 class Sapui5MavenSnapshotResolver extends AbstractResolver {
 	/**
 	 * @param {*} options options
-	 * @param {string} [options.snapshotEndpointUrl] Maven Repository Snapshot URL. Can by overruled
-	 *	by setting the <code>UI5_MAVEN_SNAPSHOT_ENDPOINT_URL</code> environment variable. If neither is provided,
-	 *	falling back to the standard Maven settings.xml file (if existing).
+	 * @param {string} [options.snapshotEndpointUrl] Maven Repository Snapshot URL. If not provided,
+	 *	falls back to an optional <code>UI5_MAVEN_SNAPSHOT_ENDPOINT</code> environment variable,
+	 *	or the standard Maven settings.xml file (if existing).
 	 * @param {string} options.version SAPUI5 version to use
 	 * @param {boolean} [options.sources=false] Whether to install framework libraries as sources or
 	 * pre-built (with build manifest)
 	 * @param {string} [options.cwd=process.cwd()] Current working directory
-	 * @param {string} [options.ui5DataDir="~/.ui5"] UI5 home directory location. This will be used to store packages,
+	 * @param {string} [options.ui5HomeDir="~/.ui5"] UI5 home directory location. This will be used to store packages,
 	 * metadata and configuration used by the resolvers. Relative to `process.cwd()`
-	 * @param {module:@ui5/project/ui5Framework/maven/CacheMode} [options.cacheMode=Default]
-	 * Cache mode to use
+	 * @param {string} [options.cacheMode="default"] Can be "default" (cache everything, invalidate after 9 hours),
+	 * 	"off" (do not cache) and "force" (use cache only - no requests)
+	 * @param {string} [options.artifactsDir] Where to install Maven artifacts
+	 * @param {string} [options.packagesDir] Where to install packages
+	 * @param {string} [options.metadataDir] Where to store the metadata for Maven artifacts
+	 * @param {string} [options.stagingDir] The staging directory for artifacts and packages
 	 */
 	constructor(options) {
 		super(options);
 
 		const {
 			cacheMode,
+			artifactsDir,
+			packagesDir,
+			metadataDir,
+			stagingDir,
 		} = options;
 
 		this._installer = new Installer({
-			ui5DataDir: this._ui5DataDir,
+			ui5HomeDir: this._ui5HomeDir,
 			snapshotEndpointUrlCb:
 				Sapui5MavenSnapshotResolver._createSnapshotEndpointUrlCallback(options.snapshotEndpointUrl),
 			cacheMode,
+			artifactsDir,
+			packagesDir,
+			metadataDir,
+			stagingDir,
 		});
 		this._loadDistMetadata = null;
-
-		// TODO 5.0: Remove support for legacy snapshot versions
-		this._isLegacySnapshotVersion = semver.lt(this._version, "1.116.0-SNAPSHOT", {
-			includePrerelease: true
-		});
 	}
 	loadDistMetadata() {
 		if (!this._loadDistMetadata) {
@@ -101,28 +107,8 @@ class Sapui5MavenSnapshotResolver extends AbstractResolver {
 		}
 		const gav = metadata.gav.split(":");
 		let pkgName = metadata.npmPackageName;
-
-		// Use "npm-dist" artifact by default
-		let classifier;
-		let extension;
-		if (this._sources) {
-			// Use npm-sources artifact if sources are requested
-			classifier = "npm-sources";
-			extension = "zip";
-		} else {
-			// Add "prebuilt" suffix to package name
+		if (!this._sources) {
 			pkgName += "-prebuilt";
-
-			if (this._isLegacySnapshotVersion) {
-				// For legacy versions < 1.116.0-SNAPSHOT where npm-dist artifact is not
-				// yet available, use "default" JAR
-				classifier = null;
-				extension = "jar";
-			} else {
-				// Use "npm-dist" artifact by default
-				classifier = "npm-dist";
-				extension = "zip";
-			}
 		}
 
 		return {
@@ -138,17 +124,17 @@ class Sapui5MavenSnapshotResolver extends AbstractResolver {
 				groupId: gav[0],
 				artifactId: gav[1],
 				version: metadata.version,
-				classifier,
-				extension,
+				classifier: this._sources ? "npm-sources" : null,
+				extension: this._sources ? "zip" : "jar",
 			}),
 		};
 	}
 
-	static async fetchAllVersions({ui5DataDir, cwd, snapshotEndpointUrl} = {}) {
+	static async fetchAllVersions({ui5HomeDir, cwd, snapshotEndpointUrl} = {}) {
 		const installer = new Installer({
 			cwd: cwd ? path.resolve(cwd) : process.cwd(),
-			ui5DataDir: path.resolve(
-				ui5DataDir || path.join(os.homedir(), ".ui5")
+			ui5HomeDir: path.resolve(
+				ui5HomeDir || path.join(os.homedir(), ".ui5")
 			),
 			snapshotEndpointUrlCb: Sapui5MavenSnapshotResolver._createSnapshotEndpointUrlCallback(snapshotEndpointUrl),
 		});
@@ -159,42 +145,17 @@ class Sapui5MavenSnapshotResolver extends AbstractResolver {
 	}
 
 	static _createSnapshotEndpointUrlCallback(snapshotEndpointUrl) {
-		snapshotEndpointUrl = process.env.UI5_MAVEN_SNAPSHOT_ENDPOINT_URL || snapshotEndpointUrl;
+		snapshotEndpointUrl = snapshotEndpointUrl || process.env.UI5_MAVEN_SNAPSHOT_ENDPOINT;
 
 		if (!snapshotEndpointUrl) {
-			// Here we return a function which returns a promise that resolves with the URL.
-			// If we would already start resolving the settings.xml at this point, we'd need to always ask the
-			// end user for confirmation whether the resolved URL should be used. In some cases where the resources
-			// are already cached, this is actually not necessary and could be skipped
-			return Sapui5MavenSnapshotResolver._resolveSnapshotEndpointUrl;
+			// If we resolve the settings.xml at this point, we'd need to always ask the end
+			// user for confirmation. In some cases where the resources are already cached,
+			// this is not necessary and we could skip it as a real request to the repository won't
+			// be made.
+			return Sapui5MavenSnapshotResolver._resolveSnapshotEndpointUrlFromMaven;
 		} else {
 			return () => Promise.resolve(snapshotEndpointUrl);
 		}
-	}
-
-	/**
-	 * Read the Maven repository snapshot endpoint URL from the central
-	 * UI5 CLI configuration, with a fallback to central Maven configuration (is existing)
-	 *
-	 * @returns {Promise<string>} The resolved snapshotEndpointUrl
-	 */
-	static async _resolveSnapshotEndpointUrl() {
-		const {default: Configuration} = await import("../config/Configuration.js");
-		const config = await Configuration.fromFile();
-		let url = config.getMavenSnapshotEndpointUrl();
-		if (url) {
-			log.verbose(`Using UI5 CLI configuration for mavenSnapshotEndpointUrl: ${url}`);
-		} else {
-			log.verbose(`No mavenSnapshotEndpointUrl configuration found`);
-			url = await Sapui5MavenSnapshotResolver._resolveSnapshotEndpointUrlFromMaven();
-			if (url) {
-				log.verbose(`Updating UI5 CLI configuration with new mavenSnapshotEndpointUrl: ${url}`);
-				const configJson = config.toJson();
-				configJson.mavenSnapshotEndpointUrl = url;
-				await Configuration.toFile(new Configuration(configJson));
-			}
-		}
-		return url;
 	}
 
 	/**
@@ -212,6 +173,7 @@ class Sapui5MavenSnapshotResolver extends AbstractResolver {
 			return null;
 		}
 
+		let skipConfirmation = false;
 		settingsXML =
 			settingsXML || path.resolve(path.join(os.homedir(), ".m2", "settings.xml"));
 
@@ -239,36 +201,40 @@ class Sapui5MavenSnapshotResolver extends AbstractResolver {
 				snapshotBuildChunk?.pluginRepositories?.[0]?.pluginRepository?.[0]?.url?.[0]?._;
 
 			if (!url) {
+				skipConfirmation = true;
 				log.verbose(`"snapshot.build" attribute could not be found in ${settingsXML}`);
-				return null;
 			}
 		} catch (err) {
+			skipConfirmation = true;
 			if (err.code === "ENOENT") {
 				// "File or directory does not exist"
 				log.verbose(`File does not exist: ${settingsXML}`);
 			} else {
 				log.warning(`Failed to read Maven configuration file from ${settingsXML}: ${err.message}`);
 			}
-			return null;
 		}
 
-		const {default: yesno} = await import("yesno");
-		const ok = await yesno({
-			question:
-				"\nA Maven repository endpoint URL is required for consuming snapshot versions of UI5 libraries.\n" +
-				"You can configure one using the command: 'ui5 config set mavenSnapshotEndpointUrl <url>'\n\n" +
-				`The following URL has been found in a Maven configuration file at ${settingsXML}:\n${url}\n\n` +
-				`Continue with this endpoint URL and remember it for the future? (yes)`,
-			defaultValue: true,
-		});
+		if (!skipConfirmation) {
+			const {default: yesno} = await import("yesno");
+			const ok = await yesno({
+				question:
+					"A Maven snapshot endpoint URL is required for consuming snapshot versions of UI5 libraries. " +
+					`The following URL has been found in a Maven configuration file at ${settingsXML}: '${url}'. ` +
+					`Continue with this endpoint URL? (yes)`,
+				defaultValue: true,
+			});
 
-		if (ok) {
-			log.verbose(`Using Maven snapshot endpoint URL resolved from Maven configuration file: ${url}`);
-			return url;
-		} else {
-			log.verbose(`User rejected usage of the resolved URL`);
-			return null;
+			if (ok) {
+				log.info(`Using Maven snapshot endpoint URL resolved from Maven configuration file: ${url}`);
+				log.info(`Consider persisting this choice by executing the following command: ` +
+					`ui5 config set snapshotEndpointUrl ${url}`);
+			} else {
+				log.verbose(`User rejected usage of the resolved URL`);
+				url = null;
+			}
 		}
+
+		return url;
 	}
 }
 
