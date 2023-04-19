@@ -28,62 +28,39 @@ test.afterEach.always((t) => {
 	esmock.purge(t.context.Configuration);
 });
 
-test.serial("Configuration options", (t) => {
-	const {Configuration} = t.context;
-	t.deepEqual(Configuration.OPTIONS, [
-		"mavenSnapshotEndpointUrl",
-		"ui5DataDir"
-	]);
-});
-
 test.serial("Build configuration with defaults", (t) => {
 	const {Configuration} = t.context;
 
 	const config = new Configuration({});
 
-	t.deepEqual(config.toJson(), {
-		mavenSnapshotEndpointUrl: undefined,
-		ui5DataDir: undefined,
+	t.deepEqual(config.toJSON(), {
+		mavenSnapshotEndpointUrl: undefined
 	});
 });
+
 
 test.serial("Overwrite defaults defaults", (t) => {
 	const {Configuration} = t.context;
 
 	const params = {
-		mavenSnapshotEndpointUrl: "https://snapshot.url",
-		ui5DataDir: "/custom/data/dir"
+		mavenSnapshotEndpointUrl: "https://snapshot.url"
 	};
 
 	const config = new Configuration(params);
 
-	t.deepEqual(config.toJson(), params);
-});
-
-test.serial("Unknown configuration option", (t) => {
-	const {Configuration} = t.context;
-
-	const params = {
-		unknown: "foo"
-	};
-
-	t.throws(() => new Configuration(params), {
-		message: `Unknown configuration option 'unknown'`
-	});
+	t.deepEqual(config.toJSON(), params);
 });
 
 test.serial("Check getters", (t) => {
 	const {Configuration} = t.context;
 
 	const params = {
-		mavenSnapshotEndpointUrl: "https://snapshot.url",
-		ui5DataDir: "/custom/data/dir"
+		mavenSnapshotEndpointUrl: "https://snapshot.url"
 	};
 
 	const config = new Configuration(params);
 
 	t.is(config.getMavenSnapshotEndpointUrl(), params.mavenSnapshotEndpointUrl);
-	t.is(config.getUi5DataDir(), params.ui5DataDir);
 });
 
 
@@ -92,18 +69,17 @@ test.serial("fromFile", async (t) => {
 	const {promisifyStub, sinon} = t.context;
 
 	const ui5rcContents = {
-		mavenSnapshotEndpointUrl: "https://snapshot.url",
-		ui5DataDir: "/custom/data/dir"
+		mavenSnapshotEndpointUrl: "https://snapshot.url"
 	};
 	const responseStub = sinon.stub().resolves(JSON.stringify(ui5rcContents));
 	promisifyStub.callsFake(() => responseStub);
 
 	const config = await fromFile("/custom/path/.ui5rc");
 
-	t.deepEqual(config.toJson(), ui5rcContents);
+	t.deepEqual(config.toJSON(), ui5rcContents);
 });
 
-test.serial("fromFile: configuration file not found - fallback to default config", async (t) => {
+test.serial("fromFile: configuration file not found- fallback to default config", async (t) => {
 	const {promisifyStub, sinon, Configuration} = t.context;
 	const fromFile = Configuration.fromFile;
 
@@ -113,23 +89,7 @@ test.serial("fromFile: configuration file not found - fallback to default config
 	const config = await fromFile("/non-existing/path/.ui5rc");
 
 	t.is(config instanceof Configuration, true, "Created a default configuration");
-	t.is(config.getMavenSnapshotEndpointUrl(), undefined, "Default settings");
-	t.is(config.getUi5DataDir(), undefined, "Default settings");
-});
-
-
-test.serial("fromFile: empty configuration file - fallback to default config", async (t) => {
-	const {promisifyStub, sinon, Configuration} = t.context;
-	const fromFile = Configuration.fromFile;
-
-	const responseStub = sinon.stub().resolves("");
-	promisifyStub.callsFake(() => responseStub);
-
-	const config = await fromFile("/non-existing/path/.ui5rc");
-
-	t.is(config instanceof Configuration, true, "Created a default configuration");
-	t.is(config.getMavenSnapshotEndpointUrl(), undefined, "Default settings");
-	t.is(config.getUi5DataDir(), undefined, "Default settings");
+	t.is(config.getMavenSnapshotEndpointUrl(), undefined, "Dafault settings");
 });
 
 test.serial("fromFile: throws", async (t) => {
@@ -139,8 +99,8 @@ test.serial("fromFile: throws", async (t) => {
 	const responseStub = sinon.stub().throws(new Error("Error"));
 	promisifyStub.callsFake(() => responseStub);
 
-	await t.throwsAsync(fromFile(), {
-		message: `Failed to read UI5 CLI configuration from ~/.ui5rc: Error`
+	await t.throwsAsync(fromFile("/non-existing/path/.ui5rc"), {
+		message: "Error"
 	});
 });
 
@@ -156,19 +116,7 @@ test.serial("toFile", async (t) => {
 
 	t.deepEqual(
 		writeStub.getCall(0).args,
-		["/path/to/save/.ui5rc", JSON.stringify(config.toJson())],
+		["/path/to/save/.ui5rc", JSON.stringify(config.toJSON())],
 		"Write config to path"
 	);
-});
-
-test.serial("toFile: throws", async (t) => {
-	const {promisifyStub, sinon, Configuration} = t.context;
-	const toFile = Configuration.toFile;
-
-	const responseStub = sinon.stub().throws(new Error("Error"));
-	promisifyStub.callsFake(() => responseStub);
-
-	await t.throwsAsync(toFile(new Configuration({})), {
-		message: "Failed to write UI5 CLI configuration to ~/.ui5rc: Error"
-	});
 });
