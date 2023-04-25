@@ -2,16 +2,6 @@ import test from "ava";
 import sinon from "sinon";
 import esmock from "esmock";
 import chalk from "chalk";
-import path from "node:path";
-import {execa} from "execa";
-import stripAnsi from "strip-ansi";
-import {platform} from "node:process";
-
-const __dirname = import.meta.dirname;
-const ui5Cli = path.join(__dirname, "..", "..", "..", "..", "bin", "ui5.cjs");
-// On Windows, execa@>=9 returns quotes around the path, so it is necessary to add them here
-const ui5CliPath = platform === "win32" ? `"${ui5Cli}"` : ui5Cli;
-const ui5 = (args, options = {}) => execa(ui5Cli, args, options);
 
 function getDefaultArgv() {
 	// This has been taken from the actual argv object yargs provides
@@ -103,7 +93,7 @@ test.serial("ui5 config get", async (t) => {
 	}));
 
 	argv["_"] = ["get"];
-	argv["option"] = "mavenSnapshotEndpointUrl";
+	argv["key"] = "mavenSnapshotEndpointUrl";
 	await config.handler(argv);
 
 	t.is(stdoutWriteStub.firstCall.firstArg, "my/url\n",
@@ -115,7 +105,7 @@ test.serial("ui5 config get: Empty value", async (t) => {
 	const {config, argv, stdoutWriteStub} = t.context;
 
 	argv["_"] = ["get"];
-	argv["option"] = "mavenSnapshotEndpointUrl";
+	argv["key"] = "mavenSnapshotEndpointUrl";
 	await config.handler(argv);
 
 	t.is(stdoutWriteStub.firstCall.firstArg, "\n", "Logged no value to console");
@@ -132,7 +122,7 @@ test.serial("ui5 config set", async (t) => {
 	Configuration.fromFile.resolves(configurationStub);
 
 	argv["_"] = ["set"];
-	argv["option"] = "mavenSnapshotEndpointUrl";
+	argv["key"] = "mavenSnapshotEndpointUrl";
 	argv["value"] = "https://_snapshot_endpoint_";
 	await config.handler(argv);
 
@@ -143,15 +133,16 @@ test.serial("ui5 config set", async (t) => {
 	t.is(stdoutWriteStub.callCount, 0, "Nothing written to stdout");
 
 	t.is(Configuration.toFile.callCount, 1, "Configuration#toFile got called once");
-	t.is(Configuration.toFile.firstCall.firstArg.toJson().mavenSnapshotEndpointUrl,
-		"https://_snapshot_endpoint_", "Configuration#toFile got called with expected argument");
+	t.deepEqual(Configuration.toFile.firstCall.firstArg.toJson(), {
+		mavenSnapshotEndpointUrl: "https://_snapshot_endpoint_"
+	}, "Configuration#toFile got called with expected argument");
 });
 
 test.serial("ui5 config set without a value should delete the configuration", async (t) => {
 	const {config, argv, stderrWriteStub, stdoutWriteStub, Configuration} = t.context;
 
 	argv["_"] = ["set"];
-	argv["option"] = "mavenSnapshotEndpointUrl";
+	argv["key"] = "mavenSnapshotEndpointUrl";
 	argv["value"] = undefined; // Simulating no value parameter provided to Yargs
 	await config.handler(argv);
 
@@ -161,15 +152,16 @@ test.serial("ui5 config set without a value should delete the configuration", as
 	t.is(stdoutWriteStub.callCount, 0, "Nothing written to stdout");
 
 	t.is(Configuration.toFile.callCount, 1, "Configuration#toFile got called once");
-	t.is(Configuration.toFile.firstCall.firstArg.toJson().mavenSnapshotEndpointUrl,
-		undefined, "Configuration#toFile got called with expected argument");
+	t.deepEqual(Configuration.toFile.firstCall.firstArg.toJson(), {
+		mavenSnapshotEndpointUrl: undefined
+	}, "Configuration#toFile got called with expected argument");
 });
 
 test.serial("ui5 config set with an empty value should delete the configuration", async (t) => {
 	const {config, argv, stderrWriteStub, stdoutWriteStub, Configuration} = t.context;
 
 	argv["_"] = ["set"];
-	argv["option"] = "mavenSnapshotEndpointUrl";
+	argv["key"] = "mavenSnapshotEndpointUrl";
 	argv["value"] = ""; // Simulating empty value provided to Yargs using quotes ""
 	await config.handler(argv);
 
@@ -179,15 +171,16 @@ test.serial("ui5 config set with an empty value should delete the configuration"
 	t.is(stdoutWriteStub.callCount, 0, "Nothing written to stdout");
 
 	t.is(Configuration.toFile.callCount, 1, "Configuration#toFile got called once");
-	t.is(Configuration.toFile.firstCall.firstArg.toJson().mavenSnapshotEndpointUrl,
-		undefined, "Configuration#toFile got called with expected argument");
+	t.deepEqual(Configuration.toFile.firstCall.firstArg.toJson(), {
+		mavenSnapshotEndpointUrl: undefined
+	}, "Configuration#toFile got called with expected argument");
 });
 
 test.serial("ui5 config set null should update the configuration", async (t) => {
 	const {config, argv, stderrWriteStub, stdoutWriteStub, Configuration} = t.context;
 
 	argv["_"] = ["set"];
-	argv["option"] = "mavenSnapshotEndpointUrl";
+	argv["key"] = "mavenSnapshotEndpointUrl";
 
 	// Yargs would never provide us with other types than string. Still, our code should
 	// check for empty strings and nothing else (like falsy)
@@ -201,15 +194,16 @@ test.serial("ui5 config set null should update the configuration", async (t) => 
 	t.is(stdoutWriteStub.callCount, 0, "Nothing written to stdout");
 
 	t.is(Configuration.toFile.callCount, 1, "Configuration#toFile got called once");
-	t.is(Configuration.toFile.firstCall.firstArg.toJson().mavenSnapshotEndpointUrl,
-		0, "Configuration#toFile got called with expected argument");
+	t.deepEqual(Configuration.toFile.firstCall.firstArg.toJson(), {
+		mavenSnapshotEndpointUrl: 0
+	}, "Configuration#toFile got called with expected argument");
 });
 
 test.serial("ui5 config set false should update the configuration", async (t) => {
 	const {config, argv, stderrWriteStub, stdoutWriteStub, Configuration} = t.context;
 
 	argv["_"] = ["set"];
-	argv["option"] = "mavenSnapshotEndpointUrl";
+	argv["key"] = "mavenSnapshotEndpointUrl";
 
 	// Yargs would never provide us with other types than string. Still, our code should
 	// check for empty strings and nothing else (like falsyness)
@@ -223,45 +217,44 @@ test.serial("ui5 config set false should update the configuration", async (t) =>
 	t.is(stdoutWriteStub.callCount, 0, "Nothing written to stdout");
 
 	t.is(Configuration.toFile.callCount, 1, "Configuration#toFile got called once");
-	t.is(Configuration.toFile.firstCall.firstArg.toJson().mavenSnapshotEndpointUrl,
-		false, "Configuration#toFile got called with expected argument");
+	t.deepEqual(Configuration.toFile.firstCall.firstArg.toJson(), {
+		mavenSnapshotEndpointUrl: false
+	}, "Configuration#toFile got called with expected argument");
 });
 
-test.serial("ui5 config invalid option", async (t) => {
-	await t.throwsAsync(ui5(["config", "set", "_invalid_key_", "https://_snapshot_endpoint_"]), {
-		message: ($) => {
-			// stderr might include debug information
-			return $.includes("Command failed with exit code 1") &&
-				$.includes("Invalid values") &&
-				$.includes(`Given: "_invalid_key_", Choices: "`);
-		}
+test.serial("ui5 config invalid key", async (t) => {
+	const {config, argv} = t.context;
+
+	argv["_"] = ["get"];
+	argv["key"] = "_invalid_key_";
+	argv["value"] = "https://_snapshot_endpoint_";
+
+	await t.throwsAsync(config.handler(argv), {
+		message:
+			"The provided key is not a valid configuration option. Valid options are: mavenSnapshotEndpointUrl",
 	});
 });
 
-test.serial("ui5 config empty option", async (t) => {
-	await t.throwsAsync(ui5(["config", "set"]), {
-		message: ($) => {
-			const message = stripAnsi($);
-			// stderr might include debug information
+test.serial("ui5 config empty key", async (t) => {
+	const {config, argv} = t.context;
 
-			return message.includes(`Command failed with exit code 1: ${ui5CliPath} config set`) &&
-				message.includes(`Command Failed:
-Not enough non-option arguments: got 0, need at least 1
+	argv["_"] = ["set"];
+	argv["key"] = "";
+	argv["value"] = undefined;
 
-See 'ui5 --help'`);
-		}
+	await t.throwsAsync(config.handler(argv), {
+		message:
+			"The provided key is not a valid configuration option. Valid options are: mavenSnapshotEndpointUrl",
 	});
 });
 
 test.serial("ui5 config unknown command", async (t) => {
-	await t.throwsAsync(ui5(["config", "foo"]), {
-		message: ($) => {
-			const message = stripAnsi($);
-			return message.includes(`Command failed with exit code 1: ${ui5CliPath} config foo`) &&
-				message.includes(`Command Failed:
-Unknown argument: foo
+	const {config, argv} = t.context;
 
-See 'ui5 --help'`);
-		}
+	argv["_"] = ["foo"];
+
+	await t.throwsAsync(config.handler(argv), {
+		message:
+			"Unknown 'ui5 config' command 'foo'",
 	});
 });
