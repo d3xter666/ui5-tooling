@@ -1,11 +1,10 @@
 import chalk from "chalk";
 import process from "node:process";
 import baseMiddleware from "../middlewares/base.js";
-import Configuration from "@ui5/project/config/Configuration";
 
 const configCommand = {
 	command: "config",
-	describe: "Get and set UI5 CLI configuration options",
+	describe: "Get and set UI5 Tooling configuration options",
 	middlewares: [baseMiddleware],
 	handler: handleConfig
 };
@@ -13,17 +12,13 @@ const configCommand = {
 configCommand.builder = function(cli) {
 	return cli
 		.demandCommand(1, "Command required. Available commands are 'set', 'get', and 'list'")
-		.command("set <option> [value]", "Set the value for a given configuration option. " +
+		.command("set <key> [value]", "Set the value for a given configuration key. " +
 			"Clear an existing configuration by omitting the value", {
 			handler: handleConfig,
-			builder: (cli) => {
-				cli.positional("option", {
-					choices: Configuration.OPTIONS
-				});
-			},
+			builder: noop,
 			middlewares: [baseMiddleware],
 		})
-		.command("get <option>", "Get the value for a given configuration option", {
+		.command("get <key>", "Get the value for a given configuration key", {
 			handler: handleConfig,
 			builder: noop,
 			middlewares: [baseMiddleware],
@@ -33,47 +28,51 @@ configCommand.builder = function(cli) {
 			builder: noop,
 			middlewares: [baseMiddleware],
 		})
-		.example("$0 config set ui5DataDir /path/to/.ui5",
-			"Set a value for the ui5DataDir configuration")
-		.example("$0 config set ui5DataDir",
-			"Unset the current value of the ui5DataDir configuration");
+		.example("$0 set mavenSnapshotEndpointUrl http://example.com/snapshots/",
+			"Set a value for the mavenSnapshotEndpointUrl configuration")
+		.example("$0 set mavenSnapshotEndpointUrl",
+			"Unset the current value of the mavenSnapshotEndpointUrl configuration");
 };
 
 function noop() {}
 
 async function handleConfig(argv) {
-	const {_: commandArgs, option, value} = argv;
+	const {_: commandArgs, key, value} = argv;
 	const command = commandArgs[commandArgs.length - 1];
 
-	// Yargs ensures that:
-	// - "option" only contains valid values (defined as "choices" in command builder)
-	// - "command" is one of "list", "get", "set"
+	const {default: Configuration} = await import( "@ui5/project/config/Configuration");
+	const allowedKeys = ["mavenSnapshotEndpointUrl"];
+
+	if (["set", "get"].includes(command) && !allowedKeys.includes(key)) {
+		throw new Error(
+			`The provided key is not a valid configuration option. Valid options are: ${allowedKeys.join(", ")}`);
+	}
 
 	const config = await Configuration.fromFile();
-	let jsonConfig;
-
-	switch (command) {
-	case "list":
+	if (command === "list") {
 		// Print all configuration values to stdout
 		process.stdout.write(formatJsonForOutput(config.toJson()));
-		break;
-	case "get":
+	} else if (command === "get") {
 		// Get a single configuration value and print to stdout
-		process.stdout.write(`${config.toJson()[option] ?? ""}\n`);
-		break;
-	case "set":
-		jsonConfig = config.toJson();
+		let configValue = config.toJson()[key];
+		if (configValue === undefined) {
+			configValue = "";
+		}
+		process.stdout.write(`${configValue}\n`);
+	} else if (command === "set") {
+		const jsonConfig = config.toJson();
 		if (value === undefined || value === "") {
-			delete jsonConfig[option];
-			process.stderr.write(`Configuration option ${chalk.bold(option)} has been unset\n`);
+			delete jsonConfig[key];
+			process.stderr.write(`Configuration option ${chalk.bold(key)} has been unset\n`);
 		} else {
-			jsonConfig[option] = value;
-			process.stderr.write(`Configuration option ${chalk.bold(option)} has been updated:
-${formatJsonForOutput(jsonConfig, option)}`);
+			jsonConfig[key] = value;
+			process.stderr.write(`Configuration option ${chalk.bold(key)} has been updated:
+${formatJsonForOutput(jsonConfig, key)}`);
 		}
 
 		await Configuration.toFile(new Configuration(jsonConfig));
-		break;
+	} else {
+		throw new Error(`Unknown 'ui5 config' command '${command}'`);
 	}
 }
 
