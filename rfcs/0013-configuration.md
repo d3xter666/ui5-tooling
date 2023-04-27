@@ -1,24 +1,24 @@
 - Start Date: 2023-02-17
-- RFC PR: [#787](https://github.com/UI5/cli/pull/787)
+- RFC PR: [#787](https://github.com/SAP/ui5-tooling/pull/787)
 - Issue: -
 - Affected components <!-- Check affected components by writing an "X" into the brackets -->
-    + [ ] [ui5-builder](./packages/builder)
-    + [ ] [ui5-server](./packages/server)
-    + [x] [ui5-cli](./packages/cli)
-    + [ ] [ui5-fs](./packages/fs)
-    + [x] [ui5-project](./packages/project)
-    + [ ] [ui5-logger](./packages/logger)
+    + [ ] [ui5-builder](https://github.com/SAP/ui5-builder)
+    + [ ] [ui5-server](https://github.com/SAP/ui5-server)
+    + [x] [ui5-cli](https://github.com/SAP/ui5-cli)
+    + [ ] [ui5-fs](https://github.com/SAP/ui5-fs)
+    + [x] [ui5-project](https://github.com/SAP/ui5-project)
+    + [ ] [ui5-logger](https://github.com/SAP/ui5-logger)
 
 
 # RFC 0013 Configuration
 
 ## Summary
 
-Introduce a central and project-independent configuration for UI5 CLI.
+Introduce a central and project-independent configuration for UI5 Tooling.
 
 ## Motivation
 
-New UI5 CLI features demand specific input from the user. This is generally information which can be treated independent of any project but specific to the user's system and environment. For example a URL to a registry from which UI5 CLI should fetch resources from. Or directory paths which UI5 CLI should use to store data.
+New UI5 Tooling features demand specific input from the user. This is generally information which can be treated independent of any project but specific to the user's system and environment. For example a URL to a registry from which UI5 Tooling should fetch resources from. Or directory paths which UI5 Tooling should use to store data.
 
 As to not request the same information from a user multiple times, the provided input should be persisted between sessions.
 
@@ -34,7 +34,7 @@ For now, this class should provide **read-only API** (no setters). This means on
 
 All configuration parameters shall use primitive types only. Parameters shall not have default values. The configuration object shall be a **flat object** containing all parameters as keys. No highly sensitive data like passwords shall be stored in the configuration.
 
-UI5 CLI extensions shall not gain access to this configuration.
+UI5 Tooling extensions shall not gain access to this configuration.
 
 There shall not be any fallback mechanism to environment variables or similar inside the `Configuration.js` module. This should rather be implemented in the module ultimately using the information, so that it will behave the same when used directly via Node.js API.
 
@@ -46,11 +46,11 @@ A Configuration instance might be created in the [`graph.js`](https://github.com
 
 It should be avoided to add the `Configuration` class to the signature of other modules. This would make it harder to use those APIs individually, without a Configuration instance.
 
-Ideally, interaction with the `Configuration` class in UI5 CLI is limited to very few modules. Ideally all located in @ui5/project.
+Ideally, interaction with the `Configuration` class in UI5 Tooling is limited to very few modules. Ideally all located in @ui5/project.
 
 ### Persistence
 
-UI5 CLI configuration shall be persisted in a `.ui5rc` file located in the user's home directory. In the future, an inheritance mechanism might be implemented, where `.ui5rc` files located in a project can override configuration of the "global" `.ui5rc`.
+UI5 Tooling configuration shall be persisted in a `.ui5rc` file located in the user's home directory. In the future, an inheritance mechanism might be implemented, where `.ui5rc` files located in a project can override configuration of the "global" `.ui5rc`.
 
 Dedicated methods, located in the same `Configuration.js` module as the `Configuration` class, shall interact with this file. They should be able to create a `Configuration` instance based on the content and respectively save a `Configuration` into the `.ui5rc`
 
@@ -58,7 +58,7 @@ Dedicated methods, located in the same `Configuration.js` module as the `Configu
 
 ```json
 {
-	"dataDir": "~/.ui5",
+	"homeDir": "~/.ui5",
 	"mavenSnapshotEndpointUrl": "https://<hostname>/artifactory/build-snapshots/"
 }
 ```
@@ -77,18 +77,18 @@ The following commands would be helpful for maintaining the configuration:
 
 ## How we teach this
 
-* UI5 CLI documentation
+* UI5 Tooling documentation
 * This RFC
 
 ## Drawbacks
 
-<!-- Why should we not do this? Please consider the impact on teaching people to use the UI5 CLI, on the integration of this feature with existing and planned features, on the impact of churn on existing users.
+<!-- Why should we not do this? Please consider the impact on teaching people to use the UI5 Tooling, on the integration of this feature with existing and planned features, on the impact of churn on existing users.
 
 There are trade-offs to choosing any path, please attempt to identify them here. -->
 
 ## Alternatives
 
-Without a central configuration, users would have to provide all information as CLI parameters or environment variables. Both require additional knowledge on the user side and with that, are likely to cause more support efforts on UI5 CLI side.
+Without a central configuration, users would have to provide all information as CLI parameters or environment variables. Both require additional knowledge on the user side and with that, are likely to cause more support efforts on UI5 Tooling side.
 
 ## Unresolved Questions and Bikeshedding
 
