@@ -2,8 +2,9 @@ import test from "ava";
 import sinonGlobal from "sinon";
 import esmock from "esmock";
 import path from "node:path";
+import {fileURLToPath} from "node:url";
 
-const __dirname = import.meta.dirname;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Use path within project as mocking base directory to reduce chance of side effects
 // in case mocks/stubs do not work and real fs is used
@@ -72,14 +73,14 @@ test.beforeEach(async (t) => {
 	t.context.AbstractResolver = await esmock.p("../../../lib/ui5Framework/AbstractResolver.js", {
 		"@ui5/logger": ui5Logger,
 		"node:os": {
-			homedir: sinon.stub().returns(path.join(fakeBaseDir, "datadir"))
+			homedir: sinon.stub().returns(path.join(fakeBaseDir, "homedir"))
 		},
 	});
 
 	t.context.Sapui5Resolver = await esmock.p("../../../lib/ui5Framework/Sapui5Resolver.js", {
 		"@ui5/logger": ui5Logger,
 		"node:os": {
-			homedir: sinon.stub().returns(path.join(fakeBaseDir, "datadir"))
+			homedir: sinon.stub().returns(path.join(fakeBaseDir, "homedir"))
 		},
 		"../../../lib/ui5Framework/AbstractResolver.js": t.context.AbstractResolver,
 		"../../../lib/ui5Framework/npm/Installer.js": t.context.Installer
@@ -122,14 +123,14 @@ test.serial("resolveVersion", async (t) => {
 		});
 
 	const defaultCwd = process.cwd();
-	const defaultUi5DataDir = path.join(fakeBaseDir, "datadir", ".ui5");
+	const defaultUi5HomeDir = path.join(fakeBaseDir, "homedir", ".ui5");
 
 	// Generic testing without and with options argument
 	const optionsArguments = [
 		undefined,
 		{
 			cwd: path.join(fakeBaseDir, "custom-cwd"),
-			ui5DataDir: path.join(fakeBaseDir, "custom-datadir", ".ui5")
+			ui5HomeDir: path.join(fakeBaseDir, "custom-homedir", ".ui5")
 		}
 	];
 	for (const options of optionsArguments) {
@@ -177,7 +178,7 @@ test.serial("resolveVersion", async (t) => {
 		});
 		await t.throwsAsync(Sapui5Resolver.resolveVersion("1.0.0", options), {
 			message: `Could not resolve framework version 1.0.0. ` +
-				`Note that SAPUI5 framework libraries can only be consumed by the UI5 CLI ` +
+				`Note that SAPUI5 framework libraries can only be consumed by the UI5 Tooling ` +
 				`starting with SAPUI5 v1.76.0`
 		});
 		await t.throwsAsync(Sapui5Resolver.resolveVersion("^999", options), {
@@ -190,8 +191,8 @@ test.serial("resolveVersion", async (t) => {
 		t.true(NpmcliConfig.alwaysCalledWithMatch(sinonGlobal.match({
 			cwd: options?.cwd ?? defaultCwd
 		})));
-		t.true(pacote.packument.alwaysCalledWithMatch("@sapui5/distribution-metadata", {
-			cache: path.join(options?.ui5DataDir ?? defaultUi5DataDir, "framework", "cacache")
+		t.true(pacote.packument.alwaysCalledWithMatch("@openui5/sap.ui.core", {
+			cache: path.join(options?.ui5HomeDir ?? defaultUi5HomeDir, "framework", "cacache")
 		}));
 	}
 
