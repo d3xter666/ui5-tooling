@@ -7,58 +7,6 @@ const log = getLogger("builder:processors:manifestEnhancer");
 
 const APP_DESCRIPTOR_V22 = new Version("1.21.0");
 
-/*
- * Matches a legacy Java locale string, which is the format used by the UI5 Runtime (ResourceBundle)
- * to load i18n properties files.
- * Special case: "sr_Latn" is also supported, although the BCP47 script part is not supported by the Java locale format.
- *
- * Variants are limited to the format from BCP47, but with underscores instead of hyphens.
- */
-//                          [     language     ]    [    region    ][                variants               ]
-const rLegacyJavaLocale = /^([a-z]{2,3}|sr_Latn)(?:_([A-Z]{2}|\d{3})((?:_[0-9a-zA-Z]{5,8}|_[0-9][0-9a-zA-Z]{3})*)?)?$/;
-
-// See https://github.com/SAP/openui5/blob/d7ecf2792788719d35b4eee3085a327d545bab24/src/sap.ui.core/src/sap/base/i18n/LanguageFallback.js#L10
-const sapSupportabilityVariants = ["saptrc", "sappsd", "saprigi"];
-
-function getBCP47LocaleFromPropertiesFilename(locale) {
-	const match = rLegacyJavaLocale.exec(locale);
-	if (!match) {
-		return null;
-	}
-	let [, language, region, variants] = match;
-	let script;
-
-	variants = variants?.slice(1); // Remove leading underscore
-
-	// Special handling of sr_Latn (see regex above)
-	// Note: This needs to be in sync with the runtime logic:
-	// https://github.com/SAP/openui5/blob/d7ecf2792788719d35b4eee3085a327d545bab24/src/sap.ui.core/src/sap/base/i18n/LanguageFallback.js#L87
-	if (language === "sr_Latn") {
-		language = "sr";
-		script = "Latn";
-	}
-
-	if (language === "en" && region === "US" && sapSupportabilityVariants.includes(variants)) {
-		// Convert to private use section
-		// Note: This needs to be in sync with the runtime logic:
-		// https://github.com/SAP/openui5/blob/d7ecf2792788719d35b4eee3085a327d545bab24/src/sap.ui.core/src/sap/base/i18n/LanguageFallback.js#L75
-		variants = `x-${variants}`;
-	}
-
-	let bcp47Locale = language;
-	if (script) {
-		bcp47Locale += `-${script}`;
-	}
-	if (region) {
-		bcp47Locale += `-${region}`;
-	}
-	if (variants) {
-		// Convert to BCP47 variant format
-		bcp47Locale += `-${variants.replace(/_/g, "-")}`;
-	}
-	return bcp47Locale;
-}
-
 function isAbsoluteUrl(url) {
 	if (url.startsWith("/")) {
 		return true;
@@ -67,7 +15,7 @@ function isAbsoluteUrl(url) {
 		const parsedUrl = new URL(url);
 		// URL with ui5 protocol shouldn't be treated as absolute URL and will be handled separately
 		return parsedUrl.protocol !== "ui5:";
-	} catch {
+	} catch (err) {
 		// URL constructor without base requires absolute URL and throws an error for relative URLs
 		return false;
 	}
@@ -184,8 +132,6 @@ class ManifestEnhancer {
 
 		this.isModified = false;
 		this.runInvoked = false;
-
-		this.supportedLocalesCache = new Map();
 	}
 
 	markModified() {
@@ -205,14 +151,7 @@ class ManifestEnhancer {
 		}
 	}
 
-	findSupportedLocales(i18nBundleUrl) {
-		if (!this.supportedLocalesCache.has(i18nBundleUrl)) {
-			this.supportedLocalesCache.set(i18nBundleUrl, this._findSupportedLocales(i18nBundleUrl));
-		}
-		return this.supportedLocalesCache.get(i18nBundleUrl);
-	}
-
-	async _findSupportedLocales(i18nBundleUrl) {
+	async findSupportedLocales(i18nBundleUrl) {
 		const i18nBundleName = path.basename(i18nBundleUrl, ".properties");
 		const i18nBundlePrefix = `${i18nBundleName}_`;
 		const i18nBundleDir = path.dirname(i18nBundleUrl);
@@ -226,13 +165,8 @@ class ManifestEnhancer {
 			if (fileNameWithoutExtension === i18nBundleName) {
 				supportedLocales.push("");
 			} else if (fileNameWithoutExtension.startsWith(i18nBundlePrefix)) {
-				const fileNameLocale = fileNameWithoutExtension.replace(i18nBundlePrefix, "");
-				const bcp47Locale = getBCP47LocaleFromPropertiesFilename(fileNameLocale);
-				if (bcp47Locale) {
-					supportedLocales.push(bcp47Locale);
-				} else {
-					log.warn(`Ignoring unexpected locale in filename '${fileName}' for bundle '${i18nBundleUrl}'`);
-				}
+				const locale = fileNameWithoutExtension.replace(i18nBundlePrefix, "");
+				supportedLocales.push(locale);
 			}
 		});
 		return supportedLocales.sort();
@@ -278,7 +212,7 @@ class ManifestEnhancer {
 		}
 		const supportedLocales = await this.findSupportedLocales(normalizedBundleUrl);
 		if (!isTerminologyBundle && supportedLocales.length > 0) {
-			if (typeof fallbackLocale === "string" && !supportedLocales.includes(fallbackLocale)) {
+			if (fallbackLocale && !supportedLocales.includes(fallbackLocale)) {
 				log.error(
 					`${this.filePath}: ` +
 					`Generated supported locales ('${supportedLocales.join("', '")}') for ` +
@@ -287,7 +221,7 @@ class ManifestEnhancer {
 					"properties file for defined fallbackLocale or configure another available fallbackLocale"
 				);
 				return [];
-			} else if (typeof fallbackLocale === "undefined" && !supportedLocales.includes("en")) {
+			} else if (!fallbackLocale && !supportedLocales.includes("en")) {
 				log.warn(
 					`${this.filePath}: ` +
 					`Generated supported locales ('${supportedLocales.join("', '")}') for ` +
@@ -425,17 +359,12 @@ class ManifestEnhancer {
 		this.runInvoked = true;
 
 		if (!this.manifest._version) {
-			log.verbose(`${this.filePath}: _version is not defined. No supportedLocales can be generated`);
+			log.verbose(`${this.filePath}: _version is not defined. No supportedLocales are generated`);
 			return;
 		}
 
 		if (lt(this.manifest._version, APP_DESCRIPTOR_V22)) {
 			log.verbose(`${this.filePath}: _version is lower than 1.21.0 so no supportedLocales can be generated`);
-			return;
-		}
-
-		if (!this.manifest["sap.app"]?.id) {
-			log.verbose(`${this.filePath}: sap.app/id is not defined. No supportedLocales can be generated`);
 			return;
 		}
 
