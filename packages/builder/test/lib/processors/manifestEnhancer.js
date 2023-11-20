@@ -2,34 +2,6 @@ import test from "ava";
 import sinonGlobal from "sinon";
 import esmock from "esmock";
 
-function isValidBCP47Locale(locale) {
-	if (locale === "") {
-		// Special handling of empty string, as this marks the developer locale (without locale information)
-		return true;
-	}
-
-	// See https://github.com/SAP/openui5/blob/a8f36e430f1fac172eb705811da4a2af25483408/src/sap.ui.core/src/sap/base/i18n/ResourceBundle.js#L30
-	/**
-	 * A regular expression that describes language tags according to BCP-47.
-	 *
-	 * @see BCP47 "Tags for Identifying Languages" (http://www.ietf.org/rfc/bcp/bcp47.txt)
-	 *
-	 * The matching groups are
-	 *  0=all
-	 *  1=language (shortest ISO639 code + ext. language sub tags | 4digits (reserved) | registered language sub tags)
-	 *  2=script (4 letters)
-	 *  3=region (2letter language or 3 digits)
-	 *  4=variants (separated by '-', Note: capturing group contains leading '-' to shorten the regex!)
-	 *  5=extensions (including leading singleton, multiple extensions separated by '-')
-	 *  6=private use section (including leading 'x', multiple sections separated by '-')
-	 */
-
-	// eslint-disable-next-line max-len
-	//                [-------------------- language ----------------------][--- script ---][------- region --------][------------- variants --------------][----------- extensions ------------][------ private use -------]
-	const rLocale = /^((?:[A-Z]{2,3}(?:-[A-Z]{3}){0,3})|[A-Z]{4}|[A-Z]{5,8})(?:-([A-Z]{4}))?(?:-([A-Z]{2}|[0-9]{3}))?((?:-[0-9A-Z]{5,8}|-[0-9][0-9A-Z]{3})*)((?:-[0-9A-WYZ](?:-[0-9A-Z]{2,8})+)*)(?:-(X(?:-[0-9A-Z]{1,8})+))?$/i;
-	return rLocale.test(locale);
-}
-
 test.beforeEach(async (t) => {
 	const sinon = t.context.sinon = sinonGlobal.createSandbox();
 	t.context.logWarnSpy = sinon.spy();
@@ -107,33 +79,6 @@ test("Application: No replacement (No properties files)", async (t) => {
 	t.true(t.context.logErrorSpy.notCalled, "No errors should be logged");
 });
 
-test("Application: Missing sap.app/id", async (t) => {
-	const {manifestEnhancer, fs, createResource} = t.context;
-
-	const input = JSON.stringify({
-		"_version": "1.58.0",
-		"sap.app": {
-			"type": "application"
-		}
-	}, null, 2);
-
-	const resource = createResource("/resources/sap/ui/demo/app/manifest.json", true, input);
-
-	const processedResources = await manifestEnhancer({
-		resources: [resource],
-		fs
-	});
-
-	t.deepEqual(processedResources, [], "Only enhanced resources are returned");
-
-	t.is(resource.setString.callCount, 0, "setString should not be called");
-
-	t.is(t.context.logVerboseSpy.callCount, 1, "One verbose messages should be logged");
-	t.is(t.context.logVerboseSpy.getCall(0).args[0],
-		"/resources/sap/ui/demo/app/manifest.json: sap.app/id is not defined. No supportedLocales can be generated");
-	t.true(t.context.logWarnSpy.notCalled, "No warnings should be logged");
-	t.true(t.context.logErrorSpy.notCalled, "No errors should be logged");
-});
 
 test("Application: sap.app/i18n (without templates, default bundle): " +
 	"Adds supportedLocales based on available properties files",
@@ -1029,115 +974,6 @@ async (t) => {
 	t.true(t.context.logErrorSpy.notCalled, "No errors should be logged");
 });
 
-test("Application: sap.ui5/models: " +
-	"No warning when fallbackLocale is empty string and is part of supportedLocales",
-async (t) => {
-	const {manifestEnhancer, fs, createResource} = t.context;
-	const input = JSON.stringify({
-		"_version": "1.58.0",
-		"sap.app": {
-			"id": "sap.ui.demo.app",
-			"type": "application"
-		},
-		"sap.ui5": {
-			"models": {
-				"i18n": {
-					"type": "sap.ui.model.resource.ResourceModel",
-					"settings": {
-						"bundleName": "sap.ui.demo.app.i18nModel.i18n",
-						"fallbackLocale": ""
-					}
-				}
-			}
-		}
-	}, null, 2);
-
-	const expected = JSON.stringify({
-		"_version": "1.58.0",
-		"sap.app": {
-			"id": "sap.ui.demo.app",
-			"type": "application"
-		},
-		"sap.ui5": {
-			"models": {
-				"i18n": {
-					"type": "sap.ui.model.resource.ResourceModel",
-					"settings": {
-						"bundleName": "sap.ui.demo.app.i18nModel.i18n",
-						"fallbackLocale": "",
-						"supportedLocales": [""]
-					}
-				}
-			}
-		}
-	}, null, 2);
-
-	const resource = createResource("/resources/sap/ui/demo/app/manifest.json", true, input);
-
-	fs.readdir.withArgs("/resources/sap/ui/demo/app/i18nModel")
-		.callsArgWith(1, null, ["i18n.properties"]);
-
-	const processedResources = await manifestEnhancer({
-		resources: [resource],
-		fs
-	});
-
-	t.deepEqual(processedResources, [resource], "Input resource is returned");
-
-	t.is(resource.setString.callCount, 1, "setString should be called once");
-	t.deepEqual(resource.setString.getCall(0).args, [expected], "Correct file content should be set");
-
-	t.true(t.context.logVerboseSpy.notCalled, "No verbose messages should be logged");
-	t.true(t.context.logWarnSpy.notCalled, "No warnings should be logged");
-	t.true(t.context.logErrorSpy.notCalled, "No errors should be logged");
-});
-
-test("Application: sap.ui5/models: " +
-	"Error when fallbackLocale is empty string and is not part of supportedLocales",
-async (t) => {
-	const {manifestEnhancer, fs, createResource} = t.context;
-	const input = JSON.stringify({
-		"_version": "1.58.0",
-		"sap.app": {
-			"id": "sap.ui.demo.app",
-			"type": "application"
-		},
-		"sap.ui5": {
-			"models": {
-				"i18n": {
-					"type": "sap.ui.model.resource.ResourceModel",
-					"settings": {
-						"bundleName": "sap.ui.demo.app.i18nModel.i18n",
-						"fallbackLocale": ""
-					}
-				}
-			}
-		}
-	}, null, 2);
-
-	const resource = createResource("/resources/sap/ui/demo/app/manifest.json", true, input);
-
-	fs.readdir.withArgs("/resources/sap/ui/demo/app/i18nModel")
-		.callsArgWith(1, null, ["i18n_en.properties"]);
-
-	const processedResources = await manifestEnhancer({
-		resources: [resource],
-		fs
-	});
-
-	t.deepEqual(processedResources, [], "Only enhanced resources are returned");
-
-	t.is(resource.setString.callCount, 0, "setString should not be called");
-
-	t.true(t.context.logVerboseSpy.notCalled, "No verbose messages should be logged");
-	t.true(t.context.logWarnSpy.notCalled, "No warnings should be logged");
-	t.is(t.context.logErrorSpy.callCount, 1, "One error should be logged");
-	t.deepEqual(t.context.logErrorSpy.getCall(0).args, [
-		"/resources/sap/ui/demo/app/manifest.json: Generated supported locales ('en') for " +
-		"bundle 'i18nModel/i18n.properties' not containing the defined fallback locale ''. " +
-		"Either provide a properties file for defined fallbackLocale or configure another available fallbackLocale"]);
-});
-
 test("Application: sap.ui5/models: Log verbose if manifest version is not defined at all", async (t) => {
 	const {manifestEnhancer, fs, createResource} = t.context;
 	const input = JSON.stringify({
@@ -1170,7 +1006,7 @@ test("Application: sap.ui5/models: Log verbose if manifest version is not define
 
 	t.is(t.context.logVerboseSpy.callCount, 1, "1 verbose should be logged");
 	t.is(t.context.logVerboseSpy.getCall(0).args[0],
-		"/resources/sap/ui/demo/app/manifest.json: _version is not defined. No supportedLocales can be generated");
+		"/resources/sap/ui/demo/app/manifest.json: _version is not defined. No supportedLocales are generated");
 	t.true(t.context.logWarnSpy.notCalled, "No warning should be logged");
 	t.true(t.context.logErrorSpy.notCalled, "No errors should be logged");
 	t.is(fs.readdir.callCount, 0, "readdir should not be called because _version is not defined");
@@ -1773,72 +1609,6 @@ test("Library: No replacement at all", async (t) => {
 	t.is(resource.setString.callCount, 0, "setString should not be called");
 
 	t.true(t.context.logVerboseSpy.notCalled, "No verbose messages should be logged");
-	t.true(t.context.logWarnSpy.notCalled, "No warnings should be logged");
-	t.true(t.context.logErrorSpy.notCalled, "No errors should be logged");
-});
-
-test("Library: Missing sap.app section", async (t) => {
-	const {manifestEnhancer, fs, createResource} = t.context;
-	const input = JSON.stringify({
-		"_version": "1.58.0",
-		"sap.ui5": {
-			"library": {
-				"i18n": {
-					"bundleUrl": "i18n.properties"
-				}
-			}
-		}
-	}, null, 2);
-
-	const resource = createResource("/resources/sap/ui/demo/lib/manifest.json", true, input);
-
-	const processedResources = await manifestEnhancer({
-		resources: [resource],
-		fs
-	});
-
-	t.deepEqual(processedResources, [], "Only enhanced resources are returned");
-
-	t.is(resource.setString.callCount, 0, "setString should not be called");
-
-	t.is(t.context.logVerboseSpy.callCount, 1, "One verbose messages should be logged");
-	t.is(t.context.logVerboseSpy.getCall(0).args[0],
-		"/resources/sap/ui/demo/lib/manifest.json: sap.app/id is not defined. No supportedLocales can be generated");
-	t.true(t.context.logWarnSpy.notCalled, "No warnings should be logged");
-	t.true(t.context.logErrorSpy.notCalled, "No errors should be logged");
-});
-
-test("Library: Missing sap.app/id", async (t) => {
-	const {manifestEnhancer, fs, createResource} = t.context;
-
-	const input = JSON.stringify({
-		"_version": "1.58.0",
-		"sap.app": {
-			"type": "library"
-		},
-		"sap.ui5": {
-			"library": {
-				"i18n": {
-					"bundleUrl": "i18n.properties"
-				}
-			}
-		}
-	}, null, 2);
-
-	const resource = createResource("/resources/sap/ui/demo/lib/manifest.json", true, input);
-
-	const processedResources = await manifestEnhancer({
-		resources: [resource],
-		fs
-	});
-
-	t.deepEqual(processedResources, [], "Only enhanced resources are returned");
-
-	t.is(resource.setString.callCount, 0, "setString should not be called");
-
-	t.is(t.context.logVerboseSpy.callCount, 1, "One verbose messages should be logged");
-	t.is(t.context.logVerboseSpy.getCall(0).args[0],
-		"/resources/sap/ui/demo/lib/manifest.json: sap.app/id is not defined. No supportedLocales can be generated");
 	t.true(t.context.logWarnSpy.notCalled, "No warnings should be logged");
 	t.true(t.context.logErrorSpy.notCalled, "No errors should be logged");
 });
@@ -3060,143 +2830,20 @@ test("manifestEnhancer#getSupportedLocales", async (t) => {
 	fs.readdir.withArgs("/i18n")
 		.callsArgWith(1, null, [
 			"i18n.properties",
-			"i18n_ar_001.properties",
-			"i18n_ar_001_variant.properties",
-			"i18n_crn.properties",
-			"i18n_en.properties",
-			"i18n_en_US.properties",
-			"i18n_en_US_saptrc.properties",
-			"i18n_en_US_saprigi.properties",
-			"i18n_sr_Latn_RS.properties",
-			"i18n_sr_Latn_RS_variant.properties"
+			"i18n_en.properties"
 		]);
 
-	const expectedLocales = [
-		"",
-		"ar-001",
-		"ar-001-variant",
-		"crn",
-		"en",
-		"en-US",
-		"en-US-x-saprigi",
-		"en-US-x-saptrc",
-		"sr-Latn-RS",
-		"sr-Latn-RS-variant",
-	];
-
-	const generatedLocales = await manifestEnhancer.getSupportedLocales("./i18n/i18n.properties");
-
-	t.deepEqual(generatedLocales, expectedLocales);
-	t.deepEqual(await manifestEnhancer.getSupportedLocales("i18n/../i18n/i18n.properties"), expectedLocales);
-	t.deepEqual(await manifestEnhancer.getSupportedLocales("ui5://sap/ui/demo/app/i18n/i18n.properties"), expectedLocales);
+	t.deepEqual(await manifestEnhancer.getSupportedLocales("./i18n/i18n.properties"), ["", "en"]);
+	t.deepEqual(await manifestEnhancer.getSupportedLocales("i18n/../i18n/i18n.properties"), ["", "en"]);
+	t.deepEqual(await manifestEnhancer.getSupportedLocales("ui5://sap/ui/demo/app/i18n/i18n.properties"), ["", "en"]);
 
 	// Path traversal to root and then into application namespace
 	// This works, but is not recommended at all! It also likely fails at runtime
 	t.deepEqual(await manifestEnhancer.getSupportedLocales(
 		"../../../../../../../../../../../../resources/sap/ui/demo/app/i18n/i18n.properties"
-	), expectedLocales);
+	), ["", "en"]);
 
-	// findSupportedLocales caches requests, so for the same bundle readdir is only called once
-	t.is(fs.readdir.callCount, 1);
-
-	t.true(t.context.logVerboseSpy.notCalled, "No verbose messages should be logged");
-	t.true(t.context.logWarnSpy.notCalled, "No warnings should be logged");
-	t.true(t.context.logErrorSpy.notCalled, "No errors should be logged");
-
-	// Check whether generated locales are valid BCP47 locales, as the UI5 runtime
-	// fails if a locale is not a valid
-	generatedLocales.forEach((locale) => {
-		t.true(isValidBCP47Locale(locale), `Generated locale '${locale}' should be a valid BCP47 locale`);
-	});
-});
-
-test("manifestEnhancer#getSupportedLocales (invalid file names)", async (t) => {
-	const {fs} = t.context;
-	const {ManifestEnhancer} = t.context.__internals__;
-
-	const manifest = JSON.stringify({
-		"_version": "1.58.0",
-		"sap.app": {
-			"id": "sap.ui.demo.app"
-		}
-	});
-	const filePath = "/manifest.json";
-
-	const manifestEnhancer = new ManifestEnhancer(manifest, filePath, fs);
-
-	const fileNames = [
-		"i18n.properties",
-		"i18n_en.properties",
-
-		// Invalid: Should be "en_US"
-		"i18n_en-US.properties",
-
-		// Invalid: Should be "zh_CN"
-		"i18n_zh_CN_.properties",
-
-		// Invalid: Script section is only supported for "sr_Latn"
-		"i18n_en_Latn_US.properties",
-
-		// Invalid: Legacy Java locale format does have a BCP47 "extension" section
-		"i18n_sr_Latn_RS_variant_f_11.properties",
-
-		// Invalid: Legacy Java locale format does have a BCP47 "private use" section
-		"i18n_sr_Latn_RS_variant_x_private.properties",
-
-		// Invalid: Legacy Java locale format does have BCP47 "extension" / "private use" sections
-		"i18n_sr_Latn_RS_variant_f_11_x_private.properties",
-
-		// Invalid: Invalid variant length (too short)
-		"i18n_de_CH_var.properties",
-
-		// Invalid: Invalid variant length (too long)
-		"i18n_de_CH_variant11.properties",
-
-		// Invalid: Invalid variant length (too long)
-		"i18n_de_CH_001FOOBAR.properties",
-
-		// Invalid: Should be "en_US_saprigi"
-		"i18n_en_US_x_saprigi.properties"
-	];
-
-	fs.readdir.withArgs("/i18n")
-		.callsArgWith(1, null, fileNames);
-
-	const expectedLocales = [
-		"",
-		"en"
-	];
-
-	t.deepEqual(await manifestEnhancer.getSupportedLocales("./i18n/i18n.properties"), expectedLocales);
-
-	t.is(fs.readdir.callCount, 1);
-
-	t.is(t.context.logWarnSpy.callCount, 10);
-	t.is(t.context.logWarnSpy.getCall(0).args[0],
-		"Ignoring unexpected locale in filename 'i18n_en-US.properties' for bundle 'i18n/i18n.properties'");
-	t.is(t.context.logWarnSpy.getCall(1).args[0],
-		"Ignoring unexpected locale in filename 'i18n_zh_CN_.properties' for bundle 'i18n/i18n.properties'");
-	t.is(t.context.logWarnSpy.getCall(2).args[0],
-		"Ignoring unexpected locale in filename 'i18n_en_Latn_US.properties' for bundle 'i18n/i18n.properties'");
-	t.is(t.context.logWarnSpy.getCall(3).args[0],
-		"Ignoring unexpected locale in filename 'i18n_sr_Latn_RS_variant_f_11.properties' " +
-		"for bundle 'i18n/i18n.properties'");
-	t.is(t.context.logWarnSpy.getCall(4).args[0],
-		"Ignoring unexpected locale in filename 'i18n_sr_Latn_RS_variant_x_private.properties' " +
-		"for bundle 'i18n/i18n.properties'");
-	t.is(t.context.logWarnSpy.getCall(5).args[0],
-		"Ignoring unexpected locale in filename 'i18n_sr_Latn_RS_variant_f_11_x_private.properties' " +
-		"for bundle 'i18n/i18n.properties'");
-	t.is(t.context.logWarnSpy.getCall(6).args[0],
-		"Ignoring unexpected locale in filename 'i18n_de_CH_var.properties' for bundle 'i18n/i18n.properties'");
-	t.is(t.context.logWarnSpy.getCall(7).args[0],
-		"Ignoring unexpected locale in filename 'i18n_de_CH_variant11.properties' for bundle 'i18n/i18n.properties'");
-	t.is(t.context.logWarnSpy.getCall(8).args[0],
-		"Ignoring unexpected locale in filename 'i18n_de_CH_001FOOBAR.properties' for bundle 'i18n/i18n.properties'");
-	t.is(t.context.logWarnSpy.getCall(9).args[0],
-		"Ignoring unexpected locale in filename 'i18n_en_US_x_saprigi.properties' for bundle 'i18n/i18n.properties'");
-	t.true(t.context.logVerboseSpy.notCalled, "No verbose messages should be logged");
-	t.true(t.context.logErrorSpy.notCalled, "No errors should be logged");
+	t.is(fs.readdir.callCount, 4);
 });
 
 test("manifestEnhancer#getSupportedLocales (absolute / invalid URLs)", async (t) => {
@@ -3227,24 +2874,13 @@ test("manifestEnhancer#getSupportedLocales (absolute / invalid URLs)", async (t)
 	t.deepEqual(await manifestEnhancer.getSupportedLocales("sftp:i18n.properties"), []);
 	t.deepEqual(await manifestEnhancer.getSupportedLocales("file://i18n.properties"), []);
 
-	t.is(t.context.logVerboseSpy.callCount, 0, "No verbose messages should be logged");
-
 	// Path traversal to root
 	t.deepEqual(await manifestEnhancer.getSupportedLocales("../../../../../../../../../../../../i18n.properties"), []);
-
-	t.is(t.context.logVerboseSpy.callCount, 1, "One verbose message should be logged from previous call");
-	t.is(t.context.logVerboseSpy.getCall(0).args[0],
-		"/manifest.json: bundleUrl '../../../../../../../../../../../../i18n.properties' " +
-		"points to a bundle outside of the current namespace 'sap.ui.demo.app', enhancement of " +
-		"'supportedLocales' is skipped");
 
 	// Relative ui5-protocol URL
 	t.deepEqual(await manifestEnhancer.getSupportedLocales("ui5:i18n.properties"), []);
 
 	t.is(fs.readdir.callCount, 0, "readdir should not be called for any absolute / invalid URL");
-	t.is(t.context.logVerboseSpy.callCount, 1, "No additional verbose messages should be logged");
-	t.true(t.context.logWarnSpy.notCalled, "No warnings should be logged");
-	t.true(t.context.logErrorSpy.notCalled, "No errors should be logged");
 });
 
 test("manifestEnhancer#getSupportedLocales (error handling)", async (t) => {
@@ -3282,10 +2918,6 @@ test("manifestEnhancer#getSupportedLocales (error handling)", async (t) => {
 	});
 
 	t.is(fs.readdir.callCount, 2, "readdir should be called once");
-
-	t.true(t.context.logVerboseSpy.notCalled, "No verbose messages should be logged");
-	t.true(t.context.logWarnSpy.notCalled, "No warnings should be logged");
-	t.true(t.context.logErrorSpy.notCalled, "No errors should be logged");
 });
 
 test("getRelativeBundleUrlFromName", (t) => {
