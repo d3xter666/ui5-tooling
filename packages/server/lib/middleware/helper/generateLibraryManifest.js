@@ -9,12 +9,13 @@ export default async function generateLibraryManifest(middlewareUtil, dotLibReso
 		libraryResource: dotLibResource,
 		namespace: project.getNamespace(),
 		resources: libResources,
+		options: {
+			omitMinVersions: true
+		},
 		getProjectVersion: (projectName) => {
 			return middlewareUtil.getProject(projectName)?.getVersion();
 		}
 	});
-	if (res) {
-		res.setProject(project);
-		return res;
-	}
+	res.setProject(project);
+	return res;
 }
