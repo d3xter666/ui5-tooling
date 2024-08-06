@@ -4,10 +4,7 @@ export default [
 	{
 		// Add project-specific ignore patterns for ESLint here
 		// to add to common config
-		ignores: [
-			"**/site/",
-			"packages/"
-		]
+		ignores: ["**/site/"]
 	},
 	...eslintCommonConfig, // Load common ESLint config
 	{
