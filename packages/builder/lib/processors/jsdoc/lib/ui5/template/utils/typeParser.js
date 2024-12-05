@@ -1,9 +1,11 @@
 /**
  * Node script to parse type strings.
  *
- * (c) Copyright 2025 SAP SE or an SAP affiliate company.
+ * (c) Copyright 2009-2024 SAP SE or an SAP affiliate company.
  * Licensed under the Apache License, Version 2.0 - see LICENSE.txt.
  */
+
+/* eslint-disable */
 
 "use strict";
 class ASTBuilder {
@@ -392,7 +394,6 @@ function TypeParser(defaultBuilder = new ASTBuilder()) {
 
 		function findSimpleTypes(parsed) {
 
-			/* eslint-disable no-case-declarations */
 			switch (parsed.type) {
 				case "simpleType":
 					return processSimpleType(parsed.name);
@@ -414,19 +415,9 @@ function TypeParser(defaultBuilder = new ASTBuilder()) {
 				case "function":
 					const aParamTemplates = [];
 					let aParamsimpleTypes = [];
-					if (Object.hasOwn(parsed, "constructor") && parsed.constructor) {
-						const types = findSimpleTypes(parsed.constructor);
-						aParamTemplates.push("new:" + types.template);
-						aParamsimpleTypes = aParamsimpleTypes.concat(types.simpleTypes);
-					}
-					if (parsed.this) {
-						const types = findSimpleTypes(parsed.this);
-						aParamTemplates.push("this:" + types.template);
-						aParamsimpleTypes = aParamsimpleTypes.concat(types.simpleTypes);
-					}
 					parsed.params.forEach(function(paramType) {
 						const types = findSimpleTypes(paramType);
-						aParamTemplates.push(types.template + (paramType.optional ? "?" : ""));
+						aParamTemplates.push(types.template);
 						aParamsimpleTypes = aParamsimpleTypes.concat(types.simpleTypes);
 					});
 					const returnType = parsed.return ? findSimpleTypes(parsed.return) : {simpleTypes: []};
@@ -485,7 +476,6 @@ function TypeParser(defaultBuilder = new ASTBuilder()) {
 						simpleTypes: aSimpleTypes
 					};
 			}
-			/* eslint-enable no-case-declarations */
 		}
 
 		return findSimpleTypes(parsed);
@@ -496,4 +486,4 @@ function TypeParser(defaultBuilder = new ASTBuilder()) {
 module.exports = {
 	ASTBuilder,
 	TypeParser
-};
+}
