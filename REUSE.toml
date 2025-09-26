@@ -9,3 +9,15 @@ path = "**"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2025 SAP SE or an SAP affiliate company and UI5 CLI contributors"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "packages/server/lib/middleware/serveIndex/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = ["2010 Sencha Inc.", "2011 LearnBoost", "2011 TJ Holowaychuk", "2014-2015 Douglas Christopher Wilson"]
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "packages/server/lib/middleware/testRunner/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2025 SAP SE or an SAP affiliate company and OpenUI5 contributors"
+SPDX-License-Identifier = "Apache-2.0"
