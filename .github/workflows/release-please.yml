@@ -1,18 +1,21 @@
-name: Release Please
+name: release-please
 
 on:
   push:
+    # Detects when a release PR is merged and publishes the package
     branches:
       - main
 
 permissions:
   contents: write
   pull-requests: write
-  id-token: write # Required for trusted publishing via OIDC (https://docs.npmjs.com/trusted-publishers)
 
 jobs:
-  release-please:
+  detect-and-publish:
     runs-on: ubuntu-24.04
+    outputs:
+      package_released: ${{ steps.detect_package.outputs.package_name }}
+      package_version: ${{ steps.detect_package.outputs.package_version }}
     steps:
       - uses: actions/checkout@v5
 
@@ -25,67 +28,75 @@ jobs:
         uses: googleapis/release-please-action@v4
         id: release
         with:
-          token: "${{ secrets.GITHUB_TOKEN }}"
-
-  publish-packages:
-    runs-on: ubuntu-24.04
-    needs: release-please
-    if: needs.release-please.outputs.releases_created == 'true'
-    strategy:
-      # Publish packages in dependency order: logger → fs → builder → server → project
-      # CLI is handled separately to update shrinkwrap
-      # Order of packages in the matrix does matter and is important!
-      # release-please updates the package.json dependencies with ones that do not exist yet on NPM
-      # Publish in the correct order is important, so that dependencies are available and resolved properly!
-      max-parallel: 1
-      matrix:
-        package: [logger, fs, builder, server, project]
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Node.js LTS
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24.x
-
-      - name: Install and publish ${{ matrix.package }}
-        working-directory: packages/${{ matrix.package }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }} # TODO: Change token on prod
+		  
+      - name: Detect which package was released
+        id: detect_package
         run: |
-          echo "🚀 Publishing @ui5/${{ matrix.package }}"
+          echo "🔍 Checking if a release PR was just merged..."
           
-          # TODO: Uncomment when ready to publish
-          # npm ci
+          # Get the commit message of the merge
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+          echo "Latest commit: $COMMIT_MSG"
+          
+          # Check if this is a release PR merge (release-please creates commits like "chore(main): release cli 4.1.2")
+          if [[ "$COMMIT_MSG" =~ ^chore\(main\):\ release\ ([a-z-]+)\ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            PACKAGE_NAME="${BASH_REMATCH[1]}"
+            PACKAGE_VERSION="${BASH_REMATCH[2]}"
+            
+            echo "🎉 Detected release for package: $PACKAGE_NAME@$PACKAGE_VERSION"
+            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+            echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+            echo "package_path=packages/$PACKAGE_NAME" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "ℹ️ This commit is not a release PR merge"
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Verify package directory exists
+        if: steps.detect_package.outputs.is_release == 'true'
+        run: |
+          PACKAGE_PATH="${{ steps.detect_package.outputs.package_path }}"
+          if [ ! -d "$PACKAGE_PATH" ]; then
+            echo "❌ Package directory $PACKAGE_PATH does not exist!"
+            exit 1
+          fi
+          
+          if [ ! -f "$PACKAGE_PATH/package.json" ]; then
+            echo "❌ No package.json found in $PACKAGE_PATH!"
+            exit 1
+          fi
+          
+          echo "✅ Package directory $PACKAGE_PATH exists and contains package.json"
+      
+      - name: Install dependencies
+        if: steps.detect_package.outputs.is_release == 'true'
+        run: |
+          cd "${{ steps.detect_package.outputs.package_path }}"
+          echo "📦 Installing dependencies for ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
+          npm ci
+      
+      - name: Publish to NPM
+        if: steps.detect_package.outputs.is_release == 'true'
+        run: |
+          cd "${{ steps.detect_package.outputs.package_path }}"
+          echo "🚀 Publishing ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }} to NPM..."
+          
+          # TODO: Uncomment the following lines when ready to publish
           # npm publish --access public
+          
+          echo "✅ Successfully published ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
 
-  publish-cli:
+  create-release:
     runs-on: ubuntu-24.04
-    needs: [release-please, publish-packages]
-    if: needs.release-please.outputs.releases_created == 'true'
+    needs: detect-and-publish
+    if: needs.detect-and-publish.outputs.package_released != ''
     steps:
       - uses: actions/checkout@v5
 
-      - name: Node.js LTS
-        uses: actions/setup-node@v5
+      - name: Run Release Please to create tags
+        uses: googleapis/release-please-action@v4
+        id: release
         with:
-          node-version: 24.x
-
-      - name: Generate npm-shrinkwrap.json
-        run: |
-          set -e
-          # Install dependencies
-          npm ci
-
-          # Build the extractor
-          cd ./internal/shrinkwrap-extractor
-          npm ci
-
-          # Generate npm-shrinkwrap.json
-          cd ../cli
-          node ../shrinkwrap-extractor/cli.js @ui5/cli ../../package-lock.json
-
-      - name: Publish @ui5/cli
-        working-directory: packages/cli
-        run: |
-          echo "🚀 Publishing @ui5/cli"
-          # TODO: Uncomment when ready to publish
-          # npm publish --access public
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }} # TODO: Change token on prod
