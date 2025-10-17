@@ -11,15 +11,11 @@ permissions:
   pull-requests: write
 
 jobs:
-  release-please:
+  detect-and-publish:
     runs-on: ubuntu-24.04
     outputs:
-      releases_created: ${{ steps.release.outputs.releases_created }}
-      prs_created: ${{ steps.release.outputs.prs_created }}
-      package_released: ${{ steps.detect_package.outputs.is_release }}
-      package_name: ${{ steps.detect_package.outputs.package_name }}
+      package_released: ${{ steps.detect_package.outputs.package_name }}
       package_version: ${{ steps.detect_package.outputs.package_version }}
-      package_path: ${{ steps.detect_package.outputs.package_path }}
     steps:
       - uses: actions/checkout@v5
 
@@ -33,58 +29,7 @@ jobs:
         id: release
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }} # TODO: Change token on prod
-
-      # This step is mandatory because release-please nor its plugin
-      # node-workspace does not update the manifest automatically.
-      # Also adds missing release tags that node-workspace plugin doesn't create.
-      - name: Update manifest and add tags to release PRs
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-        run: |
-          # Configure git identity
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Create label if needed
-          gh label create "autorelease: pending" --description "Release PR pending merge" --color "fbca04" || true
-
-          # Process each release PR
-          for pr_info in $(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.title | startswith("release: @ui5/")) | "\(.number):\(.headRefName)"'); do
-            pr_number=$(echo "$pr_info" | cut -d: -f1)
-            branch_name=$(echo "$pr_info" | cut -d: -f2)
-            
-            echo "📦 Processing PR #$pr_number"
-            
-            # Extract package name
-            pkg_name=$(echo "$branch_name" | sed -n 's/.*release-please--branches--main--components--\([^-]*\).*/\1/p')
-            
-            if [ -z "$pkg_name" ]; then
-              echo "⚠️ Could not determine package from branch: $branch_name"
-              continue
-            fi
-            
-            # Update manifest in PR branch
-            git fetch origin "$branch_name" && git checkout "$branch_name"
-            echo "⚡ Rebasing with main (auto-resolving manifest conflicts)..."
-            git fetch origin main
-            git rebase origin/main -X theirs --quiet || git rebase --abort && git checkout origin/main -- .release-please-manifest.json
-
-            # Update this package's version
-            version=$(node -p "require('./packages/$pkg_name/package.json').version")
-            jq --arg p "packages/$pkg_name" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
-            
-            # Always commit and force push to prevent conflicts
-            git add .release-please-manifest.json
-            git commit --amend -C HEAD --allow-empty
-            git push origin "$branch_name" --force
-
-            # Add label
-            gh pr edit "$pr_number" --add-label "autorelease: pending" || true
-
-            git checkout main
-            echo "✅ Updated PR #$pr_number"
-          done
-
+		  
       - name: Detect which package was released
         id: detect_package
         run: |
@@ -94,9 +39,8 @@ jobs:
           COMMIT_MSG=$(git log -1 --pretty=format:"%s")
           echo "Latest commit: $COMMIT_MSG"
           
-          # Check if this is a release PR merge based on the configured pattern "release: @ui5/ {component} v${version}"
-          # This matches commits like "release: @ui5/ logger v1.2.3" or "release: @ui5/ fs v4.0.3" (note the space after @ui5/)
-          if [[ "$COMMIT_MSG" =~ ^release:\ @ui5/\ ([a-z-]+)\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+          # Check if this is a release PR merge (release-please creates commits like "chore(main): release cli 4.1.2")
+          if [[ "$COMMIT_MSG" =~ ^chore\(main\):\ release\ ([a-z-]+)\ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
             PACKAGE_NAME="${BASH_REMATCH[1]}"
             PACKAGE_VERSION="${BASH_REMATCH[2]}"
             
@@ -107,25 +51,13 @@ jobs:
             echo "is_release=true" >> $GITHUB_OUTPUT
           else
             echo "ℹ️ This commit is not a release PR merge"
-            echo "ℹ️ Expected format: 'release: @ui5/ <package> v<version>'"
             echo "is_release=false" >> $GITHUB_OUTPUT
           fi
-
-  publish-package:
-    runs-on: ubuntu-24.04
-    needs: release-please
-    if: needs.release-please.outputs.package_released == 'true'
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Node.js LTS
-        uses: actions/setup-node@v5
-        with:
-         node-version: 24.x
-
+      
       - name: Verify package directory exists
+        if: steps.detect_package.outputs.is_release == 'true'
         run: |
-          PACKAGE_PATH="${{ needs.release-please.outputs.package_path }}"
+          PACKAGE_PATH="${{ steps.detect_package.outputs.package_path }}"
           if [ ! -d "$PACKAGE_PATH" ]; then
             echo "❌ Package directory $PACKAGE_PATH does not exist!"
             exit 1
@@ -139,17 +71,32 @@ jobs:
           echo "✅ Package directory $PACKAGE_PATH exists and contains package.json"
       
       - name: Install dependencies
+        if: steps.detect_package.outputs.is_release == 'true'
         run: |
-          cd "${{ needs.release-please.outputs.package_path }}"
-          echo "📦 Installing dependencies for ${{ needs.release-please.outputs.package_name }}@${{ needs.release-please.outputs.package_version }}"
+          cd "${{ steps.detect_package.outputs.package_path }}"
+          echo "📦 Installing dependencies for ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
           npm ci
       
       - name: Publish to NPM
+        if: steps.detect_package.outputs.is_release == 'true'
         run: |
-          cd "${{ needs.release-please.outputs.package_path }}"
-          echo "🚀 Publishing ${{ needs.release-please.outputs.package_name }}@${{ needs.release-please.outputs.package_version }} to NPM..."
+          cd "${{ steps.detect_package.outputs.package_path }}"
+          echo "🚀 Publishing ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }} to NPM..."
           
           # TODO: Uncomment the following lines when ready to publish
           # npm publish --access public
           
-          echo "✅ Successfully published ${{ needs.release-please.outputs.package_name }}@${{ needs.release-please.outputs.package_version }}"
+          echo "✅ Successfully published ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
+
+  create-release:
+    runs-on: ubuntu-24.04
+    needs: detect-and-publish
+    if: needs.detect-and-publish.outputs.package_released != ''
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run Release Please to create tags
+        uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }} # TODO: Change token on prod
