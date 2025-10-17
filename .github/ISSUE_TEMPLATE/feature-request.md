@@ -1,15 +1,15 @@
 ---
 name: Feature Request
-about: Request a new feature to be added to UI5 Tooling
+about: Request a new feature to be added to UI5 CLI
 title: ''
-labels: enhancement
+type: Feature
 assignees: ''
 
 ---
 
 <!--
 Hey there 👋 Please also have a look at our guidelines on feature requests:
-https://github.com/SAP/ui5-tooling/blob/main/CONTRIBUTING.md#-feature-requests
+https://github.com/UI5/cli/blob/main/CONTRIBUTING.md#-feature-requests
 -->
 
 ## Is your feature request related to a problem? Please describe.

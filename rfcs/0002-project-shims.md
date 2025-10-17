@@ -1,20 +1,20 @@
 - Start Date: 2018-04-03
-- RFC PR: [#5](https://github.com/SAP/ui5-tooling/pull/5)
+- RFC PR: [#5](https://github.com/UI5/cli/pull/5)
 - Issue: -
-- Affected components
-    + [ ] [ui5-builder](https://github.com/SAP/ui5-builder)
-    + [ ] [ui5-server](https://github.com/SAP/ui5-server)
-    + [ ] [ui5-cli](https://github.com/SAP/ui5-cli)
-    + [ ] [ui5-fs](https://github.com/SAP/ui5-fs)
-    + [x] [ui5-project](https://github.com/SAP/ui5-project)
-    + [ ] [ui5-logger](https://github.com/SAP/ui5-logger)
+- Affected components <!-- Check affected components by writing an "X" into the brackets -->
+    + [ ] [ui5-builder](./packages/builder)
+    + [ ] [ui5-server](./packages/server)
+    + [ ] [ui5-cli](./packages/cli)
+    + [ ] [ui5-fs](./packages/fs)
+    + [x] [ui5-project](./packages/project)
+    + [ ] [ui5-logger](./packages/logger)
 
 # RFC 0002 Project Shims
 ## Summary
 Add a feature to define configuration and dependency information of a UI5 project outside of that project.
 
 ## Motivation
-To make a UI5 project (e.g. an application or library) available in the UI5 tooling, there are currently two requirements:
+To make a UI5 project (e.g. an application or library) available in the UI5 CLI, there are currently two requirements:
 
 1. A `ui5.yaml` file must be present in the projects root directory, containing the projects **configuration**
 2. The projects **dependencies** must be defined in a `package.json` file in the projects root directory
@@ -28,7 +28,7 @@ Therefore a developer might need to "Shim" configuration and dependency informat
 Another scenario is to extend or overwrite specific parts of a dependencies configuration.
 
 ## Detailed design
-Facilitate the generic extension concept described in [RFC 0001 (#4)](https://github.com/SAP/ui5-tooling/pull/4) to declare an extension of type "project-shim". For example:
+Facilitate the generic extension concept described in [RFC 0001 (#4)](https://github.com/UI5/cli/pull/4) to declare an extension of type "project-shim". For example:
 ```yaml
 specVersion: "0.1"
 kind: extension

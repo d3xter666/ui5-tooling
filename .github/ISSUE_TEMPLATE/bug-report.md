@@ -1,15 +1,16 @@
 ---
 name: Bug Report
-about: Report an issue with UI5 Tooling
+about: Report an issue with UI5 CLI
 title: ''
-labels: bug, needs triage
+type: Bug
+labels: needs triage
 assignees: ''
 
 ---
 
 <!--
 Hey there 👋 Please have a look at our guidelines on reporting issues:
-https://github.com/SAP/ui5-tooling/blob/main/CONTRIBUTING.md#-reporting-issues
+https://github.com/UI5/cli/blob/main/CONTRIBUTING.md#-reporting-issues
 
 Please use this template and replace as many "{...}" and "unknown" as possible.
 Thank you 🧡
