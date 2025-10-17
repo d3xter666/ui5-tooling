@@ -33,35 +33,71 @@ jobs:
       
       - name: Start release chain
         id: start_chain
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
         run: |
+          # Define the complete package order (dependency order: base packages first)
           ALL_PACKAGES=("logger" "fs" "builder" "server" "project" "cli")
           SELECTED_PKG="${{ github.event.inputs.package }}"
           
-          echo "🚀 Starting release chain from: $SELECTED_PKG"
+          echo "🚀 Starting AUTOMATIC release chain from package: $SELECTED_PKG"
           
-          # Find position and show chain
+          # Find the index of the selected package
+          START_IDX=-1
           for i in "${!ALL_PACKAGES[@]}"; do
-            [[ "${ALL_PACKAGES[$i]}" == "$SELECTED_PKG" ]] && START_IDX=$i && break
+            if [[ "${ALL_PACKAGES[$i]}" == "$SELECTED_PKG" ]]; then
+              START_IDX=$i
+              break
+            fi
           done
           
-          [[ -z "$START_IDX" ]] && echo "❌ Package not found" && exit 1
-          
-          CHAIN_LENGTH=$((${#ALL_PACKAGES[@]} - START_IDX))
-          echo "📦 Will release $CHAIN_LENGTH packages: ${ALL_PACKAGES[@]:$START_IDX}"
-          echo "started_package=$SELECTED_PKG" >> $GITHUB_OUTPUT
-          echo "chain_length=$CHAIN_LENGTH" >> $GITHUB_OUTPUT
-      
-      - name: Merge first PR
-        id: merge-pr
-        uses: ./.github/actions/merge-release-pr
-        with:
-          package: ${{ github.event.inputs.package }}
-          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-      
-      - name: Check merge result
-        run: |
-          if [[ "${{ steps.merge-pr.outputs.merged }}" != "true" ]]; then
-            echo "❌ Failed to start chain - no PR found"
+          if [[ $START_IDX -eq -1 ]]; then
+            echo "❌ Package $SELECTED_PKG not found in package list"
             exit 1
           fi
-          echo "✅ Chain started successfully!"
+          
+          # Calculate how many packages will be in the chain
+          CHAIN_LENGTH=$((${#ALL_PACKAGES[@]} - START_IDX))
+          echo "📦 Release chain will include $CHAIN_LENGTH packages: ${ALL_PACKAGES[@]:$START_IDX}"
+          
+          # Check if there's an open release PR for the selected package
+          PR_NUMBER=$(gh pr list --state open --search "release: ${SELECTED_PKG}" --json number,title | jq -r --arg pkg "$SELECTED_PKG" '.[] | select(.title | test("^release: \($pkg) v[0-9]+\\.[0-9]+\\.[0-9]+$")) | .number' | head -n1)
+          
+          if [[ -n "$PR_NUMBER" ]]; then
+            echo "✅ Found open release PR #$PR_NUMBER for $SELECTED_PKG"
+            
+            # Merge the first PR to start the chain
+            echo "🔄 Merging PR #$PR_NUMBER for $SELECTED_PKG to start the chain..."
+            if ! gh pr merge $PR_NUMBER --squash --admin; then
+              echo "❌ Failed to merge PR #$PR_NUMBER for $SELECTED_PKG"
+              echo "🛑 Cannot start release chain"
+              exit 1
+            fi
+            
+            echo "✅ Successfully merged PR #$PR_NUMBER for $SELECTED_PKG"
+            echo "🔗 This will trigger release-please → auto-release-chain → continues automatically"
+            
+            echo "started_package=$SELECTED_PKG" >> $GITHUB_OUTPUT
+            echo "chain_length=$CHAIN_LENGTH" >> $GITHUB_OUTPUT
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            
+          else
+            echo "❌ No open release PR found for $SELECTED_PKG"
+            echo "🛑 Cannot start release chain - no PR to merge"
+            exit 1
+          fi
+      
+      - name: Chain initiation summary
+        run: |
+          echo "🎉 Release Chain Initiated!"
+          echo "================================"
+          echo "� Started from: ${{ steps.start_chain.outputs.started_package }}"
+          echo "� Chain length: ${{ steps.start_chain.outputs.chain_length }} packages"
+          echo "🔗 Flow: release-please.yml → auto-release-chain.yml → (repeats automatically)"
+          echo ""
+          echo "ℹ️ The chain will now continue automatically:"
+          echo "  1. release-please.yml publishes ${{ steps.start_chain.outputs.started_package }} to NPM"
+          echo "  2. auto-release-chain.yml detects completion and merges next package PR"
+          echo "  3. Repeats until all packages in chain are released"
+          echo ""
+          echo "✅ You can monitor progress in the Actions tab"
