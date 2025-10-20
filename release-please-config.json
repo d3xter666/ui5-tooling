@@ -1,37 +1,37 @@
 {
 	"packages": {
 		"packages/logger": {
-			"component": " @ui5/logger",
+			"component": "logger",
 			"extra-files": [
 				"package-lock.json"
 			]
 		},
 		"packages/fs": {
-			"component": " @ui5/fs",
+			"component": "fs",
 			"extra-files": [
 				"package-lock.json"
 			]
 		},
 		"packages/builder": {
-			"component": " @ui5/builder",
+			"component": "builder",
 			"extra-files": [
 				"package-lock.json"
 			]
 		},
 		"packages/server": {
-			"component": " @ui5/server",
+			"component": "server",
 			"extra-files": [
 				"package-lock.json"
 			]
 		},
 		"packages/project": {
-			"component": " @ui5/project",
+			"component": "project",
 			"extra-files": [
 				"package-lock.json"
 			]
 		},
 		"packages/cli": {
-			"component": " @ui5/cli",
+			"component": "cli",
 			"extra-files": [
 				"package-lock.json"
 			]
@@ -39,7 +39,7 @@
 	},
 	"release-type": "node",
 	"pull-request-header": ":tractor: New release prepared",
-	"pull-request-title-pattern": "release:${component} v${version}",
+	"pull-request-title-pattern": "release: @ui5/${component} v${version}",
 	"separate-pull-requests": true,
 	"include-component-in-tag": true,
 	"changelog-sections": [
