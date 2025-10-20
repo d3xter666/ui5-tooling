@@ -39,9 +39,9 @@ jobs:
           COMMIT_MSG=$(git log -1 --pretty=format:"%s")
           echo "Latest commit: $COMMIT_MSG"
           
-          # Check if this is a release PR merge based on the configured pattern "release:${component} v${version}"
-          # This matches commits like "release:logger v1.2.3" or "release:cli v4.1.2"
-          if [[ "$COMMIT_MSG" =~ ^release:([a-z-]+)\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+          # Check if this is a release PR merge based on the configured pattern "release: @ui5/${component} v${version}"
+          # This matches commits like "release: @ui5/logger v1.2.3" or "release: @ui5/cli v4.1.2"
+          if [[ "$COMMIT_MSG" =~ ^release:\ @ui5/([a-z-]+)\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
             PACKAGE_NAME="${BASH_REMATCH[1]}"
             PACKAGE_VERSION="${BASH_REMATCH[2]}"
             
@@ -62,7 +62,7 @@ jobs:
             echo "is_release=true" >> $GITHUB_OUTPUT
           else
             echo "ℹ️ This commit is not a release PR merge"
-            echo "ℹ️ Expected format: 'release:<package> v<version>' or 'chore(main): release <package> <version>'"
+            echo "ℹ️ Expected format: 'release: @ui5/<package> v<version>' or 'chore(main): release <package> <version>'"
             echo "is_release=false" >> $GITHUB_OUTPUT
           fi
       
