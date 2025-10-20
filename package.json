@@ -43,7 +43,8 @@
 	},
 	"dependencies": {
 		"@ui5/cli": "^4.0.30",
-		"@ui5/project": "^4.0.6"
+		"@ui5/project": "^4.0.6",
+		"release-please": "^17.1.1"
 	},
 	"devDependencies": {
 		"@apidevtools/json-schema-ref-parser": "^14.2.1",
