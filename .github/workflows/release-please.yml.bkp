@@ -1,0 +1,139 @@
+name: release-please
+
+on:
+  push:
+    # Detects when a release PR is merged and publishes the package
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  detect-and-publish:
+    runs-on: ubuntu-24.04
+    outputs:
+      package_released: ${{ steps.detect_package.outputs.package_name }}
+      package_version: ${{ steps.detect_package.outputs.package_version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Node.js LTS
+        uses: actions/setup-node@v5
+        with:
+         node-version: 24.x
+
+      - name: Run Release Please to update PRs and create releases
+        uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }} # TODO: Change token on prod
+
+      - name: Update package-lock.json files after release-please
+        if: steps.release.outputs.prs_created == 'true'
+        run: |
+          echo "🔄 Updating package-lock.json files after release-please changes..."
+          
+          # Find all packages that have package.json files
+          for package_dir in packages/*/; do
+            if [ -f "${package_dir}package.json" ] && [ ! "${package_dir}" = "packages/documentation/" ]; then
+              echo "📦 Updating package-lock.json for ${package_dir}"
+              cd "${package_dir}"
+              
+              # Update package-lock.json to match the new version in package.json
+              if [ -f "package-lock.json" ]; then
+                npm install --package-lock-only
+                echo "✅ Updated package-lock.json in ${package_dir}"
+              else
+                echo "⚠️ No package-lock.json found in ${package_dir}"
+              fi
+              
+              cd - > /dev/null
+            fi
+          done
+          
+          # Check if there are any changes to commit
+          if ! git diff --quiet; then
+            echo "📝 Committing updated package-lock.json files..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add packages/*/package-lock.json
+            git commit -m "chore: update package-lock.json files after release-please"
+            git push
+          else
+            echo "ℹ️ No package-lock.json changes to commit"
+          fi
+
+      - name: Detect which package was released
+        id: detect_package
+        run: |
+          echo "🔍 Checking if a release PR was just merged..."
+          
+          # Get the commit message of the merge
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+          echo "Latest commit: $COMMIT_MSG"
+          
+          # Check if this is a release PR merge based on the configured pattern "release: @ui5/ {component} v${version}"
+          # This matches commits like "release: @ui5/ logger v1.2.3" or "release: @ui5/ fs v4.0.3" (note the space after @ui5/)
+          if [[ "$COMMIT_MSG" =~ ^release:\ @ui5/\ ([a-z-]+)\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            PACKAGE_NAME="${BASH_REMATCH[1]}"
+            PACKAGE_VERSION="${BASH_REMATCH[2]}"
+            
+            echo "🎉 Detected release for package: $PACKAGE_NAME@$PACKAGE_VERSION"
+            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+            echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+            echo "package_path=packages/$PACKAGE_NAME" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "ℹ️ This commit is not a release PR merge"
+            echo "ℹ️ Expected format: 'release: @ui5/ <package> v<version>'"
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Verify package directory exists
+        if: steps.detect_package.outputs.is_release == 'true'
+        run: |
+          PACKAGE_PATH="${{ steps.detect_package.outputs.package_path }}"
+          if [ ! -d "$PACKAGE_PATH" ]; then
+            echo "❌ Package directory $PACKAGE_PATH does not exist!"
+            exit 1
+          fi
+          
+          if [ ! -f "$PACKAGE_PATH/package.json" ]; then
+            echo "❌ No package.json found in $PACKAGE_PATH!"
+            exit 1
+          fi
+          
+          echo "✅ Package directory $PACKAGE_PATH exists and contains package.json"
+      
+      - name: Install dependencies
+        if: steps.detect_package.outputs.is_release == 'true'
+        run: |
+          cd "${{ steps.detect_package.outputs.package_path }}"
+          echo "📦 Installing dependencies for ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
+          npm ci
+      
+      - name: Publish to NPM
+        if: steps.detect_package.outputs.is_release == 'true'
+        run: |
+          cd "${{ steps.detect_package.outputs.package_path }}"
+          echo "🚀 Publishing ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }} to NPM..."
+          
+          # TODO: Uncomment the following lines when ready to publish
+          # npm publish --access public
+          
+          echo "✅ Successfully published ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
+
+  create-release:
+    runs-on: ubuntu-24.04
+    needs: detect-and-publish
+    if: needs.detect-and-publish.outputs.package_released != ''
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run Release Please to create tags
+        uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }} # TODO: Change token on prod
