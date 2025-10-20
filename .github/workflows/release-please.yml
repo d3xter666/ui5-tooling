@@ -2,6 +2,7 @@ name: release-please
 
 on:
   push:
+    # Detects when a release PR is merged and publishes the package
     branches:
       - main
 
@@ -13,10 +14,10 @@ jobs:
   release-please:
     runs-on: ubuntu-24.04
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
+      # release_created: ${{ steps.release.outputs.release_created }}
       releases_created: ${{ steps.release.outputs.releases_created }}
-      paths_released: ${{ steps.release.outputs.paths_released }}
-      pr_created: ${{ steps.release.outputs.pr_created }}
+      # paths_released: ${{ steps.release.outputs.paths_released }}
+      # pr_created: ${{ steps.release.outputs.pr_created }}
       prs_created: ${{ steps.release.outputs.prs_created }}
     steps:
       - uses: actions/checkout@v5
@@ -26,15 +27,13 @@ jobs:
         with:
          node-version: 24.x
 
-      - name: Run Release Please
+      - name: Run Release Please to update PRs and create releases
         uses: googleapis/release-please-action@v4
         id: release
         with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }} # TODO: Change token on prod
 
-      - name: Update package-lock.json files after release-please PR creation
+      - name: Update package-lock.json files after release-please
         if: steps.release.outputs.prs_created == 'true'
         run: |
           echo "🔄 Updating package-lock.json files after release-please changes..."
@@ -69,43 +68,41 @@ jobs:
             echo "ℹ️ No package-lock.json changes to commit"
           fi
 
-  publish-packages:
+  publish-package:
     runs-on: ubuntu-24.04
     needs: release-please
     if: needs.release-please.outputs.releases_created == 'true'
-    strategy:
-      matrix:
-        package: [logger, fs, builder, server, project, cli]
     steps:
-      - uses: actions/checkout@v5
-
-      - name: Node.js LTS
-        uses: actions/setup-node@v5
-        with:
-         node-version: 24.x
-
-      - name: Check if package was released
-        id: check_release
+      - name: Detect which package was released
+        id: detect_package
         run: |
-          PACKAGE_PATH="packages/${{ matrix.package }}"
+          echo "🔍 Checking if a release PR was just merged..."
           
-          # Check if this package was actually released by examining the release-please outputs
-          if [[ "${{ needs.release-please.outputs.paths_released }}" == *"$PACKAGE_PATH"* ]]; then
-            echo "📦 Package ${{ matrix.package }} was released"
-            echo "released=true" >> $GITHUB_OUTPUT
+          # Get the commit message of the merge
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+          echo "Latest commit: $COMMIT_MSG"
+          
+          # Check if this is a release PR merge based on the configured pattern "release: @ui5/ {component} v${version}"
+          # This matches commits like "release: @ui5/ logger v1.2.3" or "release: @ui5/ fs v4.0.3" (note the space after @ui5/)
+          if [[ "$COMMIT_MSG" =~ ^release:\ @ui5/\ ([a-z-]+)\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            PACKAGE_NAME="${BASH_REMATCH[1]}"
+            PACKAGE_VERSION="${BASH_REMATCH[2]}"
             
-            # Get the new version from package.json
-            VERSION=$(grep '"version"' $PACKAGE_PATH/package.json | head -1 | cut -d'"' -f4)
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "🎉 Detected release for package: $PACKAGE_NAME@$PACKAGE_VERSION"
+            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+            echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+            echo "package_path=packages/$PACKAGE_NAME" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
           else
-            echo "ℹ️ Package ${{ matrix.package }} was not released in this run"
-            echo "released=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ This commit is not a release PR merge"
+            echo "ℹ️ Expected format: 'release: @ui5/ <package> v<version>'"
+            echo "is_release=false" >> $GITHUB_OUTPUT
           fi
-
+      
       - name: Verify package directory exists
-        if: steps.check_release.outputs.released == 'true'
+        if: steps.detect_package.outputs.is_release == 'true'
         run: |
-          PACKAGE_PATH="packages/${{ matrix.package }}"
+          PACKAGE_PATH="${{ steps.detect_package.outputs.package_path }}"
           if [ ! -d "$PACKAGE_PATH" ]; then
             echo "❌ Package directory $PACKAGE_PATH does not exist!"
             exit 1
@@ -117,21 +114,21 @@ jobs:
           fi
           
           echo "✅ Package directory $PACKAGE_PATH exists and contains package.json"
-
+      
       - name: Install dependencies
-        if: steps.check_release.outputs.released == 'true'
+        if: steps.detect_package.outputs.is_release == 'true'
         run: |
-          cd "packages/${{ matrix.package }}"
-          echo "📦 Installing dependencies for ${{ matrix.package }}@${{ steps.check_release.outputs.version }}"
+          cd "${{ steps.detect_package.outputs.package_path }}"
+          echo "📦 Installing dependencies for ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
           npm ci
-
+      
       - name: Publish to NPM
-        if: steps.check_release.outputs.released == 'true'
+        if: steps.detect_package.outputs.is_release == 'true'
         run: |
-          cd "packages/${{ matrix.package }}"
-          echo "🚀 Publishing ${{ matrix.package }}@${{ steps.check_release.outputs.version }} to NPM..."
+          cd "${{ steps.detect_package.outputs.package_path }}"
+          echo "🚀 Publishing ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }} to NPM..."
           
           # TODO: Uncomment the following lines when ready to publish
           # npm publish --access public
           
-          echo "✅ Successfully published ${{ matrix.package }}@${{ steps.check_release.outputs.version }}"
+          echo "✅ Successfully published ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
