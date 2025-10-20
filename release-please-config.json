@@ -1,11 +1,23 @@
 {
 	"packages": {
-		"packages/logger": {},
-		"packages/fs": {},
-		"packages/builder": {},
-		"packages/server": {},
-		"packages/project": {},
-		"packages/cli": {}
+		"packages/logger": {
+			"component": "logger"
+		},
+		"packages/fs": {
+			"component": "fs"
+		},
+		"packages/builder": {
+			"component": "builder"
+		},
+		"packages/server": {
+			"component": "server"
+		},
+		"packages/project": {
+			"component": "project"
+		},
+		"packages/cli": {
+			"component": "cli"
+		}
 	},
 	"release-type": "node",
 	"pull-request-header": ":tractor: New release prepared",
