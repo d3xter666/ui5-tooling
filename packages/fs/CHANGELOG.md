@@ -5,6 +5,13 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-fs/compare/v4.0.2...HEAD).
 
 <a name="v4.0.2"></a>
+## [4.0.3](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.2...fs-v4.0.3) (2025-10-20)
+
+
+### Dependencies
+
+* bump globby from 14.1.0 to 15.0.0 ([#1152](https://github.com/d3xter666/ui5-tooling/issues/1152)) ([2cb5cd1](https://github.com/d3xter666/ui5-tooling/commit/2cb5cd1380f43086a2cf52ca7c15aa4a6ff09877))
+
 ## 1.0.0 (2025-10-20)
 
 
