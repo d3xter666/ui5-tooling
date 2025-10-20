@@ -8,6 +8,19 @@ A list of unreleased changes can be found [here](https://github.com/SAP/ui5-fs/c
 ## [4.0.3](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.2...fs-v4.0.3) (2025-10-20)
 
 
+### Bug Fixes
+
+* Align release-please versions ([#25](https://github.com/d3xter666/ui5-tooling/issues/25)) ([28a0cdf](https://github.com/d3xter666/ui5-tooling/commit/28a0cdfd788ec2bb3fbc4bd325101b0e4a3f331e))
+* Feat package release ([#22](https://github.com/d3xter666/ui5-tooling/issues/22)) ([a4754c3](https://github.com/d3xter666/ui5-tooling/commit/a4754c3b6f24af681c89c4eecc9a4893082c65ff))
+
+
+### Dependencies
+
+* bump globby from 14.1.0 to 15.0.0 ([#1152](https://github.com/d3xter666/ui5-tooling/issues/1152)) ([2cb5cd1](https://github.com/d3xter666/ui5-tooling/commit/2cb5cd1380f43086a2cf52ca7c15aa4a6ff09877))
+
+## [4.0.3](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.2...fs-v4.0.3) (2025-10-20)
+
+
 ### Dependencies
 
 * bump globby from 14.1.0 to 15.0.0 ([#1152](https://github.com/d3xter666/ui5-tooling/issues/1152)) ([2cb5cd1](https://github.com/d3xter666/ui5-tooling/commit/2cb5cd1380f43086a2cf52ca7c15aa4a6ff09877))
