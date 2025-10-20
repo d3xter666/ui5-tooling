@@ -5,6 +5,21 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-logger/compare/v4.0.2...HEAD).
 
 <a name="v4.0.2"></a>
+## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/logger-v4.0.2...logger-v4.1.0) (2025-10-20)
+
+
+### Features
+
+* Feat package release ([6e38ca0](https://github.com/d3xter666/ui5-tooling/commit/6e38ca097a7ffd30dfd00bed87cfb9488e6dc736))
+* Logger package release ([8881eb5](https://github.com/d3xter666/ui5-tooling/commit/8881eb5ade29527236993122fbcbadcb1d483221))
+* Test change in logger! ([f975df2](https://github.com/d3xter666/ui5-tooling/commit/f975df22bcbafa68f127cd26645af05af3fbc228))
+
+
+### Bug Fixes
+
+* Fix License file. Should produce a PR ([88cac28](https://github.com/d3xter666/ui5-tooling/commit/88cac289c0b5842d829fd80378a97c84a9e22e3e))
+* License file ([954fced](https://github.com/d3xter666/ui5-tooling/commit/954fced3e1305190dfdc2c23f892b3aeb466267a))
+
 ## [1.0.1](https://github.com/d3xter666/ui5-tooling/compare/logger-v1.0.0...logger-v1.0.1) (2025-10-20)
 
 
