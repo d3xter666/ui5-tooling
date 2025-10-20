@@ -74,9 +74,9 @@ jobs:
           COMMIT_MSG=$(git log -1 --pretty=format:"%s")
           echo "Latest commit: $COMMIT_MSG"
           
-          # Check if this is a release PR merge based on the configured pattern "release: @ui5/{package} v${version}"
-          # This matches commits like "release: @ui5/logger v1.2.3" or "release: @ui5/cli v4.1.2"
-          if [[ "$COMMIT_MSG" =~ ^release:\ @ui5/([a-z-]+)\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+          # Check if this is a release PR merge based on the configured pattern "release: @ui5/ {component} v${version}"
+          # This matches commits like "release: @ui5/ logger v1.2.3" or "release: @ui5/ fs v4.0.3" (note the space after @ui5/)
+          if [[ "$COMMIT_MSG" =~ ^release:\ @ui5/\ ([a-z-]+)\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
             PACKAGE_NAME="${BASH_REMATCH[1]}"
             PACKAGE_VERSION="${BASH_REMATCH[2]}"
             
@@ -85,19 +85,9 @@ jobs:
             echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
             echo "package_path=packages/$PACKAGE_NAME" >> $GITHUB_OUTPUT
             echo "is_release=true" >> $GITHUB_OUTPUT
-          # Also check for the default release-please format as fallback
-          elif [[ "$COMMIT_MSG" =~ ^chore\(main\):\ release\ ([a-z-]+)\ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
-            PACKAGE_NAME="${BASH_REMATCH[1]}"
-            PACKAGE_VERSION="${BASH_REMATCH[2]}"
-            
-            echo "🎉 Detected release for package (fallback pattern): $PACKAGE_NAME@$PACKAGE_VERSION"
-            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-            echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
-            echo "package_path=packages/$PACKAGE_NAME" >> $GITHUB_OUTPUT
-            echo "is_release=true" >> $GITHUB_OUTPUT
           else
             echo "ℹ️ This commit is not a release PR merge"
-            echo "ℹ️ Expected format: 'release:<package> v<version>' or 'chore(main): release <package> <version>'"
+            echo "ℹ️ Expected format: 'release: @ui5/ <package> v<version>'"
             echo "is_release=false" >> $GITHUB_OUTPUT
           fi
       
