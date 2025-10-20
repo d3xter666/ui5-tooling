@@ -1,27 +1,27 @@
 {
 	"packages": {
 		"packages/logger": {
-			"component": "logger"
+			"component": " @ui5/logger"
 		},
 		"packages/fs": {
-			"component": "fs"
+			"component": " @ui5/fs"
 		},
 		"packages/builder": {
-			"component": "builder"
+			"component": " @ui5/builder"
 		},
 		"packages/server": {
-			"component": "server"
+			"component": " @ui5/server"
 		},
 		"packages/project": {
-			"component": "project"
+			"component": " @ui5/project"
 		},
 		"packages/cli": {
-			"component": "cli"
+			"component": " @ui5/cli"
 		}
 	},
 	"release-type": "node",
 	"pull-request-header": ":tractor: New release prepared",
-	"pull-request-title-pattern": "release: @ui5/${component} v${version}",
+	"pull-request-title-pattern": "release:${component} v${version}",
 	"separate-pull-requests": true,
 	"include-component-in-tag": true,
 	"changelog-sections": [
