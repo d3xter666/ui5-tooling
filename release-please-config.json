@@ -1,22 +1,40 @@
 {
 	"packages": {
 		"packages/logger": {
-			"component": " @ui5/logger"
+			"component": " @ui5/logger",
+			"extra-files": [
+				"package-lock.json"
+			]
 		},
 		"packages/fs": {
-			"component": " @ui5/fs"
+			"component": " @ui5/fs",
+			"extra-files": [
+				"package-lock.json"
+			]
 		},
 		"packages/builder": {
-			"component": " @ui5/builder"
+			"component": " @ui5/builder",
+			"extra-files": [
+				"package-lock.json"
+			]
 		},
 		"packages/server": {
-			"component": " @ui5/server"
+			"component": " @ui5/server",
+			"extra-files": [
+				"package-lock.json"
+			]
 		},
 		"packages/project": {
-			"component": " @ui5/project"
+			"component": " @ui5/project",
+			"extra-files": [
+				"package-lock.json"
+			]
 		},
 		"packages/cli": {
-			"component": " @ui5/cli"
+			"component": " @ui5/cli",
+			"extra-files": [
+				"package-lock.json"
+			]
 		}
 	},
 	"release-type": "node",
