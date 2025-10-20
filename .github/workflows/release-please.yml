@@ -39,8 +39,9 @@ jobs:
           COMMIT_MSG=$(git log -1 --pretty=format:"%s")
           echo "Latest commit: $COMMIT_MSG"
           
-          # Check if this is a release PR merge (release-please creates commits like "chore(main): release cli 4.1.2")
-          if [[ "$COMMIT_MSG" =~ ^chore\(main\):\ release\ ([a-z-]+)\ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+          # Check if this is a release PR merge based on the configured pattern "release:${component} v${version}"
+          # This matches commits like "release:logger v1.2.3" or "release:cli v4.1.2"
+          if [[ "$COMMIT_MSG" =~ ^release:([a-z-]+)\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
             PACKAGE_NAME="${BASH_REMATCH[1]}"
             PACKAGE_VERSION="${BASH_REMATCH[2]}"
             
@@ -49,8 +50,19 @@ jobs:
             echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
             echo "package_path=packages/$PACKAGE_NAME" >> $GITHUB_OUTPUT
             echo "is_release=true" >> $GITHUB_OUTPUT
+          # Also check for the default release-please format as fallback
+          elif [[ "$COMMIT_MSG" =~ ^chore\(main\):\ release\ ([a-z-]+)\ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            PACKAGE_NAME="${BASH_REMATCH[1]}"
+            PACKAGE_VERSION="${BASH_REMATCH[2]}"
+            
+            echo "🎉 Detected release for package (fallback pattern): $PACKAGE_NAME@$PACKAGE_VERSION"
+            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+            echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+            echo "package_path=packages/$PACKAGE_NAME" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
           else
             echo "ℹ️ This commit is not a release PR merge"
+            echo "ℹ️ Expected format: 'release:<package> v<version>' or 'chore(main): release <package> <version>'"
             echo "is_release=false" >> $GITHUB_OUTPUT
           fi
       
