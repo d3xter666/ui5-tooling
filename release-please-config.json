@@ -44,9 +44,11 @@
 		}
 	},
 	"release-type": "node",
-	"plugins": [
-		"node-workspaces"
-	],
+	"plugins": [{
+		"type": "node-workspace",
+		"update-peer-dependencies": true,
+		"update-all-packages": true
+	}],
 	"bump-minor-pre-major": true,
 	"bump-patch-for-minor-pre-major": true,
 	"pull-request-header": ":tractor: New release prepared",
