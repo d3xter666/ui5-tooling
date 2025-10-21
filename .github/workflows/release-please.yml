@@ -14,10 +14,7 @@ jobs:
   release-please:
     runs-on: ubuntu-24.04
     outputs:
-      # release_created: ${{ steps.release.outputs.release_created }}
       releases_created: ${{ steps.release.outputs.releases_created }}
-      # paths_released: ${{ steps.release.outputs.paths_released }}
-      # pr_created: ${{ steps.release.outputs.pr_created }}
       prs_created: ${{ steps.release.outputs.prs_created }}
     steps:
       - uses: actions/checkout@v5
