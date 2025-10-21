@@ -4,14 +4,12 @@
 		"packages/logger": {
 			"component": "logger",
 			"extra-files": [
-				"package-lock.json",
 				".release-please-manifest.json"
 			]
 		},
 		"packages/fs": {
 			"component": "fs",
 			"extra-files": [
-				"package-lock.json",
 				".release-please-manifest.json"
 			],
 			"dependency-type": "peer"
@@ -19,7 +17,6 @@
 		"packages/builder": {
 			"component": "builder",
 			"extra-files": [
-				"package-lock.json",
 				".release-please-manifest.json"
 			],
 			"dependency-type": "peer"
@@ -27,7 +24,6 @@
 		"packages/server": {
 			"component": "server",
 			"extra-files": [
-				"package-lock.json",
 				".release-please-manifest.json"
 			],
 			"dependency-type": "peer"
@@ -35,7 +31,6 @@
 		"packages/project": {
 			"component": "project",
 			"extra-files": [
-				"package-lock.json",
 				".release-please-manifest.json"
 			],
 			"dependency-type": "peer"
@@ -43,7 +38,6 @@
 		"packages/cli": {
 			"component": "cli",
 			"extra-files": [
-				"package-lock.json",
 				".release-please-manifest.json"
 			],
 			"dependency-type": "peer"
@@ -53,8 +47,10 @@
 	"plugins": [{
 		"type": "node-workspace",
 		"update-peer-dependencies": true,
-		"update-all-packages": true
+		"update-all-packages": true,
+		"merge": false
 	}],
+	"always-update": true,
 	"bump-minor-pre-major": true,
 	"bump-patch-for-minor-pre-major": true,
 	"pull-request-header": ":tractor: New release prepared",
