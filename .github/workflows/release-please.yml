@@ -136,3 +136,28 @@ jobs:
           # npm publish --access public
           
           echo "✅ Successfully published ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
+
+      - name: Update manifest for released package
+        if: steps.detect_package.outputs.is_release == 'true'
+        run: |
+          echo "🔧 Updating manifest for ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
+          
+          # Simple: just update the one package that was released
+          jq --arg path "packages/${{ steps.detect_package.outputs.package_name }}" \
+             --arg version "${{ steps.detect_package.outputs.package_version }}" \
+             '.[$path] = $version' \
+             .release-please-manifest.json > .release-please-manifest.json.tmp
+          
+          mv .release-please-manifest.json.tmp .release-please-manifest.json
+          
+          # Only commit if there are changes
+          if ! git diff --quiet .release-please-manifest.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add .release-please-manifest.json
+            git commit -m "chore: update manifest for ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
+            git push
+            echo "✅ Manifest updated"
+          else
+            echo "ℹ️ Manifest already up to date"
+          fi
