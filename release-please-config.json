@@ -4,41 +4,47 @@
 		"packages/logger": {
 			"component": "logger",
 			"extra-files": [
-				"package-lock.json"
+				"package-lock.json",
+				".release-please-manifest.json"
 			]
 		},
 		"packages/fs": {
 			"component": "fs",
 			"extra-files": [
-				"package-lock.json"
+				"package-lock.json",
+				".release-please-manifest.json"
 			],
 			"dependency-type": "peer"
 		},
 		"packages/builder": {
 			"component": "builder",
 			"extra-files": [
-				"package-lock.json"
+				"package-lock.json",
+				".release-please-manifest.json"
 			],
 			"dependency-type": "peer"
 		},
 		"packages/server": {
 			"component": "server",
 			"extra-files": [
-				"package-lock.json"
+				"package-lock.json",
+				".release-please-manifest.json"
 			],
 			"dependency-type": "peer"
 		},
 		"packages/project": {
 			"component": "project",
 			"extra-files": [
-				"package-lock.json"
+				"package-lock.json",
+				".release-please-manifest.json"
 			],
 			"dependency-type": "peer"
 		},
 		"packages/cli": {
 			"component": "cli",
 			"extra-files": [
-				"package-lock.json"
+				"package-lock.json",
+				".release-please-manifest.json"
 			],
 			"dependency-type": "peer"
 		}
