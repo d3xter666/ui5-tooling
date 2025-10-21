@@ -44,6 +44,9 @@
 		}
 	},
 	"release-type": "node",
+	"plugins": [
+		"node-workspaces"
+	],
 	"bump-minor-pre-major": true,
 	"bump-patch-for-minor-pre-major": true,
 	"pull-request-header": ":tractor: New release prepared",
