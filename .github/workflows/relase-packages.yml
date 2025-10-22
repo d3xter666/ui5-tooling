@@ -36,54 +36,33 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
         run: |
-          # Define the complete package order (dependency order: base packages first)
           ALL_PACKAGES=("logger" "fs" "builder" "server" "project" "cli")
           SELECTED_PKG="${{ github.event.inputs.package }}"
           
-          echo "🚀 Starting AUTOMATIC release chain from package: $SELECTED_PKG"
+          echo "🚀 Starting release chain from package: $SELECTED_PKG"
           
-          # Find the index of the selected package
+          # Find starting position in dependency order
           START_IDX=-1
           for i in "${!ALL_PACKAGES[@]}"; do
-            if [[ "${ALL_PACKAGES[$i]}" == "$SELECTED_PKG" ]]; then
-              START_IDX=$i
-              break
-            fi
+            [[ "${ALL_PACKAGES[$i]}" == "$SELECTED_PKG" ]] && START_IDX=$i && break
           done
           
-          if [[ $START_IDX -eq -1 ]]; then
-            echo "❌ Package $SELECTED_PKG not found in package list"
-            exit 1
-          fi
+          [[ $START_IDX -eq -1 ]] && echo "❌ Package not found" && exit 1
           
-          # Calculate how many packages will be in the chain
+          # Show what will be released
           CHAIN_LENGTH=$((${#ALL_PACKAGES[@]} - START_IDX))
-          echo "📦 Release chain will include $CHAIN_LENGTH packages: ${ALL_PACKAGES[@]:$START_IDX}"
+          echo "📦 Will release $CHAIN_LENGTH packages: ${ALL_PACKAGES[@]:$START_IDX}"
           
-          # Check if there's an open release PR for the selected package
-          PR_NUMBER=$(gh pr list --state open --search "release: @ui5/ ${SELECTED_PKG}" --json number,title | jq -r --arg pkg "$SELECTED_PKG" '.[] | select(.title | test("^release: @ui5/ " + $pkg + " v[0-9]+\\.[0-9]+\\.[0-9]+$")) | .number' | head -n1)
+          # Find and merge the PR
+          PR_NUMBER=$(gh pr list --state open --json number,title | jq -r '.[] | select(.title | startswith("release: @ui5/ '$SELECTED_PKG' v")) | .number' | head -n1)
           
           if [[ -n "$PR_NUMBER" ]]; then
-            echo "✅ Found open release PR #$PR_NUMBER for $SELECTED_PKG"
-            
-            # Merge the first PR to start the chain
-            echo "🔄 Merging PR #$PR_NUMBER for $SELECTED_PKG to start the chain..."
-            if ! gh pr merge $PR_NUMBER --squash --admin; then
-              echo "❌ Failed to merge PR #$PR_NUMBER for $SELECTED_PKG"
-              echo "🛑 Cannot start release chain"
-              exit 1
-            fi
-            
-            echo "✅ Successfully merged PR #$PR_NUMBER for $SELECTED_PKG"
-            echo "🔗 This will trigger release-please → auto-release-chain → continues automatically"
-            
+            echo "✅ Found PR #$PR_NUMBER, merging..."
+            gh pr merge $PR_NUMBER --squash --admin
             echo "started_package=$SELECTED_PKG" >> $GITHUB_OUTPUT
             echo "chain_length=$CHAIN_LENGTH" >> $GITHUB_OUTPUT
-            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-            
           else
-            echo "❌ No open release PR found for $SELECTED_PKG"
-            echo "🛑 Cannot start release chain - no PR to merge"
+            echo "❌ No release PR found for $SELECTED_PKG"
             exit 1
           fi
       
