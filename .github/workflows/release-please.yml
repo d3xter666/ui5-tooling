@@ -65,37 +65,41 @@ jobs:
       #       echo "ℹ️ No package-lock.json changes to commit"
       #     fi
 
-      - name: Update manifest for all packages
-        # if: steps.release.outputs.releases_created == 'true'
+      - name: Update manifest in release PRs
+        # if: steps.release.outputs.prs_created == 'true'
         run: |
-          echo "🔧 Updating manifest for all packages after release..."
+          echo "🔧 Updating manifest in release PR branches..."
           
-          # Simple: read current versions from all package.json files and update manifest
-          for package_dir in packages/*/; do
-            if [ -f "${package_dir}package.json" ] && [ ! "${package_dir}" = "packages/documentation/" ]; then
-              package_name=$(basename "$package_dir")
-              package_version=$(node -p "require('./${package_dir}package.json').version")
-              
-              jq --arg path "packages/$package_name" \
-                 --arg version "$package_version" \
-                 '.[$path] = $version' \
-                 .release-please-manifest.json > .release-please-manifest.json.tmp
-              
-              mv .release-please-manifest.json.tmp .release-please-manifest.json
+          # Simple: find release PRs and update manifest
+          for pr_info in $(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.title | startswith("release: @ui5/")) | "\(.number):\(.headRefName)"'); do
+            pr_number=$(echo "$pr_info" | cut -d: -f1)
+            branch_name=$(echo "$pr_info" | cut -d: -f2)
+            
+            echo "📦 Updating PR #$pr_number on branch $branch_name"
+            
+            # Checkout branch, update manifest, push back
+            git fetch origin "$branch_name" && git checkout "$branch_name"
+            
+            # Update manifest with all current package versions
+            for pkg in packages/*/package.json; do
+              if [ "$pkg" != "packages/documentation/package.json" ]; then
+                path="packages/$(basename $(dirname "$pkg"))"
+                version=$(node -p "require('./$pkg').version")
+                jq --arg p "$path" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
+              fi
+            done
+            
+            # Commit if changed
+            if ! git diff --quiet .release-please-manifest.json; then
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git add .release-please-manifest.json
+              git commit -m "chore: update manifest"
+              git push origin "$branch_name"
             fi
+            
+            git checkout main
           done
-          
-          # Commit if there are changes
-          if ! git diff --quiet .release-please-manifest.json; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add .release-please-manifest.json
-            git commit -m "chore: update manifest after release"
-            git push
-            echo "✅ Manifest updated"
-          else
-            echo "ℹ️ Manifest already up to date"
-          fi
 
   publish-package:
     runs-on: ubuntu-24.04
