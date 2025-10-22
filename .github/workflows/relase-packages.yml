@@ -61,7 +61,7 @@ jobs:
           echo "📦 Release chain will include $CHAIN_LENGTH packages: ${ALL_PACKAGES[@]:$START_IDX}"
           
           # Check if there's an open release PR for the selected package
-          PR_NUMBER=$(gh pr list --state open --search "release: @ui5/ ${SELECTED_PKG}" --json number,title | jq -r --arg pkg "$SELECTED_PKG" '.[] | select(.title | test("^release: @ui5/ \\($pkg) v[0-9]+\\.[0-9]+\\.[0-9]+$")) | .number' | head -n1)
+          PR_NUMBER=$(gh pr list --state open --search "release: @ui5/ ${SELECTED_PKG}" --json number,title | jq -r --arg pkg "$SELECTED_PKG" '.[] | select(.title | test("^release: @ui5/ " + $pkg + " v[0-9]+\\.[0-9]+\\.[0-9]+$")) | .number' | head -n1)
           
           if [[ -n "$PR_NUMBER" ]]; then
             echo "✅ Found open release PR #$PR_NUMBER for $SELECTED_PKG"
