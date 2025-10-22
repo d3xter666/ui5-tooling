@@ -67,6 +67,8 @@ jobs:
 
       - name: Update manifest in release PRs
         # if: steps.release.outputs.prs_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
         run: |
           echo "🔧 Updating manifest in release PR branches..."
           
