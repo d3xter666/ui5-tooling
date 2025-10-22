@@ -30,40 +30,40 @@ jobs:
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }} # TODO: Change token on prod
 
-      - name: Update package-lock.json files after release-please
-        if: steps.release.outputs.prs_created == 'true'
-        run: |
-          echo "🔄 Updating package-lock.json files after release-please changes..."
+      # - name: Update package-lock.json files after release-please
+      #   if: steps.release.outputs.prs_created == 'true'
+      #   run: |
+      #     echo "🔄 Updating package-lock.json files after release-please changes..."
           
-          # Find all packages that have package.json files
-          for package_dir in packages/*/; do
-            if [ -f "${package_dir}package.json" ] && [ ! "${package_dir}" = "packages/documentation/" ]; then
-              echo "📦 Updating package-lock.json for ${package_dir}"
-              cd "${package_dir}"
+      #     # Find all packages that have package.json files
+      #     for package_dir in packages/*/; do
+      #       if [ -f "${package_dir}package.json" ] && [ ! "${package_dir}" = "packages/documentation/" ]; then
+      #         echo "📦 Updating package-lock.json for ${package_dir}"
+      #         cd "${package_dir}"
               
-              # Update package-lock.json to match the new version in package.json
-              if [ -f "package-lock.json" ]; then
-                npm install --package-lock-only
-                echo "✅ Updated package-lock.json in ${package_dir}"
-              else
-                echo "⚠️ No package-lock.json found in ${package_dir}"
-              fi
+      #         # Update package-lock.json to match the new version in package.json
+      #         if [ -f "package-lock.json" ]; then
+      #           npm install --package-lock-only
+      #           echo "✅ Updated package-lock.json in ${package_dir}"
+      #         else
+      #           echo "⚠️ No package-lock.json found in ${package_dir}"
+      #         fi
               
-              cd - > /dev/null
-            fi
-          done
+      #         cd - > /dev/null
+      #       fi
+      #     done
           
-          # Check if there are any changes to commit
-          if ! git diff --quiet; then
-            echo "📝 Committing updated package-lock.json files..."
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add packages/*/package-lock.json
-            git commit -m "chore: update package-lock.json files after release-please"
-            git push
-          else
-            echo "ℹ️ No package-lock.json changes to commit"
-          fi
+      #     # Check if there are any changes to commit
+      #     if ! git diff --quiet; then
+      #       echo "📝 Committing updated package-lock.json files..."
+      #       git config user.name "github-actions[bot]"
+      #       git config user.email "github-actions[bot]@users.noreply.github.com"
+      #       git add packages/*/package-lock.json
+      #       git commit -m "chore: update package-lock.json files after release-please"
+      #       git push
+      #     else
+      #       echo "ℹ️ No package-lock.json changes to commit"
+      #     fi
 
   publish-package:
     runs-on: ubuntu-24.04
@@ -137,27 +137,34 @@ jobs:
           
           echo "✅ Successfully published ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
 
-      - name: Update manifest for released package
+      - name: Update manifest for all packages
         if: steps.detect_package.outputs.is_release == 'true'
         run: |
-          echo "🔧 Updating manifest for ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
+          echo "🔧 Updating manifest for all packages after ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }} release"
           
-          # Simple: just update the one package that was released
-          jq --arg path "packages/${{ steps.detect_package.outputs.package_name }}" \
-             --arg version "${{ steps.detect_package.outputs.package_version }}" \
-             '.[$path] = $version' \
-             .release-please-manifest.json > .release-please-manifest.json.tmp
-          
-          mv .release-please-manifest.json.tmp .release-please-manifest.json
+          # Update manifest with current versions from all package.json files
+          for package_dir in packages/*/; do
+            if [ -f "${package_dir}package.json" ] && [ ! "${package_dir}" = "packages/documentation/" ]; then
+              package_name=$(basename "$package_dir")
+              package_version=$(node -p "require('./${package_dir}package.json').version")
+              
+              jq --arg path "packages/$package_name" \
+                 --arg version "$package_version" \
+                 '.[$path] = $version' \
+                 .release-please-manifest.json > .release-please-manifest.json.tmp
+              
+              mv .release-please-manifest.json.tmp .release-please-manifest.json
+            fi
+          done
           
           # Only commit if there are changes
           if ! git diff --quiet .release-please-manifest.json; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add .release-please-manifest.json
-            git commit -m "chore: update manifest for ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
+            git commit -m "chore: update manifest after ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }} release"
             git push
-            echo "✅ Manifest updated"
+            echo "✅ Manifest updated for all packages"
           else
             echo "ℹ️ Manifest already up to date"
           fi
