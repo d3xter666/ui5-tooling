@@ -30,40 +30,80 @@ jobs:
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }} # TODO: Change token on prod
 
-      - name: Update package-lock.json files after release-please
+      # - name: Update package-lock.json files after release-please
+      #   if: steps.release.outputs.prs_created == 'true'
+      #   run: |
+      #     echo "🔄 Updating package-lock.json files after release-please changes..."
+          
+      #     # Find all packages that have package.json files
+      #     for package_dir in packages/*/; do
+      #       if [ -f "${package_dir}package.json" ] && [ ! "${package_dir}" = "packages/documentation/" ]; then
+      #         echo "📦 Updating package-lock.json for ${package_dir}"
+      #         cd "${package_dir}"
+              
+      #         # Update package-lock.json to match the new version in package.json
+      #         if [ -f "package-lock.json" ]; then
+      #           npm install --package-lock-only
+      #           echo "✅ Updated package-lock.json in ${package_dir}"
+      #         else
+      #           echo "⚠️ No package-lock.json found in ${package_dir}"
+      #         fi
+              
+      #         cd - > /dev/null
+      #       fi
+      #     done
+          
+      #     # Check if there are any changes to commit
+      #     if ! git diff --quiet; then
+      #       echo "📝 Committing updated package-lock.json files..."
+      #       git config user.name "github-actions[bot]"
+      #       git config user.email "github-actions[bot]@users.noreply.github.com"
+      #       git add packages/*/package-lock.json
+      #       git commit -m "chore: update package-lock.json files after release-please"
+      #       git push
+      #     else
+      #       echo "ℹ️ No package-lock.json changes to commit"
+      #     fi
+
+      # This step is mandatory because release-please nor its plugin
+      # node-workspace does not update the manifest automatically.
+      - name: Manual .release-please-manifest.json in release PRs
         if: steps.release.outputs.prs_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
         run: |
-          echo "🔄 Updating package-lock.json files after release-please changes..."
+          echo "🔧 Updating manifest in release PR branches..."
           
-          # Find all packages that have package.json files
-          for package_dir in packages/*/; do
-            if [ -f "${package_dir}package.json" ] && [ ! "${package_dir}" = "packages/documentation/" ]; then
-              echo "📦 Updating package-lock.json for ${package_dir}"
-              cd "${package_dir}"
-              
-              # Update package-lock.json to match the new version in package.json
-              if [ -f "package-lock.json" ]; then
-                npm install --package-lock-only
-                echo "✅ Updated package-lock.json in ${package_dir}"
-              else
-                echo "⚠️ No package-lock.json found in ${package_dir}"
+          # Simple: find release PRs and update manifest
+          for pr_info in $(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.title | startswith("release: @ui5/")) | "\(.number):\(.headRefName)"'); do
+            pr_number=$(echo "$pr_info" | cut -d: -f1)
+            branch_name=$(echo "$pr_info" | cut -d: -f2)
+            
+            echo "📦 Updating PR #$pr_number on branch $branch_name"
+            
+            # Checkout branch, update manifest, push back
+            git fetch origin "$branch_name" && git checkout "$branch_name"
+            
+            # Update manifest with all current package versions
+            for pkg in packages/*/package.json; do
+              if [ "$pkg" != "packages/documentation/package.json" ]; then
+                path="packages/$(basename $(dirname "$pkg"))"
+                version=$(node -p "require('./$pkg').version")
+                jq --arg p "$path" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
               fi
-              
-              cd - > /dev/null
+            done
+            
+            # Commit if changed
+            if ! git diff --quiet .release-please-manifest.json; then
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git add .release-please-manifest.json
+              git commit -m "chore: update manifest"
+              git push origin "$branch_name"
             fi
+            
+            git checkout main
           done
-          
-          # Check if there are any changes to commit
-          if ! git diff --quiet; then
-            echo "📝 Committing updated package-lock.json files..."
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add packages/*/package-lock.json
-            git commit -m "chore: update package-lock.json files after release-please"
-            git push
-          else
-            echo "ℹ️ No package-lock.json changes to commit"
-          fi
 
   publish-package:
     runs-on: ubuntu-24.04
