@@ -65,6 +65,38 @@ jobs:
       #       echo "ℹ️ No package-lock.json changes to commit"
       #     fi
 
+      - name: Update manifest for all packages
+        # if: steps.release.outputs.releases_created == 'true'
+        run: |
+          echo "🔧 Updating manifest for all packages after release..."
+          
+          # Simple: read current versions from all package.json files and update manifest
+          for package_dir in packages/*/; do
+            if [ -f "${package_dir}package.json" ] && [ ! "${package_dir}" = "packages/documentation/" ]; then
+              package_name=$(basename "$package_dir")
+              package_version=$(node -p "require('./${package_dir}package.json').version")
+              
+              jq --arg path "packages/$package_name" \
+                 --arg version "$package_version" \
+                 '.[$path] = $version' \
+                 .release-please-manifest.json > .release-please-manifest.json.tmp
+              
+              mv .release-please-manifest.json.tmp .release-please-manifest.json
+            fi
+          done
+          
+          # Commit if there are changes
+          if ! git diff --quiet .release-please-manifest.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add .release-please-manifest.json
+            git commit -m "chore: update manifest after release"
+            git push
+            echo "✅ Manifest updated"
+          else
+            echo "ℹ️ Manifest already up to date"
+          fi
+
   publish-package:
     runs-on: ubuntu-24.04
     needs: release-please
@@ -136,35 +168,3 @@ jobs:
           # npm publish --access public
           
           echo "✅ Successfully published ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
-
-      - name: Update manifest for all packages
-        if: steps.detect_package.outputs.is_release == 'true'
-        run: |
-          echo "🔧 Updating manifest for all packages after ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }} release"
-          
-          # Update manifest with current versions from all package.json files
-          for package_dir in packages/*/; do
-            if [ -f "${package_dir}package.json" ] && [ ! "${package_dir}" = "packages/documentation/" ]; then
-              package_name=$(basename "$package_dir")
-              package_version=$(node -p "require('./${package_dir}package.json').version")
-              
-              jq --arg path "packages/$package_name" \
-                 --arg version "$package_version" \
-                 '.[$path] = $version' \
-                 .release-please-manifest.json > .release-please-manifest.json.tmp
-              
-              mv .release-please-manifest.json.tmp .release-please-manifest.json
-            fi
-          done
-          
-          # Only commit if there are changes
-          if ! git diff --quiet .release-please-manifest.json; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add .release-please-manifest.json
-            git commit -m "chore: update manifest after ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }} release"
-            git push
-            echo "✅ Manifest updated for all packages"
-          else
-            echo "ℹ️ Manifest already up to date"
-          fi
