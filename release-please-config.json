@@ -2,45 +2,22 @@
 	"$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
 	"packages": {
 		"packages/logger": {
-			"component": "logger",
-			"extra-files": [
-				"../../.release-please-manifest.json"
-			]
+			"component": "logger"
 		},
 		"packages/fs": {
-			"component": "fs",
-			"extra-files": [
-				"../../.release-please-manifest.json"
-			],
-			"dependency-type": "peer"
+			"component": "fs"
 		},
 		"packages/builder": {
-			"component": "builder",
-			"extra-files": [
-				"../../.release-please-manifest.json"
-			],
-			"dependency-type": "peer"
+			"component": "builder"
 		},
 		"packages/server": {
-			"component": "server",
-			"extra-files": [
-				"../../.release-please-manifest.json"
-			],
-			"dependency-type": "peer"
+			"component": "server"
 		},
 		"packages/project": {
-			"component": "project",
-			"extra-files": [
-				"../../.release-please-manifest.json"
-			],
-			"dependency-type": "peer"
+			"component": "project"
 		},
 		"packages/cli": {
-			"component": "cli",
-			"extra-files": [
-				"../../.release-please-manifest.json"
-			],
-			"dependency-type": "peer"
+			"component": "cli"
 		}
 	},
 	"release-type": "node",
