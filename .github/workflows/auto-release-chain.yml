@@ -1,191 +1,54 @@
 name: auto-release-chain
 
 on:
-  # Triggers when release-packages workflow completes (chain mode only)
   workflow_run:
-    workflows: ["release-packages"]
-    types:
-      - completed
-    branches:
-      - main
+    workflows: ["release-please"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: write
   pull-requests: write
-  actions: write
 
 jobs:
-  check-and-continue-release:
+  continue-chain:
     runs-on: ubuntu-24.04
-    # Only run if the triggering workflow succeeded
     if: github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@v5
       
-      - name: Get workflow run details
-        id: workflow_details
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Find next package
+        id: next-pkg
         run: |
-          # Get details about the completed workflow
-          RUN_ID="${{ github.event.workflow_run.id }}"
-          echo "Triggered by workflow run ID: $RUN_ID"
-          
-          # Get the workflow run details
-          gh run view $RUN_ID --json jobs,conclusion,displayTitle > workflow_details.json
-          cat workflow_details.json
-          
-          # Extract information about what was released
-          WORKFLOW_TITLE=$(jq -r '.displayTitle' workflow_details.json)
-          echo "Workflow title: $WORKFLOW_TITLE"
-          echo "workflow_title=$WORKFLOW_TITLE" >> $GITHUB_OUTPUT
-      
-      - name: Detect released package from workflow
-        id: detect_package
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "🔍 Auto-release-chain triggered by release-packages workflow"
-          echo "🔗 Checking what was released..."
-          
-          # Get the triggering workflow details
-          TRIGGERING_WORKFLOW="${{ github.event.workflow_run.name }}"
-          TRIGGERING_CONCLUSION="${{ github.event.workflow_run.conclusion }}"
-          
-          echo "Triggered by: $TRIGGERING_WORKFLOW"
-          echo "Conclusion: $TRIGGERING_CONCLUSION"
-          
-          # Get recent commits that might indicate a release
-          git log --oneline -3 --pretty=format:"%H %s" > recent_commits.txt
-          cat recent_commits.txt
-          
-          RELEASED_PACKAGE=""
-          PACKAGE_VERSION=""
-          
-          # Look for release-please merge commits
-          while IFS= read -r line; do
-            COMMIT_MSG=$(echo "$line" | cut -d' ' -f2-)
-            echo "Checking commit: $COMMIT_MSG"
-            
-            # Match release-please commit pattern
-            if [[ "$COMMIT_MSG" =~ ^chore\(main\):\ release\ ([a-z-]+)\ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
-              RELEASED_PACKAGE="${BASH_REMATCH[1]}"
-              PACKAGE_VERSION="${BASH_REMATCH[2]}"
-              echo "🎉 Detected release: $RELEASED_PACKAGE@$PACKAGE_VERSION"
-              break
-            fi
-          done < recent_commits.txt
-          
-          if [[ -n "$RELEASED_PACKAGE" ]]; then
-            echo "released_package=$RELEASED_PACKAGE" >> $GITHUB_OUTPUT
-            echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
-            echo "has_release=true" >> $GITHUB_OUTPUT
-            echo "✅ Found released package: $RELEASED_PACKAGE@$PACKAGE_VERSION"
-            echo "🔗 Continuing automatic release chain..."
-          else
-            echo "has_release=false" >> $GITHUB_OUTPUT
-            echo "ℹ️ No package release detected - chain may have completed or failed"
-          fi
-      
-      - name: Determine next package to release
-        if: steps.detect_package.outputs.has_release == 'true'
-        id: next_package
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Define package order (dependency order: base packages first)
           ALL_PACKAGES=("logger" "fs" "builder" "server" "project" "cli")
-          CURRENT_PKG="${{ steps.detect_package.outputs.released_package }}"
           
-          echo "🔍 Looking for next package after: $CURRENT_PKG"
+          # Find what was just released
+          RELEASED_PKG=""
+          if git log -1 --pretty=format:"%s" | grep -q "^release: @ui5/"; then
+            RELEASED_PKG=$(git log -1 --pretty=format:"%s" | sed -n 's/^release: @ui5\/ \([a-z-]*\) v.*/\1/p')
+            echo "📦 Detected release: $RELEASED_PKG"
+          else
+            echo "ℹ️ No release detected"
+            exit 0
+          fi
           
-          # Find the index of the current package
-          CURRENT_IDX=-1
+          # Find next package
           for i in "${!ALL_PACKAGES[@]}"; do
-            if [[ "${ALL_PACKAGES[$i]}" == "$CURRENT_PKG" ]]; then
-              CURRENT_IDX=$i
-              break
-            fi
-          done
-          
-          if [[ $CURRENT_IDX -eq -1 ]]; then
-            echo "❌ Package $CURRENT_PKG not found in package list"
-            exit 1
-          fi
-          
-          # Find next package with an open release PR
-          NEXT_PKG=""
-          for ((i=CURRENT_IDX+1; i<${#ALL_PACKAGES[@]}; i++)); do
-            PKG="${ALL_PACKAGES[$i]}"
-            echo "Checking for open release PR for: $PKG"
-            
-            PR_NUMBER=$(gh pr list --state open --search "release: ${PKG}" --json number,title | jq -r --arg pkg "$PKG" '.[] | select(.title | test("^release: \($pkg) v[0-9]+\\.[0-9]+\\.[0-9]+$")) | .number' | head -n1)
-            
-            if [[ -n "$PR_NUMBER" ]]; then
-              echo "✅ Found open release PR #$PR_NUMBER for $PKG"
-              NEXT_PKG="$PKG"
+            if [[ "${ALL_PACKAGES[$i]}" == "$RELEASED_PKG" ]] && [[ $((i+1)) -lt ${#ALL_PACKAGES[@]} ]]; then
+              NEXT_PKG="${ALL_PACKAGES[$((i+1))]}"
+              echo "🎯 Next package: $NEXT_PKG"
               echo "next_package=$NEXT_PKG" >> $GITHUB_OUTPUT
-              echo "next_pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
               echo "has_next=true" >> $GITHUB_OUTPUT
-              break
-            else
-              echo "ℹ️ No open release PR for $PKG, checking next package..."
+              exit 0
             fi
           done
           
-          if [[ -z "$NEXT_PKG" ]]; then
-            echo "has_next=false" >> $GITHUB_OUTPUT
-            echo "🎉 No more packages to release - release chain complete!"
-          else
-            echo "🎯 Next package to release: $NEXT_PKG (PR #$PR_NUMBER)"
-          fi
+          echo "� Chain complete"
+          echo "has_next=false" >> $GITHUB_OUTPUT
       
-      - name: Merge next package PR
-        if: steps.next_package.outputs.has_next == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-        run: |
-          NEXT_PKG="${{ steps.next_package.outputs.next_package }}"
-          PR_NUMBER="${{ steps.next_package.outputs.next_pr_number }}"
-          
-          echo "🚀 Auto-merging release PR for next package: $NEXT_PKG"
-          echo "📋 PR Number: #$PR_NUMBER"
-          
-          # Merge the PR
-          if ! gh pr merge $PR_NUMBER --squash --admin; then
-            echo "❌ Failed to merge PR #$PR_NUMBER for $NEXT_PKG"
-            echo "🛑 Stopping auto-release chain"
-            exit 1
-          fi
-          
-          echo "✅ Successfully merged PR #$PR_NUMBER for $NEXT_PKG"
-          echo "⏭️ This merge will automatically trigger the release-please workflow for $NEXT_PKG"
-      
-      - name: Release chain summary
-        run: |
-          if [[ "${{ steps.detect_package.outputs.has_release }}" == "true" ]]; then
-            echo "🎉 Release Chain Status Report"
-            echo "================================"
-            echo "✅ Just released: ${{ steps.detect_package.outputs.released_package }}@${{ steps.detect_package.outputs.package_version }}"
-            
-            if [[ "${{ steps.next_package.outputs.has_next }}" == "true" ]]; then
-              echo "⏭️ Next in chain: ${{ steps.next_package.outputs.next_package }} (PR #${{ steps.next_package.outputs.next_pr_number }})"
-              echo "🔄 Auto-release chain continuing..."
-            else
-              echo "🏁 Release chain complete - no more packages to release"
-            fi
-          else
-            echo "ℹ️ No package release detected, chain not triggered"
-          fi
-
-  handle-failure:
-    runs-on: ubuntu-24.04
-    # Only run if the triggering workflow failed
-    if: github.event.workflow_run.conclusion == 'failure'
-    steps:
-      - name: Report failure
-        run: |
-          echo "❌ Release-please workflow failed!"
-          echo "🛑 Auto-release chain stopped due to failure"
-          echo "Run ID: ${{ github.event.workflow_run.id }}"
-          echo "Check the failed workflow for details: ${{ github.event.workflow_run.html_url }}"
+      - name: Merge next PR
+        if: steps.next-pkg.outputs.has_next == 'true'
+        uses: ./.github/actions/merge-release-pr
+        with:
+          package: ${{ steps.next-pkg.outputs.next_package }}
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
