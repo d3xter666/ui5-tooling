@@ -87,6 +87,40 @@ jobs:
             git checkout main
           done
 
+      # Add missing release tags that node-workspace plugin doesn't create
+      - name: Add release tags to PRs created by node-workspace
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          echo "🏷️ Adding release tags to PRs..."
+          
+          # Find release PRs and add the necessary tags
+          for pr_info in $(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.title | startswith("release: @ui5/")) | "\(.number):\(.headRefName):\(.title)"'); do
+            pr_number=$(echo "$pr_info" | cut -d: -f1)
+            branch_name=$(echo "$pr_info" | cut -d: -f2)
+            pr_title=$(echo "$pr_info" | cut -d: -f3-)
+            
+            echo "🏷️ Adding tags to PR #$pr_number: $pr_title"
+            
+            # Extract package name from branch
+            pkg_name=$(echo "$branch_name" | sed -n 's/.*release-please--branches--main--components--\([^-]*\).*/\1/p')
+            
+            if [ -n "$pkg_name" ] && [ -f "packages/$pkg_name/package.json" ]; then
+              # Add the autorelease: pending tag that release-please expects
+              gh pr edit "$pr_number" --add-label "autorelease: pending"
+              
+              # Add the release-please label to mark it as a release PR
+              gh pr edit "$pr_number" --add-label "release-please"
+              
+              # Add type: release label
+              gh pr edit "$pr_number" --add-label "type: release"
+              
+              echo "✅ Added release tags to PR #$pr_number for package $pkg_name"
+            else
+              echo "⚠️ Could not determine package from branch: $branch_name"
+            fi
+          done
+
       - name: Detect which package was released
         id: detect_package
         run: |
