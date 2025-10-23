@@ -16,6 +16,10 @@ jobs:
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       prs_created: ${{ steps.release.outputs.prs_created }}
+      package_released: ${{ steps.detect_package.outputs.is_release }}
+      package_name: ${{ steps.detect_package.outputs.package_name }}
+      package_version: ${{ steps.detect_package.outputs.package_version }}
+      package_path: ${{ steps.detect_package.outputs.package_path }}
     steps:
       - uses: actions/checkout@v5
 
@@ -83,17 +87,6 @@ jobs:
             git checkout main
           done
 
-  publish-package:
-    runs-on: ubuntu-24.04
-    needs: release-please
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Node.js LTS
-        uses: actions/setup-node@v5
-        with:
-         node-version: 24.x
-
       - name: Detect which package was released
         id: detect_package
         run: |
@@ -119,11 +112,22 @@ jobs:
             echo "ℹ️ Expected format: 'release: @ui5/ <package> v<version>'"
             echo "is_release=false" >> $GITHUB_OUTPUT
           fi
-      
+
+  publish-package:
+    runs-on: ubuntu-24.04
+    needs: release-please
+    if: needs.release-please.outputs.package_released == 'true'
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Node.js LTS
+        uses: actions/setup-node@v5
+        with:
+         node-version: 24.x
+
       - name: Verify package directory exists
-        if: steps.detect_package.outputs.is_release == 'true'
         run: |
-          PACKAGE_PATH="${{ steps.detect_package.outputs.package_path }}"
+          PACKAGE_PATH="${{ needs.release-please.outputs.package_path }}"
           if [ ! -d "$PACKAGE_PATH" ]; then
             echo "❌ Package directory $PACKAGE_PATH does not exist!"
             exit 1
@@ -137,19 +141,17 @@ jobs:
           echo "✅ Package directory $PACKAGE_PATH exists and contains package.json"
       
       - name: Install dependencies
-        if: steps.detect_package.outputs.is_release == 'true'
         run: |
-          cd "${{ steps.detect_package.outputs.package_path }}"
-          echo "📦 Installing dependencies for ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
+          cd "${{ needs.release-please.outputs.package_path }}"
+          echo "📦 Installing dependencies for ${{ needs.release-please.outputs.package_name }}@${{ needs.release-please.outputs.package_version }}"
           npm ci
       
       - name: Publish to NPM
-        if: steps.detect_package.outputs.is_release == 'true'
         run: |
-          cd "${{ steps.detect_package.outputs.package_path }}"
-          echo "🚀 Publishing ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }} to NPM..."
+          cd "${{ needs.release-please.outputs.package_path }}"
+          echo "🚀 Publishing ${{ needs.release-please.outputs.package_name }}@${{ needs.release-please.outputs.package_version }} to NPM..."
           
           # TODO: Uncomment the following lines when ready to publish
           # npm publish --access public
           
-          echo "✅ Successfully published ${{ steps.detect_package.outputs.package_name }}@${{ steps.detect_package.outputs.package_version }}"
+          echo "✅ Successfully published ${{ needs.release-please.outputs.package_name }}@${{ needs.release-please.outputs.package_version }}"
