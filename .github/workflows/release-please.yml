@@ -83,7 +83,8 @@ jobs:
             # Checkout branch, update manifest, push back
             git fetch origin "$branch_name" && git checkout "$branch_name"
             
-            # Update manifest with all current package versions
+            # Regenerate manifest from all current package versions
+            jq -n '{}' > .release-please-manifest.json
             for pkg in packages/*/package.json; do
               if [ "$pkg" != "packages/documentation/package.json" ]; then
                 path="packages/$(basename $(dirname "$pkg"))"
@@ -97,8 +98,11 @@ jobs:
               git config user.name "github-actions[bot]"
               git config user.email "github-actions[bot]@users.noreply.github.com"
               git add .release-please-manifest.json
-              git commit -m "chore: update manifest"
+              git commit -m "chore: regenerate manifest with all current versions"
               git push origin "$branch_name"
+              echo "✅ Updated manifest in PR #$pr_number"
+            else
+              echo "ℹ️ Manifest already up-to-date in PR #$pr_number"
             fi
             
             git checkout main
