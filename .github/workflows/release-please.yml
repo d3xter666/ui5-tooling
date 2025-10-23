@@ -80,29 +80,27 @@ jobs:
             
             echo "📦 Updating PR #$pr_number on branch $branch_name"
             
-            # Checkout branch, update manifest, push back
+            # Checkout branch and rebase from main (accepting their changes to avoid conflicts)
             git fetch origin "$branch_name" && git checkout "$branch_name"
+            git rebase origin/main -X theirs || git rebase --continue
             
-            # Regenerate manifest from all current package versions
-            jq -n '{}' > .release-please-manifest.json
-            for pkg in packages/*/package.json; do
-              if [ "$pkg" != "packages/documentation/package.json" ]; then
-                path="packages/$(basename $(dirname "$pkg"))"
-                version=$(node -p "require('./$pkg').version")
-                jq --arg p "$path" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
-              fi
-            done
-
-            echo ".release-please-manifest.json contents:"
-            cat .release-please-manifest.json
-
+            # Find the package for this specific PR and update only its manifest entry
+            pkg_name=$(echo "$branch_name" | sed -n 's/.*release-please--branches--main--components--\([^-]*\).*/\1/p')
+            if [ -n "$pkg_name" ] && [ -f "packages/$pkg_name/package.json" ]; then
+              version=$(node -p "require('./packages/$pkg_name/package.json').version")
+              jq --arg p "packages/$pkg_name" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
+              echo "✅ Updated manifest for $pkg_name to $version"
+            else
+              echo "⚠️ Could not determine package from branch name: $branch_name"
+            fi
+            
             # Commit if changed
             if ! git diff --quiet .release-please-manifest.json; then
               git config user.name "github-actions[bot]"
               git config user.email "github-actions[bot]@users.noreply.github.com"
               git add .release-please-manifest.json
-              git commit -m "chore: regenerate manifest with all current versions"
-              git push origin "$branch_name"
+              git commit -m "chore: update manifest for $pkg_name"
+              git push origin "$branch_name" --force-with-lease
               echo "✅ Updated manifest in PR #$pr_number"
             else
               echo "ℹ️ Manifest already up-to-date in PR #$pr_number"
