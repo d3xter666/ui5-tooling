@@ -80,9 +80,15 @@ jobs:
             
             echo "📦 Updating PR #$pr_number on branch $branch_name"
             
-            # Checkout branch and rebase from main (accepting their changes to avoid conflicts)
+            # Configure git identity for rebase operations
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            
+            # Checkout branch and forcefully reset to main's state, then reapply PR changes
             git fetch origin "$branch_name" && git checkout "$branch_name"
-            git rebase origin/main -X theirs || git rebase --continue
+            
+            # Forceful approach: reset manifest to main's version, then update current package
+            git checkout origin/main -- .release-please-manifest.json
             
             # Find the package for this specific PR and update only its manifest entry
             pkg_name=$(echo "$branch_name" | sed -n 's/.*release-please--branches--main--components--\([^-]*\).*/\1/p')
@@ -96,8 +102,6 @@ jobs:
             
             # Commit if changed
             if ! git diff --quiet .release-please-manifest.json; then
-              git config user.name "github-actions[bot]"
-              git config user.email "github-actions[bot]@users.noreply.github.com"
               git add .release-please-manifest.json
               git commit -m "chore: update manifest for $pkg_name"
               git push origin "$branch_name" --force-with-lease
