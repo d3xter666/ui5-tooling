@@ -65,7 +65,7 @@ jobs:
             
             # Update manifest in PR branch
             git fetch origin "$branch_name" && git checkout "$branch_name"
-            git rebase origin/main -X theirs --force
+            git rebase origin/main -X theirs --force --quiet
 
             # Update this package's version
             version=$(node -p "require('./packages/$pkg_name/package.json').version")
