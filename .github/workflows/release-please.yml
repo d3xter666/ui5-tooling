@@ -41,91 +41,46 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
         run: |
-          echo "🔧 Processing release PRs: updating manifest and adding tags..."
-          
-          # Find all release PRs once and process them
-          release_prs=$(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.title | startswith("release: @ui5/")) | "\(.number):\(.headRefName)"')
-          
-          if [ -z "$release_prs" ]; then
-            echo "ℹ️ No release PRs found"
-            exit 0
-          fi
-          
-          # Configure git identity once
+          # Configure git identity
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Create release label once if needed
+          # Create label if needed
           gh label create "autorelease: pending" --description "Release PR pending merge" --color "fbca04" || true
-          
+
           # Process each release PR
-          for pr_info in $release_prs; do
+          for pr_info in $(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.title | startswith("release: @ui5/")) | "\(.number):\(.headRefName)"'); do
             pr_number=$(echo "$pr_info" | cut -d: -f1)
             branch_name=$(echo "$pr_info" | cut -d: -f2)
             
-            echo "📦 Processing PR #$pr_number on branch $branch_name"
+            echo "📦 Processing PR #$pr_number"
             
-            # Extract package name from branch
+            # Extract package name
             pkg_name=$(echo "$branch_name" | sed -n 's/.*release-please--branches--main--components--\([^-]*\).*/\1/p')
             
-            if [ -z "$pkg_name" ] || [ ! -f "packages/$pkg_name/package.json" ]; then
+            if [ -z "$pkg_name" ]; then
               echo "⚠️ Could not determine package from branch: $branch_name"
               continue
             fi
             
-            # === MANIFEST UPDATE ===
-            echo "  📝 Updating manifest for $pkg_name..."
-            
-            # Checkout branch and completely clean any conflicts
+            # Update manifest in PR branch
             git fetch origin "$branch_name" && git checkout "$branch_name"
-            
-            # Ensure we're working with latest main's manifest
-            git fetch origin main
-            
-            # Completely reset any staged changes and force clean state
-            git reset --hard HEAD
-            git clean -fd
-            
-            # Always start with main's manifest as truth
-            # This ensures we never have conflicts because we're always working from main's state
             git checkout origin/main -- .release-please-manifest.json
             
-            # Make sure it's unstaged so we control exactly when it gets committed
-            git reset HEAD .release-please-manifest.json 2>/dev/null || true
-            
-            # Update only this package's manifest entry from main's clean state
+            # Update this package's version
             version=$(node -p "require('./packages/$pkg_name/package.json').version")
-            echo "  📋 Updating $pkg_name from main's manifest to version $version"
-            
-            # Create a completely fresh manifest based on main + this package update
             jq --arg p "packages/$pkg_name" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
             
-            # Verify the change was applied
-            if grep -q "\"packages/$pkg_name\": \"$version\"" .release-please-manifest.json; then
-              echo "  ✅ Manifest entry verified: packages/$pkg_name = $version"
-            else
-              echo "  ⚠️ Warning: Could not verify manifest update"
-            fi
-            
-            # Always commit and force push to prevent merge conflicts
-            # Even if the file appears unchanged, we need to ensure it's based on latest main
+            # Always commit and force push to prevent conflicts
             git add .release-please-manifest.json
-            git commit -m "chore: update manifest for $pkg_name to $version [skip ci]" || git commit --amend -m "chore: update manifest for $pkg_name to $version [skip ci]"
-            
-            # Always force push - this prevents merge conflicts during PR merge
-            # We know our manifest is correct because it's based on latest main + our single update
-            echo "  🚀 Force pushing manifest to prevent merge conflicts"
+            git commit -m "chore: update manifest for $pkg_name" --allow-empty
             git push origin "$branch_name" --force
-            echo "  ✅ Force pushed manifest for $pkg_name (conflict prevention)"
             
-            # === LABEL UPDATE ===
-            echo "  🏷️ Adding release tags..."
-            git checkout main  # Switch back to main before GitHub API calls
+            # Add label
+            gh pr edit "$pr_number" --add-label "autorelease: pending" || true
             
-            # Add the autorelease label that release-please expects
-            gh pr edit "$pr_number" --add-label "autorelease: pending" || echo "  ⚠️ Could not add autorelease label to PR #$pr_number"
-            
-            echo "  ✅ Processed PR #$pr_number for package $pkg_name"
+            git checkout main
+            echo "✅ Updated PR #$pr_number"
           done
 
       - name: Detect which package was released
