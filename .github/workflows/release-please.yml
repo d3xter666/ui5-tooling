@@ -82,7 +82,7 @@ jobs:
             # Ensure we're working with latest main's manifest
             git fetch origin main
             
-            # Nuclear approach: completely reset any staged changes and force clean state
+            # Completely reset any staged changes and force clean state
             git reset --hard HEAD
             git clean -fd
             
@@ -107,19 +107,16 @@ jobs:
               echo "  ⚠️ Warning: Could not verify manifest update"
             fi
             
-            # Commit and force push manifest changes with maximum conflict avoidance
-            if ! git diff --quiet .release-please-manifest.json; then
-              git add .release-please-manifest.json
-              git commit -m "chore: update manifest for $pkg_name to $version [skip ci]"
-              
-              # BULLETPROOF PUSH: Use --force instead of --force-with-lease to override any conflicts
-              # We know our manifest is correct because it's based on main + our single update
-              echo "  🚀 Force pushing manifest update (conflict-free approach)"
-              git push origin "$branch_name" --force
-              echo "  ✅ Updated manifest for $pkg_name to $version"
-            else
-              echo "  ℹ️ Manifest already up-to-date for $pkg_name"
-            fi
+            # Always commit and force push to prevent merge conflicts
+            # Even if the file appears unchanged, we need to ensure it's based on latest main
+            git add .release-please-manifest.json
+            git commit -m "chore: update manifest for $pkg_name to $version [skip ci]" || git commit --amend -m "chore: update manifest for $pkg_name to $version [skip ci]"
+            
+            # Always force push - this prevents merge conflicts during PR merge
+            # We know our manifest is correct because it's based on latest main + our single update
+            echo "  🚀 Force pushing manifest to prevent merge conflicts"
+            git push origin "$branch_name" --force
+            echo "  ✅ Force pushed manifest for $pkg_name (conflict prevention)"
             
             # === LABEL UPDATE ===
             echo "  🏷️ Adding release tags..."
