@@ -79,22 +79,42 @@ jobs:
             # Checkout branch and completely clean any conflicts
             git fetch origin "$branch_name" && git checkout "$branch_name"
             
+            # Ensure we're working with latest main's manifest
+            git fetch origin main
+            
             # Nuclear approach: completely reset any staged changes and force clean state
             git reset --hard HEAD
             git clean -fd
             
-            # Forcefully overwrite manifest with main's version - no conflicts possible
+            # Always start with main's manifest as truth
+            # This ensures we never have conflicts because we're always working from main's state
             git checkout origin/main -- .release-please-manifest.json
-            git reset HEAD .release-please-manifest.json  # Unstage if accidentally staged
             
-            # Update only this package's manifest entry
+            # Make sure it's unstaged so we control exactly when it gets committed
+            git reset HEAD .release-please-manifest.json 2>/dev/null || true
+            
+            # Update only this package's manifest entry from main's clean state
             version=$(node -p "require('./packages/$pkg_name/package.json').version")
+            echo "  📋 Updating $pkg_name from main's manifest to version $version"
+            
+            # Create a completely fresh manifest based on main + this package update
             jq --arg p "packages/$pkg_name" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
             
-            # Commit and force push manifest changes
+            # Verify the change was applied
+            if grep -q "\"packages/$pkg_name\": \"$version\"" .release-please-manifest.json; then
+              echo "  ✅ Manifest entry verified: packages/$pkg_name = $version"
+            else
+              echo "  ⚠️ Warning: Could not verify manifest update"
+            fi
+            
+            # Commit and force push manifest changes with maximum conflict avoidance
             if ! git diff --quiet .release-please-manifest.json; then
               git add .release-please-manifest.json
-              git commit -m "chore: update manifest for $pkg_name"
+              git commit -m "chore: update manifest for $pkg_name to $version [skip ci]"
+              
+              # BULLETPROOF PUSH: Use --force instead of --force-with-lease to override any conflicts
+              # We know our manifest is correct because it's based on main + our single update
+              echo "  🚀 Force pushing manifest update (conflict-free approach)"
               git push origin "$branch_name" --force
               echo "  ✅ Updated manifest for $pkg_name to $version"
             else
