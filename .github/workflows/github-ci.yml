@@ -20,7 +20,7 @@ jobs:
     - uses: actions/checkout@v5
 
     - name: Setup Node.js
-      uses: actions/setup-node@v5
+      uses: actions/setup-node@v6
       with:
         node-version: 20.11.0
 
@@ -30,9 +30,8 @@ jobs:
     - name: Perform ESLint check
       run: npm run lint
 
-    # TODO: Enable when "cli" package has been integrated into monorepo
-    # - name: Perform Licenses check
-    #   run: npm run check-licenses
+    - name: Perform Licenses check
+      run: npm run check-licenses
 
     - name: Perform dependency check
       run: npm run depcheck
