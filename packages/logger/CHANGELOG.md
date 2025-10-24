@@ -5,37 +5,6 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-logger/compare/v4.0.2...HEAD).
 
 <a name="v4.0.2"></a>
-## [4.1.2](https://github.com/d3xter666/ui5-tooling/compare/logger-v4.1.1...logger-v4.1.2) (2025-10-24)
-
-
-### Bug Fixes
-
-* Update changelogs ([#36](https://github.com/d3xter666/ui5-tooling/issues/36)) ([3e13538](https://github.com/d3xter666/ui5-tooling/commit/3e13538f14f2fa79ae2413d7e5451ac8e74b89d0))
-
-## [4.1.1](https://github.com/d3xter666/ui5-tooling/compare/logger-v4.1.0...logger-v4.1.1) (2025-10-21)
-
-
-### Bug Fixes 
-
-* Typo ([6f07518](https://github.com/d3xter666/ui5-tooling/commit/6f075182d689a1c441ac3a49a98282e9791185b6))
-
-## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/logger-v4.0.2...logger-v4.1.0) (2025-10-20)
-
-
-### Features
-
-* Feat package release ([6e38ca0](https://github.com/d3xter666/ui5-tooling/commit/6e38ca097a7ffd30dfd00bed87cfb9488e6dc736))
-* Logger package release ([8881eb5](https://github.com/d3xter666/ui5-tooling/commit/8881eb5ade29527236993122fbcbadcb1d483221))
-* Test change in logger! ([f975df2](https://github.com/d3xter666/ui5-tooling/commit/f975df22bcbafa68f127cd26645af05af3fbc228))
-
-
-### Bug Fixes
-
-* Align release-please versions ([#25](https://github.com/d3xter666/ui5-tooling/issues/25)) ([28a0cdf](https://github.com/d3xter666/ui5-tooling/commit/28a0cdfd788ec2bb3fbc4bd325101b0e4a3f331e))
-* Feat package release ([#22](https://github.com/d3xter666/ui5-tooling/issues/22)) ([a4754c3](https://github.com/d3xter666/ui5-tooling/commit/a4754c3b6f24af681c89c4eecc9a4893082c65ff))
-* Fix License file. Should produce a PR ([88cac28](https://github.com/d3xter666/ui5-tooling/commit/88cac289c0b5842d829fd80378a97c84a9e22e3e))
-* License file ([954fced](https://github.com/d3xter666/ui5-tooling/commit/954fced3e1305190dfdc2c23f892b3aeb466267a))
-
 ## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/logger-v4.0.2...logger-v4.1.0) (2025-10-20)
 
 
