@@ -65,8 +65,8 @@ jobs:
             
             # Update manifest in PR branch
             git fetch origin "$branch_name" && git checkout "$branch_name"
-            git checkout origin/main -- .release-please-manifest.json
-            
+            git rebase origin/main -X theirs --force
+
             # Update this package's version
             version=$(node -p "require('./packages/$pkg_name/package.json').version")
             jq --arg p "packages/$pkg_name" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
