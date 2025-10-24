@@ -22,10 +22,10 @@ Note that previous versions (up to v4) are maintained in [dedicated repositories
 
 ## Resources
 
-- [Documentation](https://ui5.github.io/cli/stable/)
-- [API Reference](https://ui5.github.io/cli/stable/api/)
-- [CLI Documentation](https://ui5.github.io/cli/stable/pages/CLI/)
-- [Project Configuration](https://ui5.github.io/cli/stable/pages/Configuration/)
+- [Documentation](https://ui5.github.io/cli/v3/)
+- [API Reference](https://ui5.github.io/cli/v3/api/)
+- [CLI Documentation](https://ui5.github.io/cli/v3/pages/CLI/)
+- [Project Configuration](https://ui5.github.io/cli/v3/pages/Configuration/)
 - 🎬 [UI5con@SAP 2020 Talk](https://www.youtube.com/watch?v=8IHoVJLKN34)
 - 🎬 [UI5con@SAP 2018 Talk](https://www.youtube.com/watch?v=iQ07oe26y_k)
 - [Contribution Guidelines](https://github.com/UI5/cli/blob/main/CONTRIBUTING.md)
@@ -43,7 +43,7 @@ UI5 CLI consists of multiple packages managed within this monorepo:
 - **packages/logger**: Internal logging module
 
 **Usage Overview** *(arrows indicate dependencies)*
-![Module Overview](./packages/documentation/docs/images/Module_overview.png)
+![Module Overview](./docs/images/Module_overview.png)
 
 ## Contributing
 
