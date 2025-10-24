@@ -36,22 +36,45 @@ jobs:
 
       # This step is mandatory because release-please nor its plugin
       # node-workspace does not update the manifest automatically.
-      - name: Manual .release-please-manifest.json in release PRs
+      # Also adds missing release tags that node-workspace plugin doesn't create.
+      - name: Update manifest and add tags to release PRs
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
         run: |
-          echo "🔧 Updating manifest in release PR branches..."
+          echo "🔧 Processing release PRs: updating manifest and adding tags..."
           
-          # Simple: find release PRs and update manifest
-          for pr_info in $(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.title | startswith("release: @ui5/")) | "\(.number):\(.headRefName)"'); do
+          # Find all release PRs once and process them
+          release_prs=$(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.title | startswith("release: @ui5/")) | "\(.number):\(.headRefName)"')
+          
+          if [ -z "$release_prs" ]; then
+            echo "ℹ️ No release PRs found"
+            exit 0
+          fi
+          
+          # Configure git identity once
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create release label once if needed
+          gh label create "autorelease: pending" --description "Release PR pending merge" --color "fbca04" || true
+          
+          # Process each release PR
+          for pr_info in $release_prs; do
             pr_number=$(echo "$pr_info" | cut -d: -f1)
             branch_name=$(echo "$pr_info" | cut -d: -f2)
             
-            echo "📦 Updating PR #$pr_number on branch $branch_name"
+            echo "📦 Processing PR #$pr_number on branch $branch_name"
             
-            # Configure git identity
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
+            # Extract package name from branch
+            pkg_name=$(echo "$branch_name" | sed -n 's/.*release-please--branches--main--components--\([^-]*\).*/\1/p')
+            
+            if [ -z "$pkg_name" ] || [ ! -f "packages/$pkg_name/package.json" ]; then
+              echo "⚠️ Could not determine package from branch: $branch_name"
+              continue
+            fi
+            
+            # === MANIFEST UPDATE ===
+            echo "  📝 Updating manifest for $pkg_name..."
             
             # Checkout branch and completely clean any conflicts
             git fetch origin "$branch_name" && git checkout "$branch_name"
@@ -64,61 +87,28 @@ jobs:
             git checkout origin/main -- .release-please-manifest.json
             git reset HEAD .release-please-manifest.json  # Unstage if accidentally staged
             
-            # Find the package for this specific PR and update only its manifest entry
-            pkg_name=$(echo "$branch_name" | sed -n 's/.*release-please--branches--main--components--\([^-]*\).*/\1/p')
-            if [ -n "$pkg_name" ] && [ -f "packages/$pkg_name/package.json" ]; then
-              version=$(node -p "require('./packages/$pkg_name/package.json').version")
-              jq --arg p "packages/$pkg_name" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
-              echo "✅ Updated manifest for $pkg_name to $version"
-            else
-              echo "⚠️ Could not determine package from branch name: $branch_name"
-            fi
+            # Update only this package's manifest entry
+            version=$(node -p "require('./packages/$pkg_name/package.json').version")
+            jq --arg p "packages/$pkg_name" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
             
-            # Commit and force push - no conflicts possible with this approach
+            # Commit and force push manifest changes
             if ! git diff --quiet .release-please-manifest.json; then
               git add .release-please-manifest.json
               git commit -m "chore: update manifest for $pkg_name"
-              git push origin "$branch_name" --force  # Force push to overwrite any conflicts
-              echo "✅ Updated manifest in PR #$pr_number"
+              git push origin "$branch_name" --force
+              echo "  ✅ Updated manifest for $pkg_name to $version"
             else
-              echo "ℹ️ Manifest already up-to-date in PR #$pr_number"
+              echo "  ℹ️ Manifest already up-to-date for $pkg_name"
             fi
             
-            git checkout main
-          done
-
-      # Add missing release tags that node-workspace plugin doesn't create
-      - name: Add release tags to PRs created by node-workspace
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-        run: |
-          echo "🏷️ Adding release tags to PRs..."
-          
-          # Find release PRs and add the necessary tags
-          for pr_info in $(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.title | startswith("release: @ui5/")) | "\(.number):\(.headRefName):\(.title)"'); do
-            pr_number=$(echo "$pr_info" | cut -d: -f1)
-            branch_name=$(echo "$pr_info" | cut -d: -f2)
-            pr_title=$(echo "$pr_info" | cut -d: -f3-)
+            # === LABEL UPDATE ===
+            echo "  🏷️ Adding release tags..."
+            git checkout main  # Switch back to main before GitHub API calls
             
-            echo "🏷️ Adding tags to PR #$pr_number: $pr_title"
+            # Add the autorelease label that release-please expects
+            gh pr edit "$pr_number" --add-label "autorelease: pending" || echo "  ⚠️ Could not add autorelease label to PR #$pr_number"
             
-            # Extract package name from branch
-            pkg_name=$(echo "$branch_name" | sed -n 's/.*release-please--branches--main--components--\([^-]*\).*/\1/p')
-            
-            if [ -n "$pkg_name" ] && [ -f "packages/$pkg_name/package.json" ]; then
-              # Add the autorelease: pending tag that release-please expects
-              gh pr edit "$pr_number" --add-label "autorelease: pending"
-              
-              # Add the release-please label to mark it as a release PR
-              gh pr edit "$pr_number" --add-label "release-please"
-              
-              # Add type: release label
-              gh pr edit "$pr_number" --add-label "type: release"
-              
-              echo "✅ Added release tags to PR #$pr_number for package $pkg_name"
-            else
-              echo "⚠️ Could not determine package from branch: $branch_name"
-            fi
+            echo "  ✅ Processed PR #$pr_number for package $pkg_name"
           done
 
       - name: Detect which package was released
