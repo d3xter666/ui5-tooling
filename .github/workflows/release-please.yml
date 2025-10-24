@@ -64,8 +64,8 @@ jobs:
             fi
             
             # Update manifest in PR branch
-            git fetch origin "$branch_name" && git checkout "$branch_name"
-            git checkout origin/main -- .release-please-manifest.json
+            git fetch "$branch_name" && git checkout "$branch_name"
+            git checkout main
             
             # Update this package's version
             version=$(node -p "require('./packages/$pkg_name/package.json').version")
@@ -73,13 +73,12 @@ jobs:
             
             # Always commit and force push to prevent conflicts
             git add .release-please-manifest.json
-            git commit -m "chore: update manifest for $pkg_name" --allow-empty
-            git push origin "$branch_name" --force
-            
+            git commit --amend -C HEAD --allow-empty
+            git push "$branch_name" --force
+
             # Add label
             gh pr edit "$pr_number" --add-label "autorelease: pending" || true
-            
-            git checkout main
+
             echo "✅ Updated PR #$pr_number"
           done
 
