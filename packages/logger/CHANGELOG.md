@@ -8,7 +8,7 @@ A list of unreleased changes can be found [here](https://github.com/SAP/ui5-logg
 ## [4.1.1](https://github.com/d3xter666/ui5-tooling/compare/logger-v4.1.0...logger-v4.1.1) (2025-10-21)
 
 
-### Bug Fixes
+### Bug Fixes 
 
 * Typo ([6f07518](https://github.com/d3xter666/ui5-tooling/commit/6f075182d689a1c441ac3a49a98282e9791185b6))
 
