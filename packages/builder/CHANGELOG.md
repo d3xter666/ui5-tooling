@@ -96,7 +96,7 @@ A list of unreleased changes can be found [here](https://github.com/SAP/ui5-buil
 - Discontinue bundling of JavaScript modules as string [`7691b08`](https://github.com/SAP/ui5-builder/commit/7691b08c4cd8abc7fe3922ec913f80dca372ba4f)
 - Task API arguments rename ([#995](https://github.com/SAP/ui5-builder/issues/995)) [`d1f87e0`](https://github.com/SAP/ui5-builder/commit/d1f87e0cb8b65005b034ff00b7e0d66f4a5d279e)
 - Require Node.js 20.11.x/>=21.2.0 and npm >=10 [`b76ff75`](https://github.com/SAP/ui5-builder/commit/b76ff7588d65c5b5ff8fb9861a3562680e8c2e74)
-- **Bundling:** Enforce usage of sap.ui.predefine instead function wrappers ([#1021](https://github.com/SAP/ui5-builder/issues/1021)) [`4bda728`](https://github.com/SAP/ui5-builder/commit/4bda7289383e8645556c68976a05db0ab5698a2b)
+- **Bundling:** Enforce usage of sap.ui.predefine instead function wrappers ([#1021](https://github.com/SAP/ui5-builder/issues/1021)) [`4bda728`](https://github.com/SAP/ui5-builder/commit/4bda7289383e8645556c68976a05db0ab5698a2b) 
 
 ### Dependency Updates
 - Bump rimraf from 5.0.8 to 6.0.1 [`2b4f309`](https://github.com/SAP/ui5-builder/commit/2b4f3094107bfa7ace18091731fe2f048b233754)
