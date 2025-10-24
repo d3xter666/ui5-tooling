@@ -65,10 +65,9 @@ jobs:
             
             # Update manifest in PR branch
             git fetch origin "$branch_name" && git checkout "$branch_name"
-            echo "⚡ Resolving manifest conflicts with main..."
+            echo "⚡ Rebasing with main (auto-resolving manifest conflicts)..."
             git fetch origin main
-            git merge origin/main --strategy-option=theirs --no-edit --allow-unrelated-histories || true
-            git checkout origin/main -- .release-please-manifest.json
+            git rebase origin/main -X theirs --quiet || git rebase --abort && git checkout origin/main -- .release-please-manifest.json
 
             # Update this package's version
             version=$(node -p "require('./packages/$pkg_name/package.json').version")
