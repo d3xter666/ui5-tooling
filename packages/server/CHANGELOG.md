@@ -8,7 +8,7 @@ A list of unreleased changes can be found [here](https://github.com/SAP/ui5-serv
 ## [4.0.8](https://github.com/d3xter666/ui5-tooling/compare/server-v4.0.7...server-v4.0.8) (2025-10-22)
 
 
-### Dependencies
+### Dependencies 
 
 * The following workspace dependencies were updated
   * dependencies
