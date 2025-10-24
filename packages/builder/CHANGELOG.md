@@ -102,7 +102,7 @@ A list of unreleased changes can be found [here](https://github.com/SAP/ui5-buil
 - Apply default values to bunde definitions for standard tasks ([#1033](https://github.com/SAP/ui5-builder/issues/1033)) [`4178e1a`](https://github.com/SAP/ui5-builder/commit/4178e1a0315ad16b7774183a18e326f8c52f5f44)
 - **Bundle 'require' section with async flag for specVersion:** 4.0 ([#1042](https://github.com/SAP/ui5-builder/issues/1042)) [`dfa67fe`](https://github.com/SAP/ui5-builder/commit/dfa67feb91b7de0d61c2713eafa639f001484d9b)
 - **bundle/Builder:** Support async require sections and conditional core boot [`e421e2f`](https://github.com/SAP/ui5-builder/commit/e421e2ff7e604d9035b86d666ebaf75d29212332)
-- **manifest.json:** Auto-fill supportedLocales [`b085634`](https://github.com/SAP/ui5-builder/commit/b085634555193acc669ed37e8e4b817b9798698b)
+- **manifest.json:** Auto-fill supportedLocales [`b085634`](https://github.com/SAP/ui5-builder/commit/b085634555193acc669ed37e8e4b817b9798698b) 
 
 ### BREAKING CHANGE
 
