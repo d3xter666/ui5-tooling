@@ -8,7 +8,7 @@ A list of unreleased changes can be found [here](https://github.com/SAP/ui5-logg
 ## [4.2.0](https://github.com/d3xter666/ui5-tooling/compare/logger-v4.1.2...logger-v4.2.0) (2025-10-24)
 
 
-### Features
+### Features 
 
 * Feat package release ([6e38ca0](https://github.com/d3xter666/ui5-tooling/commit/6e38ca097a7ffd30dfd00bed87cfb9488e6dc736))
 * Logger package release ([8881eb5](https://github.com/d3xter666/ui5-tooling/commit/8881eb5ade29527236993122fbcbadcb1d483221))
