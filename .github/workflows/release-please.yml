@@ -70,10 +70,14 @@ jobs:
             git checkout origin/main -- .release-please-manifest.json
             echo "⚡ Sync complete."
 
-            # Update this package's version
-            version=$(node -p "require('./packages/$pkg_name/package.json').version")
-            jq --arg p "packages/$pkg_name" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
-            cat .release-please-manifest.json
+            # DON'T do this - it conflicts with release-please's version bumping
+            # version=$(node -p "require('./packages/$pkg_name/package.json').version")
+            # jq --arg p "packages/$pkg_name" --arg v "$version" '.[$p] = $v'
+            
+            # Instead, just sync other packages and keep current package's version
+            current_version=$(jq -r --arg p "packages/$pkg_name" '.[$p]' .release-please-manifest.json)
+            git checkout origin/main -- .release-please-manifest.json
+            jq --arg p "packages/$pkg_name" --arg v "$current_version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
 
             echo "📦 Updating manifest for $pkg_name to version $version"
             # Always commit and push - let git handle duplicates
