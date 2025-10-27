@@ -73,6 +73,7 @@ jobs:
             # Update this package's version
             version=$(node -p "require('./packages/$pkg_name/package.json').version")
             jq --arg p "packages/$pkg_name" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
+            cat .release-please-manifest.json
 
             echo "📦 Updating manifest for $pkg_name to version $version"
             # Only commit if the manifest file actually changed
