@@ -67,16 +67,24 @@ jobs:
             git fetch origin "$branch_name" && git checkout "$branch_name"
             echo "⚡ Rebasing with main (auto-resolving manifest conflicts)..."
             git fetch origin main
-            git rebase origin/main -X theirs --quiet || git rebase --abort && git checkout origin/main -- .release-please-manifest.json
+            git rebase origin/main -X theirs --quiet
+            git push origin "$branch_name" --force
+            echo "⚡ Rebase complete."
 
             # Update this package's version
             version=$(node -p "require('./packages/$pkg_name/package.json').version")
             jq --arg p "packages/$pkg_name" --arg v "$version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
-            
-            # Always commit and force push to prevent conflicts
-            git add .release-please-manifest.json
-            git commit --amend -C HEAD --allow-empty
-            git push origin "$branch_name" --force
+
+            echo "📦 Updating manifest for $pkg_name to version $version"
+            # Only commit if the manifest file actually changed
+            if git diff --quiet .release-please-manifest.json; then
+              echo "ℹ️ No changes to manifest file"
+            else
+              git add .release-please-manifest.json
+              git commit -m "fix: Sync .release-please-manifest.json"
+              git push origin "$branch_name" --force
+              echo "✅ Committed manifest changes"
+            fi
 
             # Add label
             gh pr edit "$pr_number" --add-label "autorelease: pending" || true
