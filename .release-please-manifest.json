@@ -4,5 +4,5 @@
   "packages/builder": "4.2.0",
   "packages/server": "4.3.0",
   "packages/project": "4.0.10",
-  "packages/cli": "4.0.28"
+  "packages/cli": "4.0.29"
 }
