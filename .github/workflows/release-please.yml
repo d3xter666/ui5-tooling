@@ -142,7 +142,7 @@ jobs:
         run: |
           cd "${{ needs.release-please.outputs.package_path }}"
           echo "📦 Installing dependencies for ${{ needs.release-please.outputs.package_name }}@${{ needs.release-please.outputs.package_version }}"
-          # npm ci # TODO: Uncomment when ready to publish
+          npm ci
       
       - name: Publish to NPM
         run: |
