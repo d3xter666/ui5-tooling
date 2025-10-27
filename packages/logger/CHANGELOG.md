@@ -5,6 +5,13 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-logger/compare/v4.0.2...HEAD).
 
 <a name="v4.0.2"></a>
+## [4.2.1](https://github.com/d3xter666/ui5-tooling/compare/logger-v4.2.0...logger-v4.2.1) (2025-10-27)
+
+
+### Bug Fixes
+
+* Logger Zzzz ([209fe58](https://github.com/d3xter666/ui5-tooling/commit/209fe5860242daa61e6451616184db65a18497af))
+
 ## [4.2.0](https://github.com/d3xter666/ui5-tooling/compare/logger-v4.1.2...logger-v4.2.0) (2025-10-27)
 
 
