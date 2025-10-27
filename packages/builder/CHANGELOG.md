@@ -97,7 +97,7 @@ A list of unreleased changes can be found [here](https://github.com/SAP/ui5-buil
 
 
 <a name="v4.0.0"></a>
-## [v4.0.0] - 2024-07-23
+## [v4.0.0] - 2024-07-23 
 ### Breaking Changes
 - Drop node v21 support [`7b27171`](https://github.com/SAP/ui5-builder/commit/7b2717166686aeef8d19b1f3134ef4f39de25a80)
 - Discontinue bundling of JavaScript modules as string [`7691b08`](https://github.com/SAP/ui5-builder/commit/7691b08c4cd8abc7fe3922ec913f80dca372ba4f)
