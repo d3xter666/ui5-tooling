@@ -1,6 +1,6 @@
 {
 	"name": "@ui5/server",
-	"version": "4.3.0",
+	"version": "4.3.1",
 	"description": "UI5 CLI - Server",
 	"author": {
 		"name": "SAP SE",
@@ -134,7 +134,7 @@
 	},
 	"devDependencies": {
 		"@istanbuljs/esm-loader-hook": "^0.3.0",
-		"@ui5/project": "^4.0.10",
+		"@ui5/project": "^4.0.11",
 		"ava": "^6.4.1",
 		"chokidar-cli": "^3.0.0",
 		"cross-env": "^7.0.3",
