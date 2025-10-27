@@ -64,9 +64,9 @@ jobs:
             fi
             
             # Update manifest in PR branch
+            git fetch origin main
             git fetch origin "$branch_name" && git checkout "$branch_name"
             echo "⚡ Rebasing with main (auto-resolving manifest conflicts)..."
-            git fetch origin main
             git rebase origin/main -X theirs --quiet
             git push origin "$branch_name" --force
             echo "⚡ Rebase complete."
