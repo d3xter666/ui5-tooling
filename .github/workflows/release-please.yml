@@ -76,10 +76,10 @@ jobs:
 
             echo "📦 Updating manifest for $pkg_name to version $version"
             # Only commit if the manifest file actually changed
-            if git diff --quiet .release-please-manifest.json; then
+            git add .release-please-manifest.json
+            if git diff --staged --quiet; then
               echo "ℹ️ No changes to manifest file"
             else
-              git add .release-please-manifest.json
               git commit -m "fix: Sync .release-please-manifest.json"
               git push origin "$branch_name" --force
               echo "✅ Committed manifest changes"
