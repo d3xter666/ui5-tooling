@@ -76,15 +76,11 @@ jobs:
             cat .release-please-manifest.json
 
             echo "📦 Updating manifest for $pkg_name to version $version"
-            # Only commit if the manifest file actually changed
+            # Always commit and push - let git handle duplicates
             git add .release-please-manifest.json
-            if git diff --staged --quiet; then
-              echo "ℹ️ No changes to manifest file"
-            else
-              git commit -m "fix: Sync .release-please-manifest.json"
-              git push origin "$branch_name" --force
-              echo "✅ Committed manifest changes"
-            fi
+            git commit -m "fix: Sync .release-please-manifest.json" --allow-empty
+            git push origin "$branch_name" --force
+            echo "✅ Updated manifest (forced sync)"
 
             # Add label
             gh pr edit "$pr_number" --add-label "autorelease: pending" || true
