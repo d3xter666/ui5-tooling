@@ -2,7 +2,7 @@
   "packages/logger": "4.3.0",
   "packages/fs": "4.0.6",
   "packages/builder": "4.1.2",
-  "packages/server": "4.0.10",
+  "packages/server": "4.1.0",
   "packages/project": "4.0.8",
   "packages/cli": "4.0.27"
 }
