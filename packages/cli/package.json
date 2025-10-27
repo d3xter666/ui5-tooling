@@ -1,6 +1,6 @@
 {
 	"name": "@ui5/cli",
-	"version": "4.0.27",
+	"version": "4.0.28",
 	"description": "UI5 CLI - CLI",
 	"author": {
 		"name": "SAP SE",
@@ -115,7 +115,7 @@
 		"@ui5/fs": "^4.0.6",
 		"@ui5/logger": "^4.0.2",
 		"@ui5/project": "^4.0.10",
-		"@ui5/server": "^4.1.0",
+		"@ui5/server": "^4.2.0",
 		"chalk": "^5.6.2",
 		"data-with-position": "^0.5.0",
 		"import-local": "^3.2.0",
