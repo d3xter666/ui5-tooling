@@ -1,5 +1,5 @@
 {
-  "packages/logger": "4.2.0",
+  "packages/logger": "4.2.1",
   "packages/fs": "4.0.7",
   "packages/builder": "4.2.0",
   "packages/server": "4.3.0",
