@@ -1,4 +1,5 @@
 name: 'Merge Release PR'
+<<<<<<< HEAD
 description: 'Merges a release PR for a specific package'
 
 inputs:
@@ -16,11 +17,32 @@ outputs:
   pr_number:
     description: 'The PR number that was merged'
     value: ${{ steps.merge.outputs.pr_number }}
+=======
+description: 'Find and merge a release PR for a specific package'
+inputs:
+  package:
+    description: 'Package name to find and merge PR for'
+    required: true
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+outputs:
+  pr-number:
+    description: 'PR number that was merged'
+    value: ${{ steps.merge.outputs.pr-number }}
+  merged:
+    description: 'Whether a PR was found and merged'
+    value: ${{ steps.merge.outputs.merged }}
+>>>>>>> cc47ddcb9c (feat: Enable release-please release setup)
 
 runs:
   using: 'composite'
   steps:
+<<<<<<< HEAD
     - name: Merge release PR
+=======
+    - name: Find and merge release PR
+>>>>>>> cc47ddcb9c (feat: Enable release-please release setup)
       id: merge
       shell: bash
       env:
@@ -29,13 +51,19 @@ runs:
         PACKAGE="${{ inputs.package }}"
         echo "🔍 Looking for release PR for: $PACKAGE"
         
+<<<<<<< HEAD
         # Find the release PR for this package
         PR_NUMBER=$(gh pr list --state open --json number,title | jq -r ".[] | select(.title | contains(\"release: @ui5/ $PACKAGE\")) | .number")
+=======
+        # Find release PR
+        PR_NUMBER=$(gh pr list --state open --json number,title | jq -r '.[] | select(.title | startswith("release: @ui5/ '$PACKAGE' v")) | .number' | head -n1)
+>>>>>>> cc47ddcb9c (feat: Enable release-please release setup)
         
         if [[ -n "$PR_NUMBER" ]]; then
           echo "✅ Found PR #$PR_NUMBER for $PACKAGE"
           echo "🔄 Merging..."
           
+<<<<<<< HEAD
           # Merge the PR
           gh pr merge $PR_NUMBER --squash
           
@@ -46,4 +74,14 @@ runs:
           echo "❌ No open release PR found for $PACKAGE"
           echo "pr_merged=false" >> $GITHUB_OUTPUT
           echo "pr_number=" >> $GITHUB_OUTPUT
+=======
+          gh pr merge $PR_NUMBER --squash --admin
+          
+          echo "✅ Merged PR #$PR_NUMBER for $PACKAGE"
+          echo "pr-number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "merged=true" >> $GITHUB_OUTPUT
+        else
+          echo "❌ No release PR found for $PACKAGE"
+          echo "merged=false" >> $GITHUB_OUTPUT
+>>>>>>> cc47ddcb9c (feat: Enable release-please release setup)
         fi
