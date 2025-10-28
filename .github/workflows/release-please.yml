@@ -2,7 +2,6 @@ name: release-please
 
 on:
   push:
-    # Detects when a release PR is merged and publishes the package
     branches:
       - main
 
@@ -38,7 +37,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
         run: |
-          # Configure git identity
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
@@ -52,36 +50,38 @@ jobs:
             pkg_name=$(echo "$branch_name" | sed -n 's/.*release-please--branches--main--components--\([^-]*\).*/\1/p')
             
             if [ -z "$pkg_name" ]; then
-              echo "⚠️ Could not determine package from branch: $branch_name"
               continue
             fi
 
             echo "📦 Syncing PR #$pr_number ($pkg_name)"
             
-            # Switch to PR branch and get package version
-            git fetch origin main "$branch_name" && git checkout "$branch_name"
-            git reset --hard HEAD && git clean -fd
+            git fetch origin main "$branch_name"
+            git checkout "$branch_name"
+            
+            # Find the release commit
+            RELEASE_COMMIT=$(git log --oneline -n 10 | grep "release: @ui5/ $pkg_name" | head -1 | cut -d' ' -f1)
+            
+            if [ -z "$RELEASE_COMMIT" ]; then
+              continue
+            fi
+            
             current_version=$(node -p "require('./packages/$pkg_name/package.json').version")
             
-            # Sync with latest main manifest and update this package
-            git checkout origin/main -- .release-please-manifest.json
-            jq --arg p "packages/$pkg_name" --arg v "$current_version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
+            # Reset to main and cherry-pick the release commit
+            git reset --hard origin/main
+            git cherry-pick "$RELEASE_COMMIT" || {
+              # Resolve conflicts by taking main's manifest and updating this package
+              git checkout origin/main -- .release-please-manifest.json
+              jq --arg p "packages/$pkg_name" --arg v "$current_version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
+              git add .release-please-manifest.json
+              git cherry-pick --continue
+            }
             
-            # Commit and push changes
-            git add .release-please-manifest.json
-            git commit -m "fix: Sync .release-please-manifest.json" --allow-empty
             git push origin "$branch_name" --force
             
-            # Force GitHub to re-evaluate merge conflicts
-            echo "🔄 Refreshing PR merge status..."
-            gh pr close "$pr_number"
-            sleep 3
-            gh pr reopen "$pr_number"
-            
-            # Add label
+            # Add release-please label for automation
             gh pr edit "$pr_number" --add-label "autorelease: pending" || true
             
-            echo "✅ Updated and refreshed PR #$pr_number"
             git checkout main
           done
 
@@ -110,34 +110,11 @@ jobs:
         with:
          node-version: 24.x
 
-      - name: Verify package directory exists
-        run: |
-          PACKAGE_PATH="${{ needs.release-please.outputs.package_path }}"
-          if [ ! -d "$PACKAGE_PATH" ]; then
-            echo "❌ Package directory $PACKAGE_PATH does not exist!"
-            exit 1
-          fi
-          
-          if [ ! -f "$PACKAGE_PATH/package.json" ]; then
-            echo "❌ No package.json found in $PACKAGE_PATH!"
-            exit 1
-          fi
-          
-          echo "✅ Package directory $PACKAGE_PATH exists and contains package.json"
-      
-      - name: Install dependencies
+      - name: Install and publish package
         run: |
           cd "${{ needs.release-please.outputs.package_path }}"
-          echo "📦 Installing dependencies for ${{ needs.release-please.outputs.package_name }}@${{ needs.release-please.outputs.package_version }}"
-          # TODO: Uncomment the following lines when ready to publish
+          echo "🚀 Publishing ${{ needs.release-please.outputs.package_name }}@${{ needs.release-please.outputs.package_version }}"
+          
+          # TODO: Uncomment when ready to publish
           # npm ci
-      
-      - name: Publish to NPM
-        run: |
-          cd "${{ needs.release-please.outputs.package_path }}"
-          echo "🚀 Publishing ${{ needs.release-please.outputs.package_name }}@${{ needs.release-please.outputs.package_version }} to NPM..."
-          
-          # TODO: Uncomment the following lines when ready to publish
           # npm publish --access public
-          
-          echo "✅ Successfully published ${{ needs.release-please.outputs.package_name }}@${{ needs.release-please.outputs.package_version }}"
