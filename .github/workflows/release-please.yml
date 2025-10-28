@@ -58,30 +58,24 @@ jobs:
             git fetch origin main "$branch_name"
             git checkout "$branch_name"
             
-            # Find the release commit
-            RELEASE_COMMIT=$(git log --oneline -n 10 | grep "release: @ui5/ $pkg_name" | head -1 | cut -d' ' -f1)
-            
-            if [ -z "$RELEASE_COMMIT" ]; then
-              continue
-            fi
-            
+            # Get the current package version from package.json (what release-please set)
             current_version=$(node -p "require('./packages/$pkg_name/package.json').version")
+            echo "📦 Package version: $current_version"
             
-            # Reset to main and cherry-pick the release commit
-            git reset --hard origin/main
-            git cherry-pick "$RELEASE_COMMIT" || {
-              # Resolve conflicts by taking main's manifest and updating this package
-              git checkout origin/main -- .release-please-manifest.json
-              jq --arg p "packages/$pkg_name" --arg v "$current_version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
-              git add .release-please-manifest.json
-              git cherry-pick --continue
-            }
+            # Always sync with latest main manifest and update this package
+            echo "🔄 Syncing with latest main manifest..."
+            git checkout origin/main -- .release-please-manifest.json
+            jq --arg p "packages/$pkg_name" --arg v "$current_version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
             
+            # Commit the manifest update
+            git add .release-please-manifest.json
+            git commit -m "fix: Sync .release-please-manifest.json" --allow-empty
             git push origin "$branch_name" --force
             
             # Add release-please label for automation
             gh pr edit "$pr_number" --add-label "autorelease: pending" || true
             
+            echo "✅ Updated manifest for $pkg_name to $current_version"
             git checkout main
           done
 
