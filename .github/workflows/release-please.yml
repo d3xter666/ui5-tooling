@@ -74,16 +74,24 @@ jobs:
             # FIRST: Read the current package version that release-please set
             current_version=$(jq -r --arg p "packages/$pkg_name" '.[$p]' .release-please-manifest.json)
             echo "📦 Found release-please version for $pkg_name: $current_version"
+            echo "🔍 Current manifest content:"
+            cat .release-please-manifest.json
 
             # THEN: Sync with main's manifest structure
             echo "⚡ Syncing manifest with main..."
+            echo "🔍 Main's manifest content:"
+            git show origin/main:.release-please-manifest.json
             git checkout origin/main -- .release-please-manifest.json
             echo "⚡ Sync complete."
+            echo "🔍 After sync with main:"
+            cat .release-please-manifest.json
 
             # FINALLY: Restore the release-please version for this package
+            echo "🔧 Restoring $pkg_name to version $current_version"
             jq --arg p "packages/$pkg_name" --arg v "$current_version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
 
             echo "📦 Updated manifest for $pkg_name to version $current_version"
+            echo "🔍 Final manifest content:"
             cat .release-please-manifest.json
 
             # Commit and push the changes
