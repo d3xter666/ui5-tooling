@@ -5,6 +5,18 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-builder/compare/v4.0.11...HEAD).
 
 <a name="v4.0.11"></a>
+## [4.2.4](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.2.3...builder-v4.2.4) (2025-10-28)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/fs bumped from ^4.0.9 to ^4.0.10
+    * @ui5/logger bumped from ^4.2.3 to ^4.3.0
+  * devDependencies
+    * @ui5/project bumped from ^4.0.13 to ^4.0.14
+
 ## [4.2.3](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.2.2...builder-v4.2.3) (2025-10-28)
 
 
