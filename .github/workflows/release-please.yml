@@ -72,6 +72,11 @@ jobs:
             git commit -m "fix: Sync .release-please-manifest.json" --allow-empty
             git push origin "$branch_name" --force
             
+            # Force GitHub to re-evaluate by creating another commit
+            echo "🔄 Triggering conflict re-evaluation..."
+            git commit --allow-empty -m "chore: trigger conflict refresh"
+            git push origin "$branch_name" --force
+            
             # Add label
             gh pr edit "$pr_number" --add-label "autorelease: pending" || true
             
