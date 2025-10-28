@@ -64,8 +64,24 @@ jobs:
             
             # Always sync with latest main manifest and update this package
             echo "🔄 Syncing with latest main manifest..."
+            echo "📋 Current manifest content:"
+            cat .release-please-manifest.json
+            
             git checkout origin/main -- .release-please-manifest.json
+            echo "📋 Main's manifest content:"
+            cat .release-please-manifest.json
+            
             jq --arg p "packages/$pkg_name" --arg v "$current_version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
+            echo "📋 Updated manifest content:"
+            cat .release-please-manifest.json
+            
+            # Check if there are actual changes to commit
+            if git diff --quiet .release-please-manifest.json; then
+              echo "ℹ️ No changes to manifest - already in sync"
+            else
+              echo "✅ Changes detected in manifest"
+              git diff .release-please-manifest.json
+            fi
             
             # Commit the manifest update
             git add .release-please-manifest.json
