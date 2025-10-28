@@ -62,10 +62,14 @@ jobs:
               echo "⚠️ Could not determine package from branch: $branch_name"
               continue
             fi
-            
+
             # Update manifest in PR branch
             git fetch origin main
             git fetch origin "$branch_name" && git checkout "$branch_name"
+
+            # Clean any uncommitted changes before starting
+            git reset --hard HEAD
+            git clean -fd
 
             # FIRST: Read the current package version that release-please set
             current_version=$(jq -r --arg p "packages/$pkg_name" '.[$p]' .release-please-manifest.json)
@@ -81,6 +85,16 @@ jobs:
 
             echo "📦 Updated manifest for $pkg_name to version $current_version"
             cat .release-please-manifest.json
+
+            # Commit and push the changes
+            git add .release-please-manifest.json
+            if git diff --staged --quiet; then
+              echo "ℹ️ No changes to manifest file"
+            else
+              git commit -m "fix: Sync .release-please-manifest.json"
+              git push origin "$branch_name" --force
+              echo "✅ Committed manifest changes"
+            fi
 
             # Add label
             gh pr edit "$pr_number" --add-label "autorelease: pending" || true
