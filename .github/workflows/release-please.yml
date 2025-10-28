@@ -66,22 +66,21 @@ jobs:
             # Update manifest in PR branch
             git fetch origin main
             git fetch origin "$branch_name" && git checkout "$branch_name"
+
+            # FIRST: Read the current package version that release-please set
+            current_version=$(jq -r --arg p "packages/$pkg_name" '.[$p]' .release-please-manifest.json)
+            echo "📦 Found release-please version for $pkg_name: $current_version"
+
+            # THEN: Sync with main's manifest structure
             echo "⚡ Syncing manifest with main..."
             git checkout origin/main -- .release-please-manifest.json
             echo "⚡ Sync complete."
 
-            # Instead, just sync other packages and keep current package's version
-            current_version=$(jq -r --arg p "packages/$pkg_name" '.[$p]' .release-please-manifest.json)
-            git checkout origin/main -- .release-please-manifest.json
+            # FINALLY: Restore the release-please version for this package
             jq --arg p "packages/$pkg_name" --arg v "$current_version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
 
-            echo "📦 Updating manifest for $pkg_name to version $current_version"
+            echo "📦 Updated manifest for $pkg_name to version $current_version"
             cat .release-please-manifest.json
-            # Always commit and push - let git handle duplicates
-            git add .release-please-manifest.json
-            git commit -m "fix: Sync .release-please-manifest.json" --allow-empty
-            git push origin "$branch_name" --force
-            echo "✅ Updated manifest (forced sync)"
 
             # Add label
             gh pr edit "$pr_number" --add-label "autorelease: pending" || true
