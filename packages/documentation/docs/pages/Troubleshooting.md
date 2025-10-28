@@ -27,7 +27,7 @@ Any missing framework dependencies will be downloaded again during the next UI5 
 ## Environment Variables
 ### Changing the Log Level
 
-In CI environments or in a combination with other tools, the usage of [UI5 CLI's `--log-level`](https://ui5.github.io/cli/stable/pages/CLI/#common-options) command parameter might be inconvenient and even impossible.
+In CI environments or in a combination with other tools, the usage of [UI5 CLI's `--log-level`](https://ui5.github.io/cli/v5/pages/CLI/#common-options) command parameter might be inconvenient and even impossible.
 
 #### Resolution
 
@@ -50,8 +50,10 @@ UI5 + Karma:
 `cross-env UI5_LOG_LVL=verbose npm run karma`
 
 
-!!! warning
-    The combination of the `UI5_LOG_LVL` environment variable with the `--log-level` CLI parameter might lead to unexpected results; they should be used interchangeably but not together. The CLI parameter takes precedence over the `UI5_LOG_LVL` environment variable.
+::: warning
+The combination of the `UI5_LOG_LVL` environment variable with the `--log-level` CLI parameter might lead to unexpected results; they should be used interchangeably but not together. The CLI parameter takes precedence over the `UI5_LOG_LVL` environment variable.
+
+:::
 
 ### Changing UI5 CLI's Data Directory
 
@@ -60,8 +62,10 @@ In some cases and environments this is not a convenient location and the user ne
 
 The path to it can either be provided via environment variable or permanently set in the configuration.
 
-!!! info
-    Paths are resolved relative to the current root project path (i.e. where the package.json is located).
+::: info
+Paths are resolved relative to the current root project path (i.e. where the package.json is located).
+
+:::
 
 #### Environment variable  `UI5_DATA_DIR`
 

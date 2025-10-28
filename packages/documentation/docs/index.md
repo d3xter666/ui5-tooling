@@ -1,22 +1,38 @@
-![UI5 logo](images/UI5_logo_wide.png)
+---
+next:
+  text: 'Getting Started'
+  link: '/pages/GettingStarted'
+---
+
+<script setup>
+import { useData } from 'vitepress'
+import VPButton from "vitepress/dist/client/theme-default/components/VPButton.vue"
+const { isDark } = useData()
+</script>
+
+<img :src="isDark ? '/cli/v5/images/O_UI5_H_noBG.png' : '/cli/v5/images/UI5_logo_wide.png'" alt="UI5 logo" style="max-width: 100%; height: auto;">
 
 # UI5 CLI
 
 An open and modular toolchain to develop state-of-the-art applications based on the [UI5](https://ui5.sap.com) framework.
 
-!!! abstract "Project Rename"
-	**UI5 Tooling has been renamed to UI5 CLI 🚨**
+::: warning Project Rename
+**UI5 Tooling has been renamed to UI5 CLI 🚨**
 
-	Read the announcement blog post: **[SAP Community: Goodbye UI5 Tooling - Hello UI5 CLI!](https://community.sap.com/t5/technology-blog-posts-by-sap/goodbye-ui5-tooling-hello-ui5-cli/ba-p/14211769)**
+Read the announcement blog post: **[SAP Community: Goodbye UI5 Tooling - Hello UI5 CLI!](https://community.sap.com/t5/technology-blog-posts-by-sap/goodbye-ui5-tooling-hello-ui5-cli/ba-p/14211769)**
+:::
 
-!!! tip "New Release"
-	**UI5 CLI V4 is here 🎉**
+::: tip New Release
+**UI5 CLI V4 is here 🎉**
 
-	Read the announcement blog post: **[SAP Community: UI5 CLI 4.0](https://community.sap.com/t5/technology-blogs-by-sap/ui5-tooling-4-0/ba-p/13769578)**
+Read the announcement blog post: **[SAP Community: UI5 CLI 4.0](https://community.sap.com/t5/technology-blogs-by-sap/ui5-tooling-4-0/ba-p/13769578)**
 
-    And checkout the **[Migrate to v4](./updates/migrate-v4.md)** documentation.
+And checkout the **[Migrate to v4](./updates/migrate-v4.md)** documentation.
+:::
 
-[**Get Started**](./pages/GettingStarted.md){: .md-button .md-button--primary .sap-icon-initiative }
+<div style="margin: 2rem 0;">
+  <VPButton class="no-decoration" text="🚀 Get Started" href="./pages/GettingStarted.md"/>
+</div>
 
 ## Main Features
 
@@ -99,40 +115,38 @@ info ProjectBuilder Executing cleanup tasks...
 Most UI5 CLI modules provide JavaScript APIs for direct consumption in other Node.js projects.
 This allows you to rely on UI5 CLI for UI5-specific build functionality and project handling, while creating your own tools to perfectly match the needs of your project.
 
-All available APIs are documented in the [UI5 CLI API Reference](https://ui5.github.io/cli/v4/api/index.html).
+All available APIs are documented in the [UI5 CLI API Reference](https://ui5.github.io/cli/v5/api/index.html).
 
-=== "ESM"
+::: code-group
+```js [ESM]
+import {graphFromPackageDependencies} from "@ui5/project/graph";
 
-    ```js linenums="1"
-    import {graphFromPackageDependencies} from "@ui5/project/graph";
+async function buildApp(projectPath, destinationPath) {
+    const graph = await graphFromPackageDependencies({
+        cwd: projectPath
+    });
+    await graph.build({
+        destPath: destinationPath,
+        selfContained: true,
+        excludedTasks: ["transformBootstrapHtml"],
+        includedDependencies: ["*"]
+    });
+}
+```
 
-    async function buildApp(projectPath, destinationPath) {
-        const graph = await graphFromPackageDependencies({
-            cwd: projectPath
-        });
-        await graph.build({
-            destPath: destinationPath,
-            selfContained: true,
-            excludedTasks: ["transformBootstrapHtml"],
-            includedDependencies: ["*"]
-        });
-    }
-    ```
-
-=== "CommonJS"
-
-    ```js linenums="1"
-    async function buildApp(projectPath, destinationPath) {
-        const {graphFromPackageDependencies} = 
-            await import("@ui5/project/graph");
-        const graph = await graphFromPackageDependencies({
-            cwd: projectPath
-        });
-        await graph.build({
-            destPath: destinationPath,
-            selfContained: true,
-            excludedTasks: ["transformBootstrapHtml"],
-            includedDependencies: ["*"]
-        });
-    }
-    ```
+```js [CommonJS]
+async function buildApp(projectPath, destinationPath) {
+    const {graphFromPackageDependencies} = 
+        await import("@ui5/project/graph");
+    const graph = await graphFromPackageDependencies({
+        cwd: projectPath
+    });
+    await graph.build({
+        destPath: destinationPath,
+        selfContained: true,
+        excludedTasks: ["transformBootstrapHtml"],
+        includedDependencies: ["*"]
+    });
+}
+```
+:::
