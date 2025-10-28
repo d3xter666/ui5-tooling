@@ -1,13 +1,13 @@
 {
 	"name": "@ui5/server",
-	"version": "4.3.1",
+	"version": "4.4.0",
 	"description": "UI5 CLI - Server",
 	"author": {
 		"name": "SAP SE",
 		"email": "openui5@sap.com",
 		"url": "https://www.sap.com"
 	},
-	"license": "Apache-2.0", 
+	"license": "Apache-2.0",
 	"keywords": [
 		"openui5",
 		"sapui5",
