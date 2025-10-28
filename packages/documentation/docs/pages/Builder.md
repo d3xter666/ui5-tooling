@@ -2,11 +2,17 @@
 
 The [UI5 Builder](https://github.com/SAP/ui5-builder) module takes care of building your project.
 
+<script setup>
+import VPButton from "vitepress/dist/client/theme-default/components/VPButton.vue"
+</script>
+
 Based on a project's type, the UI5 Builder defines a series of build steps to execute; these are also called "tasks".
 
 For every type there is a set of default tasks. You can disable single tasks using the `--exclude-task` [CLI parameter](./CLI.md#ui5-build), and you can include tasks using the `--include-task` parameter.
 
-[**API Reference**](https://ui5.github.io/cli/v4/api/index.html){: .md-button .sap-icon-initiative }
+<div style="margin: 1rem 0;">
+  <VPButton class="no-decoration" text="📚 API Reference" href="https://ui5.github.io/cli/v5/api/index.html"/>
+</div>
 
 ## Tasks
 Tasks are specific build steps to be executed during build phase.
@@ -17,7 +23,7 @@ A project can add custom tasks to the build by using the [Custom Tasks Extensibi
 
 ### Standard Tasks
 
-All available standard tasks are documented [in the API reference](https://ui5.github.io/cli/v4/api/index.html). Search for `@ui5/builder/tasks/` to filter the API reference for all available tasks. The list below offers the actual order of their execution:
+All available standard tasks are documented [in the API reference](https://ui5.github.io/cli/v5/api/index.html). Search for `@ui5/builder/tasks/` to filter the API reference for all available tasks. The list below offers the actual order of their execution:
 
 | Task                           | Type `application` | Type `library` | Type `theme-library` |
 | ------------------------------ | :----------------: | :------------: | :------------------: |
@@ -65,24 +71,30 @@ Related to this, the bundling tasks will also incorporate the generated source m
 
 #### Input Source Maps
 
-!!! info
-	Support for input source maps has been added in UI5 CLI [`v3.7.0`](https://github.com/SAP/ui5-cli/releases/tag/v3.7.0).
+::: info Info
+Support for input source maps has been added in UI5 CLI [`v3.7.0`](https://github.com/SAP/ui5-cli/releases/tag/v3.7.0).
+
+:::
 
 For projects facilitating transpilation (such as TypeScript-based projects), it is commonly desired to debug in the browser using the original sources, e.g. TypeScript files. To make this work, the transpilation process first needs to create source maps and reference them in the generated JavaScript code.
 
 UI5 CLI's `minify` task will then find this reference and incorporate the source map into the minification process. In the end, the minified JavaScript resources will reference an updated source map, which reflects the transpilation as well as the minification. The browser can use this to map every statement back to the original TypeScript file, making debugging a breeze.
 
-!!! warning
-    If a resource has been modified by another build task before `minify` is executed, any referenced source map will be ignored. This is to ensure the integrity of the source maps in the build result.
+::: warning Warning
+If a resource has been modified by another build task before `minify` is executed, any referenced source map will be ignored. This is to ensure the integrity of the source maps in the build result.
 
-    It is possible that the modification of the resource content is not reflected in the associated source map, rendering it corrupted. A corrupt source map can make it impossible to properly analyze and debug a resource in the browser development tools.
+It is possible that the modification of the resource content is not reflected in the associated source map, rendering it corrupted. A corrupt source map can make it impossible to properly analyze and debug a resource in the browser development tools.
 
-    Standard tasks which may modify resources without updating the associated source maps currently include `replaceVersion`, `replaceCopyright` and `replaceBuildtime`.
+Standard tasks which may modify resources without updating the associated source maps currently include `replaceVersion`, `replaceCopyright` and `replaceBuildtime`.
+
+:::
 
 Expand the block below to view a diagram illustrating the minification process and source map handling.
 
-??? info "Minification Activity Diagram"
-    ![minify Task Activity](../images/UI5_CLI/Task_Minify.svg){ loading=lazy }
+::: info Minification Activity Diagram
+ ![minify Task Activity](../images/UI5_CLI/Task_Minify.svg)
+
+:::
 
 
 ### Generation of Supported Locales
@@ -145,7 +157,7 @@ Processors work with provided resources. They contain the actual build step logi
 Processors can be implemented generically. The string replacer is an example for that.
 Since string replacement is a common build step, it can be useful in different contexts, e.g. code, version, date, and copyright replacement. A concrete replacement operation could be achieved by passing a custom configuration to the processor. This way, multiple tasks can make use of the same processor to achieve their build step.
 
-To get a list of all available processors, please visit [the API reference](https://ui5.github.io/cli/v4/api/index.html) and search for `@ui5/builder/processors/`.
+To get a list of all available processors, please visit [the API reference](https://ui5.github.io/cli/v5/api/index.html) and search for `@ui5/builder/processors/`.
 
 ## Legacy Bundle Tooling (lbt)
 JavaScript port of the "legacy" Maven/Java based bundle tooling.
@@ -166,17 +178,24 @@ If you see this error message, please adjust your code by applying one of the fo
 **Option 2**: Wrap the respective files manually in `sap.ui.define` modules as shown below:
 
 
-!!! example
-    **Before**:
-    ```js
-    const myFancyModule = {};
-    ```
+::: details Example
+**Before**:
+```js
+const myFancyModule = {};
+```
     
-    **After**:
-    ```js
-    sap.ui.define([], () => {
-        "use strict";
-        const myFancyModule = {};
-        return myFancyModule;
-    });
-    ```
+**After**:
+```js
+sap.ui.define([], () => {
+    "use strict";
+    const myFancyModule = {};
+    return myFancyModule;
+});
+```
+
+:::
+<style>
+.no-decoration {
+    text-decoration: inherit;
+}
+</style>

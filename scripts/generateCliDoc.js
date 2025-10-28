@@ -179,7 +179,14 @@ function generateDoc() {
 		commands: commandsArray
 	});
 
-	content = content.split("&lt;").join("<").split("&gt;").join(">");
+	content = content
+		.split("&lt;").join("<")
+		.split("&gt;").join(">")
+		// Escape <option> as it's considered HTML tag to prevent rendering issues
+		.replaceAll("<option>", "&lt;option&gt;")
+		// Wrap standalone URLs in backticks to prevent VitePress from treating them as live links
+		// Only target URLs that are not already in markdown link syntax [text](url)
+		.replace(/(?<!\()(https?:\/\/[^\s)]+)(?!\))/g, "`$1`");
 	content = content.split("&#x3D;").join("=");
 	try {
 		writeFileSync("./packages/documentation/docs/pages/CLI.md", content);
@@ -187,7 +194,7 @@ function generateDoc() {
 		console.error(`Failed to generate docs/pages/CLI.md: ${err.message}.`);
 		throw err;
 	}
-	console.log("Generated docs/pages/CLI.md");
+	console.log("Generated packages/documentation/docs/pages/CLI.md");
 }
 
 function splitString(temp) {

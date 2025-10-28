@@ -35,7 +35,7 @@ For example, top-level code is always executed. Flow-control statements in JavaS
 
 Any dependencies found that - according to these rules - are always executed, are collected as eager (or standard) dependencies. Dependencies that are found on a code path that depends on certain conditions are collected as conditional dependencies.
 
-The bundling implemented by UI5 CLI can either follow only eager dependencies (`resolve`: `true`) or additionally conditional dependencies (`resolveConditional`). For more information, see [Custom Bundling](https://ui5.github.io/cli/v4/pages/Configuration/#custom-bundling).
+The bundling implemented by UI5 CLI can either follow only eager dependencies (`resolve`: `true`) or additionally conditional dependencies (`resolveConditional`). For more information, see [Custom Bundling](https://ui5.github.io/cli/v5/pages/Configuration/#custom-bundling).
 
 When a dependency in one of the mentioned APIs is not a "simple literal" but an expression, the corresponding module is marked as "having dynamic dependencies". This marker is currently not further evaluated by UI5 CLI.
 
@@ -88,27 +88,27 @@ The **XMLComposite** control is deprecated since version UI5 1.88. Nevertheless,
 
 The [XML Composite Analyzer](https://github.com/SAP/ui5-builder/blob/main/lib/lbt/analyzer/XMLCompositeAnalyzer.js) searches for the name of the configured fragment containing the **XMLComposite** control.
 
-=== "Name of the XMLComposite is equal to fragment name"
 
-    ```javascript hl_lines="4"
-    sap.ui.define([
-        "sap/ui/core/XMLComposite"
-    ], function(XMLComposite) {
-        return XMLComposite.extend("composites.MyComposite", {} 
-    });
-    ```
+:::code-group
 
-=== "Dedicated fragment name"
+```js [Name of the XMLComposite is equal to fragment name]
+sap.ui.define([
+    "sap/ui/core/XMLComposite"
+], function(XMLComposite) {
+    return XMLComposite.extend("composites.MyComposite", {} 
+});
+```
 
-    ```javascript hl_lines="5"
-    sap.ui.define([
-        "sap/ui/core/XMLComposite"
-    ], function(XMLComposite) {
-        return XMLComposite.extend("composites.MyComposite", {
-            fragment: "composites.custom.MyComposite"
-        } 
-    });
-    ```
+```js [Dedicated fragment name]
+sap.ui.define([
+    "sap/ui/core/XMLComposite"
+], function(XMLComposite) {
+    return XMLComposite.extend("composites.MyComposite", {
+        fragment: "composites.custom.MyComposite"
+    } 
+});
+```
+:::
 
 ## Library Initialization
 
