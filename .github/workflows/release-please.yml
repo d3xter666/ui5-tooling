@@ -100,6 +100,18 @@ jobs:
               echo "ℹ️ No changes to manifest file"
             else
               git commit -m "fix: Sync .release-please-manifest.json"
+              
+              # CRITICAL: Fetch latest main again and rebase before pushing
+              echo "🔄 Final sync with latest main before push..."
+              git fetch origin main
+              git rebase origin/main --strategy-option=theirs --quiet || {
+                echo "⚠️ Rebase conflicts detected, resolving..."
+                git checkout origin/main -- .release-please-manifest.json
+                jq --arg p "packages/$pkg_name" --arg v "$current_version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
+                git add .release-please-manifest.json
+                git rebase --continue
+              }
+              
               git push origin "$branch_name" --force
               echo "✅ Committed manifest changes"
             fi
