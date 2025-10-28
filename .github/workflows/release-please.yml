@@ -32,12 +32,9 @@ jobs:
         uses: googleapis/release-please-action@v4
         id: release
         with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }} # TODO: Change token on prod
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
-      # This step is mandatory because release-please nor its plugin
-      # node-workspace does not update the manifest automatically.
-      # Also adds missing release tags that node-workspace plugin doesn't create.
-      - name: Update manifest and add tags to release PRs
+      - name: Update manifest in all release PRs
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
         run: |
@@ -48,14 +45,10 @@ jobs:
           # Create label if needed
           gh label create "autorelease: pending" --description "Release PR pending merge" --color "fbca04" || true
 
-          # Process each release PR
+          # Process each open release PR
           for pr_info in $(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.title | startswith("release: @ui5/")) | "\(.number):\(.headRefName)"'); do
             pr_number=$(echo "$pr_info" | cut -d: -f1)
             branch_name=$(echo "$pr_info" | cut -d: -f2)
-            
-            echo "📦 Processing PR #$pr_number"
-            
-            # Extract package name
             pkg_name=$(echo "$branch_name" | sed -n 's/.*release-please--branches--main--components--\([^-]*\).*/\1/p')
             
             if [ -z "$pkg_name" ]; then
@@ -63,77 +56,39 @@ jobs:
               continue
             fi
 
-            # Update manifest in PR branch
-            git fetch origin main
-            git fetch origin "$branch_name" && git checkout "$branch_name"
-
-            # Clean any uncommitted changes before starting
-            git reset --hard HEAD
-            git clean -fd
-
-                        # FIRST: Read the current package version from package.json (what release-please actually updated)
+            echo "📦 Syncing PR #$pr_number ($pkg_name)"
+            
+            # Switch to PR branch and get package version
+            git fetch origin main "$branch_name" && git checkout "$branch_name"
+            git reset --hard HEAD && git clean -fd
             current_version=$(node -p "require('./packages/$pkg_name/package.json').version")
-            echo "📦 Found package.json version for $pkg_name: $current_version"
-            echo "🔍 Current manifest content:"
-            cat .release-please-manifest.json
-
-            # THEN: Sync with main's manifest structure
-            echo "⚡ Syncing manifest with main..."
-            echo "🔍 Main's manifest content:"
-            git show origin/main:.release-please-manifest.json
+            
+            # Sync with latest main manifest and update this package
             git checkout origin/main -- .release-please-manifest.json
-            echo "⚡ Sync complete."
-            echo "🔍 After sync with main:"
-            cat .release-please-manifest.json
-
-            # FINALLY: Update the manifest with the package.json version
-            echo "🔧 Updating $pkg_name to version $current_version"
             jq --arg p "packages/$pkg_name" --arg v "$current_version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
-
-            echo "📦 Updated manifest for $pkg_name to version $current_version"
-            echo "🔍 Final manifest content:"
-            cat .release-please-manifest.json
-
-            # Commit and push the changes
+            
+            # Commit and push if there are changes
             git add .release-please-manifest.json
-            if git diff --staged --quiet; then
-              echo "ℹ️ No changes to manifest file"
-            else
-              git commit -m "fix: Sync .release-please-manifest.json"
-              git push origin "$branch_name" --force
-              echo "✅ Committed manifest changes"
-            fi
-
+            git commit -m "fix: Sync .release-please-manifest.json" --allow-empty
+            git push origin "$branch_name" --force
+            
             # Add label
             gh pr edit "$pr_number" --add-label "autorelease: pending" || true
-
-            git checkout main
+            
             echo "✅ Updated PR #$pr_number"
+            git checkout main
           done
 
       - name: Detect which package was released
         id: detect_package
         run: |
-          echo "🔍 Checking if a release PR was just merged..."
-          
-          # Get the commit message of the merge
           COMMIT_MSG=$(git log -1 --pretty=format:"%s")
-          echo "Latest commit: $COMMIT_MSG"
-          
-          # Check if this is a release PR merge based on the configured pattern "release: @ui5/ {component} v${version}"
-          # This matches commits like "release: @ui5/ logger v1.2.3" or "release: @ui5/ fs v4.0.3" (note the space after @ui5/)
           if [[ "$COMMIT_MSG" =~ ^release:\ @ui5/\ ([a-z-]+)\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
-            PACKAGE_NAME="${BASH_REMATCH[1]}"
-            PACKAGE_VERSION="${BASH_REMATCH[2]}"
-            
-            echo "🎉 Detected release for package: $PACKAGE_NAME@$PACKAGE_VERSION"
-            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-            echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
-            echo "package_path=packages/$PACKAGE_NAME" >> $GITHUB_OUTPUT
+            echo "package_name=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            echo "package_version=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
+            echo "package_path=packages/${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
             echo "is_release=true" >> $GITHUB_OUTPUT
           else
-            echo "ℹ️ This commit is not a release PR merge"
-            echo "ℹ️ Expected format: 'release: @ui5/ <package> v<version>'"
             echo "is_release=false" >> $GITHUB_OUTPUT
           fi
 
