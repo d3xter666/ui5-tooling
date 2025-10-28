@@ -67,20 +67,21 @@ jobs:
             git checkout origin/main -- .release-please-manifest.json
             jq --arg p "packages/$pkg_name" --arg v "$current_version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
             
-            # Commit and push if there are changes
+            # Commit and push changes
             git add .release-please-manifest.json
             git commit -m "fix: Sync .release-please-manifest.json" --allow-empty
             git push origin "$branch_name" --force
             
-            # Force GitHub to re-evaluate by creating another commit
-            echo "🔄 Triggering conflict re-evaluation..."
-            git commit --allow-empty -m "chore: trigger conflict refresh"
-            git push origin "$branch_name" --force
+            # Force GitHub to re-evaluate merge conflicts
+            echo "🔄 Refreshing PR merge status..."
+            gh pr close "$pr_number"
+            sleep 3
+            gh pr reopen "$pr_number"
             
             # Add label
             gh pr edit "$pr_number" --add-label "autorelease: pending" || true
             
-            echo "✅ Updated PR #$pr_number"
+            echo "✅ Updated and refreshed PR #$pr_number"
             git checkout main
           done
 
