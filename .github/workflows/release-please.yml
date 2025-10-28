@@ -71,9 +71,9 @@ jobs:
             git reset --hard HEAD
             git clean -fd
 
-            # FIRST: Read the current package version that release-please set
-            current_version=$(jq -r --arg p "packages/$pkg_name" '.[$p]' .release-please-manifest.json)
-            echo "📦 Found release-please version for $pkg_name: $current_version"
+                        # FIRST: Read the current package version from package.json (what release-please actually updated)
+            current_version=$(node -p "require('./packages/$pkg_name/package.json').version")
+            echo "📦 Found package.json version for $pkg_name: $current_version"
             echo "🔍 Current manifest content:"
             cat .release-please-manifest.json
 
@@ -86,8 +86,8 @@ jobs:
             echo "🔍 After sync with main:"
             cat .release-please-manifest.json
 
-            # FINALLY: Restore the release-please version for this package
-            echo "🔧 Restoring $pkg_name to version $current_version"
+            # FINALLY: Update the manifest with the package.json version
+            echo "🔧 Updating $pkg_name to version $current_version"
             jq --arg p "packages/$pkg_name" --arg v "$current_version" '.[$p] = $v' .release-please-manifest.json > tmp.json && mv tmp.json .release-please-manifest.json
 
             echo "📦 Updated manifest for $pkg_name to version $current_version"
