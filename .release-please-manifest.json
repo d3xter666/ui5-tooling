@@ -3,6 +3,6 @@
   "packages/fs": "4.0.9",
   "packages/builder": "4.2.3",
   "packages/server": "4.4.2",
-  "packages/project": "4.0.13",
+  "packages/project": "4.0.14",
   "packages/cli": "4.0.32"
 }
