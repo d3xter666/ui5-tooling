@@ -33,6 +33,11 @@ jobs:
       GIT_USER_EMAIL: "github-actions[bot]@users.noreply.github.com"
       
     steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          fetch-depth: 0
+
       - name: Detect released package
         id: detect-release
         run: |
@@ -46,11 +51,6 @@ jobs:
             echo "ℹ️ No release detected"
             echo "has_release=false" >> $GITHUB_OUTPUT
           fi
-      - uses: actions/checkout@v5
-        if: steps.detect-release.outputs.has_release == 'true'
-        with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-          fetch-depth: 0
 
       - name: Setup Node.js
         if: steps.detect-release.outputs.has_release == 'true'
