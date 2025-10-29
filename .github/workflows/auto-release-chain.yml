@@ -123,6 +123,7 @@ jobs:
         if: steps.find-next.outputs.has_next == 'true'
         run: |
           NEXT_PKG="${{ steps.find-next.outputs.next_package }}"
+          RELEASED_PKG="${{ steps.detect-release.outputs.released_package }}"
           
           # Install npm-check-updates
           npm install -g npm-check-updates
@@ -130,8 +131,23 @@ jobs:
           echo "🔄 Processing package: $NEXT_PKG"
           cd "packages/$NEXT_PKG"
           
-          echo "📦 Updating @ui5/* dependencies to latest NPM versions..."
-          ncu -u --filter "@ui5/*" --target latest
+          echo "📦 Updating dependency for recently published package: @ui5/$RELEASED_PKG"
+          
+          # Only update the specific package that was just released/published
+          if npm view "@ui5/$RELEASED_PKG" version > /dev/null 2>&1; then
+            LATEST_VERSION=$(npm view "@ui5/$RELEASED_PKG" version)
+            echo "📦 Latest NPM version for @ui5/$RELEASED_PKG: $LATEST_VERSION"
+            
+            # Update only the specific released package dependency
+            if grep -q "\"@ui5/$RELEASED_PKG\"" package.json; then
+              echo "📝 Updating @ui5/$RELEASED_PKG to ^$LATEST_VERSION"
+              npm pkg set "dependencies.@ui5/$RELEASED_PKG=^$LATEST_VERSION"
+            else
+              echo "ℹ️ Package $NEXT_PKG doesn't depend on @ui5/$RELEASED_PKG"
+            fi
+          else
+            echo "⚠️ @ui5/$RELEASED_PKG not found on NPM yet"
+          fi
           
           # Check if there were actual changes
           if git diff --quiet package.json; then
@@ -139,7 +155,6 @@ jobs:
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
             echo "✅ Dependencies updated for $NEXT_PKG"
-            npm install
             echo "has_changes=true" >> $GITHUB_OUTPUT
           fi
 
