@@ -21,12 +21,6 @@
 		}
 	},
 	"release-type": "node",
-	"plugins": [{
-		"type": "node-workspace",
-		"update-peer-dependencies": true,
-		"update-all-packages": true,
-		"merge": false
-	}],
 	"always-update": true,
 	"bump-minor-pre-major": true,
 	"bump-patch-for-minor-pre-major": true,
