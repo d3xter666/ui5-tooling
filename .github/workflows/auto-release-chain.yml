@@ -76,24 +76,37 @@ jobs:
           ALL_PACKAGES_ARRAY=(${{ steps.setup.outputs.all_packages }})
           RELEASED_PKG="${{ steps.detect-release.outputs.released_package }}"
           
-          # Find next package
+          echo "🔍 Finding next package after: $RELEASED_PKG"
+          
+          # Find next package in chain order
+          NEXT_PKG=""
           for i in "${!ALL_PACKAGES_ARRAY[@]}"; do
             if [[ "${ALL_PACKAGES_ARRAY[$i]}" == "$RELEASED_PKG" ]] && [[ $((i+1)) -lt ${#ALL_PACKAGES_ARRAY[@]} ]]; then
               NEXT_PKG="${ALL_PACKAGES_ARRAY[$((i+1))]}"
-              echo "🎯 Next package: $NEXT_PKG"
-              echo "next_package=$NEXT_PKG" >> $GITHUB_OUTPUT
-              echo "has_next=true" >> $GITHUB_OUTPUT
-              exit 0
+              break
             fi
           done
           
-          # If no next package and released package is not CLI, jump to CLI
+          # Check if next package has open release PR
+          if [[ -n "$NEXT_PKG" ]]; then
+            echo "🔍 Checking if $NEXT_PKG has open release PR..."
+            if gh pr list --state open --json title | jq -r ".[] | select(.title | contains(\"release: @ui5/ $NEXT_PKG\")) | .title" | head -1; then
+              echo "🎯 Found next package with open PR: $NEXT_PKG"
+              echo "next_package=$NEXT_PKG" >> $GITHUB_OUTPUT
+              echo "has_next=true" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              echo "⏭️ No open release PR for $NEXT_PKG"
+            fi
+          fi
+          
+          # Fallback to CLI (regardless of whether CLI has open PR)
           if [[ "$RELEASED_PKG" != "cli" ]]; then
-            echo "🎯 Jumping to CLI for final release"
+            echo "🎯 Falling back to CLI"
             echo "next_package=cli" >> $GITHUB_OUTPUT
             echo "has_next=true" >> $GITHUB_OUTPUT
           else
-            echo "🎉 Chain complete - CLI already released"
+            echo "🎉 Chain complete - CLI was already released"
             echo "has_next=false" >> $GITHUB_OUTPUT
           fi
 
