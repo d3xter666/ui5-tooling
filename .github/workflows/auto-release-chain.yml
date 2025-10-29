@@ -5,6 +5,17 @@ on:
     workflows: ["release-please"]
     types: [completed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      chain_mode:
+        description: 'Enable chain release mode'
+        required: true
+        type: boolean
+        default: false
+      start_package:
+        description: 'Package that was just released (for chain mode)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -13,7 +24,7 @@ permissions:
 jobs:
   continue-chain:
     runs-on: ubuntu-24.04
-    if: github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
     
     # Job-level outputs for reuse across steps
     outputs:
@@ -23,6 +34,7 @@ jobs:
       next_package: ${{ steps.find-next.outputs.next_package }}
       has_next: ${{ steps.find-next.outputs.has_next }}
       has_changes: ${{ steps.update-deps.outputs.has_changes }}
+      is_chain_mode: ${{ steps.detect-release.outputs.is_chain_mode }}
     
     # Environment variables for reuse
     env:
@@ -38,19 +50,36 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           fetch-depth: 0
 
-      - name: Detect released package
+      - name: Detect released package and mode
         id: detect-release
         run: |
-          # Find what was previously released
-          if git log -1 --pretty=format:"%s" | grep -q "^release: @ui5/"; then
-            RELEASED_PKG=$(git log -1 --pretty=format:"%s" | sed -n 's/^release: @ui5\/ \([a-z-]*\) v.*/\1/p')
-            echo "📦 Detected release: $RELEASED_PKG"
-            echo "released_package=$RELEASED_PKG" >> $GITHUB_OUTPUT
-            echo "has_release=true" >> $GITHUB_OUTPUT
+          # Determine chain mode and released package
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            IS_CHAIN_MODE="${{ github.event.inputs.chain_mode }}"
+            if [[ -n "${{ github.event.inputs.start_package }}" ]]; then
+              RELEASED_PKG="${{ github.event.inputs.start_package }}"
+              echo "🔗 Chain mode dispatch - package: $RELEASED_PKG"
+            else
+              echo "❌ Workflow dispatch requires start_package"
+              exit 1
+            fi
           else
-            echo "ℹ️ No release detected"
-            echo "has_release=false" >> $GITHUB_OUTPUT
+            # Triggered by workflow_run - detect from commit
+            IS_CHAIN_MODE="false"  # Manual mode for workflow_run
+            if git log -1 --pretty=format:"%s" | grep -q "^release: @ui5/"; then
+              RELEASED_PKG=$(git log -1 --pretty=format:"%s" | sed -n 's/^release: @ui5\/ \([a-z-]*\) v.*/\1/p')
+              echo "👤 Manual mode - detected release: $RELEASED_PKG"
+            else
+              echo "ℹ️ No release detected"
+              echo "has_release=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
           fi
+
+          # Set output variables
+          echo "released_package=$RELEASED_PKG" >> $GITHUB_OUTPUT
+          echo "has_release=true" >> $GITHUB_OUTPUT
+          echo "is_chain_mode=$IS_CHAIN_MODE" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js
         if: steps.detect-release.outputs.has_release == 'true'
@@ -89,14 +118,19 @@ jobs:
             fi
           done
 
-          # Set outputs based on whether next package was found
-          if [[ -n "$NEXT_PKG" ]]; then
-            echo "🎯 Found next package: $NEXT_PKG"
-            echo "next_package=$NEXT_PKG" >> $GITHUB_OUTPUT
-            echo "has_next=true" >> $GITHUB_OUTPUT
+          if [[ "$IS_CHAIN_MODE" != "true" && "$RELEASED_PKG" != "cli" ]]; then
+              echo "🎯 End of chain reached, falling back to CLI"
+              echo "next_package=cli" >> $GITHUB_OUTPUT
+              echo "has_next=true" >> $GITHUB_OUTPUT
           else
-            echo "🏁 No next package found (end of chain)"
-            echo "has_next=false" >> $GITHUB_OUTPUT
+            if [[ -n "$NEXT_PKG" ]]; then
+              echo "🎯 Found next package: $NEXT_PKG"
+              echo "next_package=$NEXT_PKG" >> $GITHUB_OUTPUT
+              echo "has_next=true" >> $GITHUB_OUTPUT
+            else
+              echo "🏁 No next package found (end of chain)"
+              echo "has_next=false" >> $GITHUB_OUTPUT
+            fi
           fi
 
       - name: Update dependencies in next package

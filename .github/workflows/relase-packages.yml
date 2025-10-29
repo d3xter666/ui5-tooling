@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: "🚀 Start AUTOMATIC release chain from this package (will auto-release this and all packages after it)"
+        description: "🚀 Start AUTOMATIC release chain from this package"
         required: true
         type: choice
         options:
@@ -25,43 +25,47 @@ permissions:
 jobs:
   start-release-chain:
     runs-on: ubuntu-24.04
-    outputs:
-      started_package: ${{ steps.start_chain.outputs.started_package }}
-      chain_length: ${{ steps.start_chain.outputs.chain_length }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
       
-      - name: Start release chain
-        id: start_chain
+      - name: Setup git
         run: |
-          ALL_PACKAGES=("logger" "fs" "builder" "server" "project" "cli")
-          SELECTED_PKG="${{ github.event.inputs.package }}"
-          
-          echo "🚀 Starting release chain from: $SELECTED_PKG"
-          
-          # Find position and show chain
-          for i in "${!ALL_PACKAGES[@]}"; do
-            [[ "${ALL_PACKAGES[$i]}" == "$SELECTED_PKG" ]] && START_IDX=$i && break
-          done
-          
-          [[ -z "$START_IDX" ]] && echo "❌ Package not found" && exit 1
-          
-          CHAIN_LENGTH=$((${#ALL_PACKAGES[@]} - START_IDX))
-          echo "📦 Will release $CHAIN_LENGTH packages: ${ALL_PACKAGES[@]:$START_IDX}"
-          echo "started_package=$SELECTED_PKG" >> $GITHUB_OUTPUT
-          echo "chain_length=$CHAIN_LENGTH" >> $GITHUB_OUTPUT
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
       
-      - name: Merge first PR
+      - name: Merge first PR to start chain
         id: merge-pr
         uses: ./.github/actions/merge-release-pr
         with:
           package: ${{ github.event.inputs.package }}
           github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
       
-      - name: Check merge result
+      - name: Trigger auto-release-chain with chain mode
+        if: steps.merge-pr.outputs.pr_merged == 'true'
         run: |
-          if [[ "${{ steps.merge-pr.outputs.merged }}" != "true" ]]; then
-            echo "❌ Failed to start chain - no PR found"
+          SELECTED_PKG="${{ github.event.inputs.package }}"
+          echo "🚀 Triggering auto-release-chain in chain mode for: $SELECTED_PKG"
+          
+          # Trigger auto-release-chain workflow with chain mode enabled
+          gh workflow run auto-release-chain.yml \
+            --ref main \
+            -f chain_mode=true \
+            -f start_package="$SELECTED_PKG"
+          
+          echo "✅ Auto-release-chain triggered successfully"
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+      
+      - name: Check result
+        run: |
+          if [[ "${{ steps.merge-pr.outputs.pr_merged }}" == "true" ]]; then
+            echo "🎉 Release chain started successfully!"
+            echo "📋 Started from package: ${{ github.event.inputs.package }}"
+            echo "🔗 Chain mode activated"
+          else
+            echo "❌ Failed to start release chain"
+            echo "📋 No PR found for package: ${{ github.event.inputs.package }}"
             exit 1
           fi
-          echo "✅ Chain started successfully!"
