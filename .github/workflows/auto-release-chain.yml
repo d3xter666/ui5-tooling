@@ -79,13 +79,7 @@ jobs:
           RELEASED_PKG="${{ steps.detect-release.outputs.released_package }}"
           
           echo "🔍 Looking for next package after: $RELEASED_PKG"
-          
-          # Function to check if a package has an open release PR
-          check_open_pr() {
-            local pkg=$1
-            gh pr list --state open --json title | jq -r ".[] | select(.title | contains(\"release: @ui5/ $pkg\")) | .title" | head -1
-          }
-          
+
           # Find the immediate next package in chain
           NEXT_PKG=""
           for i in "${!ALL_PACKAGES_ARRAY[@]}"; do
@@ -94,27 +88,14 @@ jobs:
               break
             fi
           done
-          
-          # Check if next package has open PR
+
+          # Set outputs based on whether next package was found
           if [[ -n "$NEXT_PKG" ]]; then
-            echo "🔍 Checking if $NEXT_PKG has open release PR..."
-            if [[ -n "$(check_open_pr $NEXT_PKG)" ]]; then
-              echo "🎯 Found next package with open PR: $NEXT_PKG"
-              echo "next_package=$NEXT_PKG" >> $GITHUB_OUTPUT
-              echo "has_next=true" >> $GITHUB_OUTPUT
-              exit 0
-            else
-              echo "⏭️ No open release PR for $NEXT_PKG"
-            fi
-          fi
-          
-          # Fallback to CLI (only if released package wasn't CLI)
-          if [[ "$RELEASED_PKG" != "cli" ]]; then
-            echo "🎯 Falling back to CLI"
-            echo "next_package=cli" >> $GITHUB_OUTPUT
+            echo "🎯 Found next package: $NEXT_PKG"
+            echo "next_package=$NEXT_PKG" >> $GITHUB_OUTPUT
             echo "has_next=true" >> $GITHUB_OUTPUT
           else
-            echo "🎉 Chain complete - CLI was already released"
+            echo "🏁 No next package found (end of chain)"
             echo "has_next=false" >> $GITHUB_OUTPUT
           fi
 
