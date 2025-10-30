@@ -143,23 +143,10 @@ jobs:
           echo "🔄 Processing package: $NEXT_PKG"
           cd "packages/$NEXT_PKG"
           
-          echo "📦 Updating dependency for recently published package: @ui5/$RELEASED_PKG"
+          echo "📦 Updating @ui5/* dependencies to latest minor/patch versions (respecting major)"
           
-          # Only update the specific package that was just released/published
-          if npm view "@ui5/$RELEASED_PKG" version > /dev/null 2>&1; then
-            LATEST_VERSION=$(npm view "@ui5/$RELEASED_PKG" version)
-            echo "📦 Latest NPM version for @ui5/$RELEASED_PKG: $LATEST_VERSION"
-            
-            # Update only the specific released package dependency
-            if grep -q "\"@ui5/$RELEASED_PKG\"" package.json; then
-              echo "📝 Updating @ui5/$RELEASED_PKG to ^$LATEST_VERSION"
-              npm pkg set "dependencies.@ui5/$RELEASED_PKG=^$LATEST_VERSION"
-            else
-              echo "ℹ️ Package $NEXT_PKG doesn't depend on @ui5/$RELEASED_PKG"
-            fi
-          else
-            echo "⚠️ @ui5/$RELEASED_PKG not found on NPM yet"
-          fi
+          # Update @ui5/* packages respecting major version boundaries
+          ncu -u --filter "@ui5/*" --target minor
           
           # Check if there were actual changes
           if git diff --quiet package.json; then
