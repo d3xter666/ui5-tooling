@@ -146,7 +146,7 @@ jobs:
           echo "📦 Updating @ui5/* dependencies to latest minor/patch versions (respecting major)"
           
           # Update @ui5/* packages respecting major version boundaries
-          ncu -u --filter "@ui5/*" --target minor
+          ncu -u --filter "@ui5/*" --target minor --dep dev,prod,peer,optional
           
           # Check if there were actual changes
           if git diff --quiet package.json; then
