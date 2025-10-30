@@ -1,6 +1,6 @@
 {
   "packages/logger": "4.10.0",
-  "packages/fs": "4.0.11",
+  "packages/fs": "4.0.12",
   "packages/builder": "4.2.4",
   "packages/server": "4.4.3",
   "packages/project": "4.0.13",
