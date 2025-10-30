@@ -180,11 +180,11 @@ jobs:
         if: steps.update-deps.outputs.has_changes == 'true'
         run: |
           NEXT_PKG="${{ steps.find-next.outputs.next_package }}"
-          
+
           git add "packages/$NEXT_PKG/"
-          git commit -m "deps($NEXT_PKG): update @ui5 dependencies to latest versions"
+          git commit -m "deps($NEXT_PKG): Update @ui5 dependencies to latest versions"
           git push origin main
-          
+
           echo "✅ Committed dependency updates for $NEXT_PKG"
 
       - name: Trigger release-please for updated package
