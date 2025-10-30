@@ -112,7 +112,7 @@
 		"directory": "packages/server"
 	},
 	"dependencies": {
-		"@ui5/builder": "^4.1.0",
+		"@ui5/builder": "^4.0.0",
 		"@ui5/fs": "^4.0.0",
 		"@ui5/logger": "^4.0.0",
 		"body-parser": "^1.20.2",
@@ -134,7 +134,7 @@
 	},
 	"devDependencies": {
 		"@istanbuljs/esm-loader-hook": "^0.3.0",
-		"@ui5/project": "^4.0.13",
+		"@ui5/project": "^4.0.0",
 		"ava": "^6.4.1",
 		"chokidar-cli": "^3.0.0",
 		"cross-env": "^7.0.3",
