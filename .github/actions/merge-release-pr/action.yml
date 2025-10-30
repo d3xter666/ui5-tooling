@@ -1,5 +1,6 @@
 name: 'Merge Release PR'
 <<<<<<< HEAD
+<<<<<<< HEAD
 description: 'Merges a release PR for a specific package'
 
 inputs:
@@ -19,14 +20,20 @@ outputs:
     value: ${{ steps.merge.outputs.pr_number }}
 =======
 description: 'Find and merge a release PR for a specific package'
+=======
+description: 'Merges a release PR for a specific package'
+
+>>>>>>> 336eec3533 (refactor: Update release-please workflow)
 inputs:
   package:
-    description: 'Package name to find and merge PR for'
+    description: 'Package name to merge release PR for'
     required: true
   github-token:
-    description: 'GitHub token for API access'
+    description: 'GitHub token for authentication'
     required: true
+
 outputs:
+<<<<<<< HEAD
   pr-number:
     description: 'PR number that was merged'
     value: ${{ steps.merge.outputs.pr-number }}
@@ -34,15 +41,27 @@ outputs:
     description: 'Whether a PR was found and merged'
     value: ${{ steps.merge.outputs.merged }}
 >>>>>>> cc47ddcb9c (feat: Enable release-please release setup)
+=======
+  pr_merged:
+    description: 'Whether the PR was successfully merged'
+    value: ${{ steps.merge.outputs.pr_merged }}
+  pr_number:
+    description: 'The PR number that was merged'
+    value: ${{ steps.merge.outputs.pr_number }}
+>>>>>>> 336eec3533 (refactor: Update release-please workflow)
 
 runs:
   using: 'composite'
   steps:
 <<<<<<< HEAD
+<<<<<<< HEAD
     - name: Merge release PR
 =======
     - name: Find and merge release PR
 >>>>>>> cc47ddcb9c (feat: Enable release-please release setup)
+=======
+    - name: Merge release PR
+>>>>>>> 336eec3533 (refactor: Update release-please workflow)
       id: merge
       shell: bash
       env:
@@ -52,17 +71,23 @@ runs:
         echo "🔍 Looking for release PR for: $PACKAGE"
         
 <<<<<<< HEAD
+<<<<<<< HEAD
         # Find the release PR for this package
         PR_NUMBER=$(gh pr list --state open --json number,title | jq -r ".[] | select(.title | contains(\"release: @ui5/ $PACKAGE\")) | .number")
 =======
         # Find release PR
         PR_NUMBER=$(gh pr list --state open --json number,title | jq -r '.[] | select(.title | startswith("release: @ui5/ '$PACKAGE' v")) | .number' | head -n1)
 >>>>>>> cc47ddcb9c (feat: Enable release-please release setup)
+=======
+        # Find the release PR for this package
+        PR_NUMBER=$(gh pr list --state open --json number,title | jq -r ".[] | select(.title | contains(\"release: @ui5/ $PACKAGE\")) | .number")
+>>>>>>> 336eec3533 (refactor: Update release-please workflow)
         
         if [[ -n "$PR_NUMBER" ]]; then
           echo "✅ Found PR #$PR_NUMBER for $PACKAGE"
           echo "🔄 Merging..."
           
+<<<<<<< HEAD
 <<<<<<< HEAD
           # Merge the PR
           gh pr merge $PR_NUMBER --squash
@@ -76,12 +101,22 @@ runs:
           echo "pr_number=" >> $GITHUB_OUTPUT
 =======
           gh pr merge $PR_NUMBER --squash --admin
+=======
+          # Merge the PR
+          gh pr merge $PR_NUMBER --squash
+>>>>>>> 336eec3533 (refactor: Update release-please workflow)
           
           echo "✅ Merged PR #$PR_NUMBER for $PACKAGE"
-          echo "pr-number=$PR_NUMBER" >> $GITHUB_OUTPUT
-          echo "merged=true" >> $GITHUB_OUTPUT
+          echo "pr_merged=true" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
         else
+<<<<<<< HEAD
           echo "❌ No release PR found for $PACKAGE"
           echo "merged=false" >> $GITHUB_OUTPUT
 >>>>>>> cc47ddcb9c (feat: Enable release-please release setup)
+=======
+          echo "❌ No open release PR found for $PACKAGE"
+          echo "pr_merged=false" >> $GITHUB_OUTPUT
+          echo "pr_number=" >> $GITHUB_OUTPUT
+>>>>>>> 336eec3533 (refactor: Update release-please workflow)
         fi
