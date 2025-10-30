@@ -46,18 +46,16 @@ jobs:
         if: steps.merge-pr.outputs.pr_merged == 'true'
         run: |
           SELECTED_PKG="${{ github.event.inputs.package }}"
-          echo "🚀 Triggering auto-release-chain in chain mode for: $SELECTED_PKG"
+          echo "🚀 Setting chain mode flag for release chain starting from: $SELECTED_PKG"
           
-          # Trigger auto-release-chain workflow with chain mode enabled
-          gh workflow run auto-release-chain.yml \
-            --ref main \
-            -f chain_mode=true \
-            -f start_package="$SELECTED_PKG"
+          # Set repository variable to indicate chain mode is active
+          gh variable set CHAIN_MODE --body "true"
+          gh variable set CHAIN_START_PACKAGE --body "$SELECTED_PKG"
           
-          echo "✅ Auto-release-chain triggered successfully"
+          echo "✅ Chain mode activated"
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-      
+
       - name: Check result
         run: |
           if [[ "${{ steps.merge-pr.outputs.pr_merged }}" == "true" ]]; then
