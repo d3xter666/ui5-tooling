@@ -106,9 +106,9 @@
 		"directory": "packages/server"
 	},
 	"dependencies": {
-		"@ui5/builder": "^4.2.3",
-		"@ui5/fs": "^4.0.9",
-		"@ui5/logger": "^4.2.3",
+		"@ui5/builder": "^4.0.0",
+		"@ui5/fs": "^4.0.0",
+		"@ui5/logger": "^4.0.0",
 		"body-parser": "^1.20.2",
 		"compression": "^1.8.1",
 		"cors": "^2.8.5",
