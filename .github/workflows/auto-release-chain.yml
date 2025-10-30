@@ -8,14 +8,22 @@ on:
   workflow_dispatch:
     inputs:
       chain_mode:
-        description: 'Enable chain release mode'
+        description: 'Release mode'
         required: true
         type: boolean
-        default: false
+        default: true
       start_package:
-        description: 'Package that was just released (for chain mode)'
-        required: false
-        type: string
+        description: '🚀 Start chain from this package (chain mode only)'
+        required: true
+        type: choice
+        default: logger
+        options:
+          - logger
+          - fs
+          - builder
+          - server
+          - project
+          - cli
 
 permissions:
   contents: write
@@ -56,13 +64,7 @@ jobs:
           # Determine chain mode and released package
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             IS_CHAIN_MODE="${{ github.event.inputs.chain_mode }}"
-            if [[ -n "${{ github.event.inputs.start_package }}" ]]; then
-              RELEASED_PKG="${{ github.event.inputs.start_package }}"
-              echo "🔗 Chain mode dispatch - package: $RELEASED_PKG"
-            else
-              echo "❌ Workflow dispatch requires start_package"
-              exit 1
-            fi
+            RELEASED_PKG="${{ github.event.inputs.start_package }}"
           else
             # Triggered by workflow_run - detect from commit
             IS_CHAIN_MODE="false"  # Manual mode for workflow_run
@@ -80,6 +82,7 @@ jobs:
           echo "released_package=$RELEASED_PKG" >> $GITHUB_OUTPUT
           echo "has_release=true" >> $GITHUB_OUTPUT
           echo "is_chain_mode=$IS_CHAIN_MODE" >> $GITHUB_OUTPUT
+          echo "🔗 Chain mode: $IS_CHAIN_MODE"
 
       - name: Setup Node.js
         if: steps.detect-release.outputs.has_release == 'true'
