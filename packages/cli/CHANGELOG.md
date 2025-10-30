@@ -5,6 +5,13 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-cli/compare/v4.0.26...HEAD).
 
 <a name="v4.0.26"></a>
+## [4.0.39](https://github.com/d3xter666/ui5-tooling/compare/cli-v4.0.38...cli-v4.0.39) (2025-10-30)
+
+
+### Dependencies
+
+* **cli:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([962bc2d](https://github.com/d3xter666/ui5-tooling/commit/962bc2de36d70b330f034a14e9057457a2d6b59a))
+
 ## [4.0.38](https://github.com/d3xter666/ui5-tooling/compare/cli-v4.0.37...cli-v4.0.38) (2025-10-30)
 
 
