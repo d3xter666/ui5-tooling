@@ -7,7 +7,7 @@ import MarkdownItImplicitFigures from "markdown-it-implicit-figures";
 
 export default defineConfig({
 
-  base: "/cli/v5/", // GitHub Pages deployment base path
+  base: "/ui5-tooling/v5/", // GitHub Pages deployment base path
   srcDir: "docs",
   outDir: "dist",
   lang: "en-US",
