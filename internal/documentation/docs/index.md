@@ -10,7 +10,7 @@ import VPButton from "vitepress/dist/client/theme-default/components/VPButton.vu
 const { isDark } = useData()
 </script>
 
-<img :src="isDark ? './images/O_UI5_H_noBG.png' : './images/UI5_logo_wide.png'" alt="UI5 logo" style="max-width: 100%; height: auto;">
+<img :src="isDark ? '/cli/v5/images/O_UI5_H_noBG.png' : '/cli/v5/images/UI5_logo_wide.png'" alt="UI5 logo" style="max-width: 100%; height: auto;">
 
 # UI5 CLI
 
@@ -20,6 +20,14 @@ An open and modular toolchain to develop state-of-the-art applications based on 
 **UI5 Tooling has been renamed to UI5 CLI 🚨**
 
 Read the announcement blog post: **[SAP Community: Goodbye UI5 Tooling - Hello UI5 CLI!](https://community.sap.com/t5/technology-blog-posts-by-sap/goodbye-ui5-tooling-hello-ui5-cli/ba-p/14211769)**
+:::
+
+::: tip New Release
+**UI5 CLI V4 is here 🎉**
+
+Read the announcement blog post: **[SAP Community: UI5 CLI 4.0](https://community.sap.com/t5/technology-blogs-by-sap/ui5-tooling-4-0/ba-p/13769578)**
+
+And checkout the **[Migrate to v4](./updates/migrate-v4.md)** documentation.
 :::
 
 <div style="margin: 2rem 0;">

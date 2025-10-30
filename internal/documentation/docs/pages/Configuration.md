@@ -36,22 +36,22 @@ The type defines the default path mappings and build tasks. See [UI5 Builder: Ty
 :::code-group Example
 
 ```yaml [application]
-specVersion: "5.0"
+specVersion: "4.0"
 type: application
 ```
 
 ```yaml [library]
-specVersion: "5.0"
+specVersion: "4.0"
 type: library
 ```
 
 ```yaml [theme-library]
-specVersion: "5.0"
+specVersion: "4.0"
 type: theme-library
 ```
 
 ```yaml [module]
-specVersion: "5.0"
+specVersion: "4.0"
 type: module
 ```
 
@@ -276,7 +276,7 @@ Projects that use the OpenUI5 framework cannot depend on projects that use the S
 ::: code-group Example
 
 ```yaml [application]
-specVersion: "5.0"
+specVersion: "4.0"
 type: application
 metadata:
   name: my.company.app
@@ -291,7 +291,7 @@ framework:
 ```
 
 ```yaml [library]
-specVersion: "5.0"
+specVersion: "4.0"
 type: library
 metadata:
   name: my.company.library
@@ -309,7 +309,7 @@ framework:
       optional: true
 ```
 
-When building an application depending on this library as well as one of the theme libraries, only that theme is built for this library.
+    When building an application depending on this library as well as one of the theme libraries, only that theme is built for this library.
 
 :::
 
@@ -646,12 +646,12 @@ The default and configured server ports can always be overwritten with the CLI p
 
 ::: details Example
 ```yaml
-specVersion: "5.0"
+specVersion: "4.0"
 type: application
 metadata:
   name: my.application
 ---
-specVersion: "5.0"
+specVersion: "4.0"
 kind: extension
 type: project-shim
 metadata:
@@ -659,7 +659,7 @@ metadata:
 shims:
   configurations:
     lodash:
-      specVersion: "5.0"
+      specVersion: "4.0"
       type: module
       metadata:
         name: lodash

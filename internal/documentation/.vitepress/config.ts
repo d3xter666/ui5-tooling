@@ -7,8 +7,7 @@ import MarkdownItImplicitFigures from "markdown-it-implicit-figures";
 
 export default defineConfig({
 
-  // Would be set in CI job via CLI arguments. For local development, it's just root.
-  base: "/",
+  base: "/cli/v5/", // GitHub Pages deployment base path
   srcDir: "docs",
   outDir: "dist",
   lang: "en-US",
@@ -105,17 +104,17 @@ function nav() {
       items: [
         {
           text: 'V4',
-          link: `/../v4/`,
+          link: '../v4/',
           target: "_self"
         },
         {
           text: 'V3',
-          link: `/../v3/`,
+          link: '../v3/',
           target: "_self"
         },
         {
           text: 'V2',
-          link: `/../v2/`,
+          link: '../v2/',
           target: "_self"
         }
       ]
@@ -275,8 +274,7 @@ function guide() {
     },
     {
       text: "API Reference",
-      link: "/api/index.html",
-      target: "_blank"
+      link: "https://ui5.github.io/cli/api/index.html",
 
     },
 
