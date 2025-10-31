@@ -60,7 +60,11 @@ jobs:
             - name: Build jsdoc
               run: npm run jsdoc-generate
             - name: Build vitepress build
-              run: npm run docs:build
+              run: |
+                # The base output
+                npm run docs:build -- -base="/${{ github.event.repository.name }}/${DOC_VERSION}/"
+                # The alias output
+                npm run docs:build -- -base="/${{ github.event.repository.name }}/${DOC_ALIAS}/" --outDir="dist-${DOC_ALIAS}"
             - name: Build Schema
               run: |
                   npm run schema-generate
@@ -75,16 +79,13 @@ jobs:
                   rm -rf ./gh-pages/schema
                   cp -R ./site/schema ./gh-pages/
                   rm -rf ./gh-pages/${DOC_VERSION}/
+                  # Main version route
                   cp -R ./packages/documentation/dist ./gh-pages/${DOC_VERSION}/
+                  # Alias route. E.g., next, latest, stable, etc.
+                  # For vitepress must be a copy with different config, not a symlink
+                  cp -R ./packages/documentation/dist-${DOC_ALIAS} ./gh-pages/${DOC_ALIAS}/
                   cp -R ./site/api ./gh-pages/${DOC_VERSION}/api
                   cp ./scripts/resources/custom404.html ./gh-pages/404.html
-            - name: Create or update alias route
-              run: |
-                  cd ./gh-pages
-                  # Remove existing alias if it exists (file or symlink)
-                  rm -rf "${DOC_ALIAS}"
-                  # Create symlink from alias to version directory
-                  ln -s "${DOC_VERSION}" "${DOC_ALIAS}"
             - name: Publish Docs
               run: |
                   cd ./gh-pages
