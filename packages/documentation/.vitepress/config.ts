@@ -5,7 +5,7 @@ import { defineConfig } from "vitepress";
 // markdown
 import MarkdownItImplicitFigures from "markdown-it-implicit-figures";
 
-export default defineConfig({
+const defaultConfig = defineConfig({
 
   // Would be set in CI job via CLI arguments. For local development, it's just root.
   base: "/",
@@ -96,6 +96,7 @@ export default defineConfig({
     }
   }
 });
+export default defaultConfig;
 
 function nav() {
   return [
@@ -105,17 +106,17 @@ function nav() {
       items: [
         {
           text: 'V4',
-          link: '../v4/',
+          link: `/v4/`,
           target: "_self"
         },
         {
           text: 'V3',
-          link: '../v3/',
+          link: `/v3/`,
           target: "_self"
         },
         {
           text: 'V2',
-          link: '../v2/',
+          link: `/v2/`,
           target: "_self"
         }
       ]
@@ -275,10 +276,9 @@ function guide() {
     },
     {
       text: "API Reference",
-      link: "./api/index.html",
+      link: "/api/index.html",
 
     },
-
   ];
 }
 
