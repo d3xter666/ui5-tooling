@@ -275,7 +275,7 @@ function guide() {
     },
     {
       text: "API Reference",
-      link: "https://ui5.github.io/cli/api/index.html",
+      link: "./api/index.html",
 
     },
 
