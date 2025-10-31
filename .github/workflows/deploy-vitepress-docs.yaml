@@ -1,5 +1,4 @@
 # Sample workflow for building and deploying a VitePress site to GitHub Pages
-#
 name: Deploy VitePress site to gh-pages
 
 on:
@@ -61,10 +60,13 @@ jobs:
               run: npm run jsdoc-generate
             - name: Build vitepress build
               run: |
+                cd packages/documentation
                 # The base output
-                npm run docs:build -- -base="/${{ github.event.repository.name }}/${DOC_VERSION}/"
+                npm run build:vitepress -- --base="/${{ github.event.repository.name }}/${DOC_VERSION}/"
+                npm run build:assets -- ./dist
                 # The alias output
-                npm run docs:build -- -base="/${{ github.event.repository.name }}/${DOC_ALIAS}/" --outDir="dist-${DOC_ALIAS}"
+                npm run build:vitepress -- --base="/${{ github.event.repository.name }}/${DOC_ALIAS}/" --outDir="dist-${DOC_ALIAS}"
+                npm run build:assets -- ./dist-${DOC_ALIAS}
             - name: Build Schema
               run: |
                   npm run schema-generate
