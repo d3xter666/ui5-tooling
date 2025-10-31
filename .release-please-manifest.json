@@ -1,17 +1,8 @@
 {
-<<<<<<< HEAD
-  "packages/logger": "4.10.0",
-  "packages/fs": "4.0.12",
-  "packages/builder": "4.2.5",
-  "packages/server": "4.4.4",
-  "packages/project": "4.0.14",
-  "packages/cli": "4.0.40"
-=======
 	"packages/logger": "4.0.2",
 	"packages/fs": "4.0.2",
 	"packages/builder": "4.0.11",
 	"packages/server": "4.0.7",
 	"packages/project": "4.0.6",
 	"packages/cli": "4.0.26"
->>>>>>> cb44e8177e (feat: Release please setup)
 }
