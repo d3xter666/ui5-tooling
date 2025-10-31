@@ -81,12 +81,17 @@ jobs:
                   rm -rf ./gh-pages/schema
                   cp -R ./site/schema ./gh-pages/
                   rm -rf ./gh-pages/${DOC_VERSION}/
+                  rm -rf ./gh-pages/${DOC_ALIAS}/
+
                   # Main version route
                   cp -R ./packages/documentation/dist ./gh-pages/${DOC_VERSION}/
+                  cp -R ./site/api ./gh-pages/${DOC_VERSION}/api
                   # Alias route. E.g., next, latest, stable, etc.
+
                   # For vitepress must be a copy with different config, not a symlink
                   cp -R ./packages/documentation/dist-${DOC_ALIAS} ./gh-pages/${DOC_ALIAS}/
-                  cp -R ./site/api ./gh-pages/${DOC_VERSION}/api
+                  cp -R ./site/api ./gh-pages/${DOC_ALIAS}/api
+
                   cp ./scripts/resources/custom404.html ./gh-pages/404.html
             - name: Publish Docs
               run: |
