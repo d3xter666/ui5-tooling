@@ -277,6 +277,7 @@ function guide() {
     {
       text: "API Reference",
       link: "/api/index.html",
+      target: "_blank"
 
     },
   ];
