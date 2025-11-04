@@ -61,8 +61,8 @@ jobs:
                 npm run build:vitepress -- --base="/${{ github.event.repository.name }}/${DOC_VERSION}/"
                 npm run build:assets -- ./dist
                 # The alias output
-                # npm run build:vitepress -- --base="/${{ github.event.repository.name }}/${DOC_ALIAS}/" --outDir="dist-${DOC_ALIAS}"
-                # npm run build:assets -- ./dist-${DOC_ALIAS}
+                npm run build:vitepress -- --base="/${{ github.event.repository.name }}/${DOC_ALIAS}/" --outDir="dist-${DOC_ALIAS}"
+                npm run build:assets -- ./dist-${DOC_ALIAS}
             - name: Build Schema
               run: |
                   npm run schema-generate
@@ -85,9 +85,9 @@ jobs:
 
                   # Alias route. E.g., next, latest, stable, etc.
                   # For vitepress must be a copy with different config, not a symlink
-                  ln -s ./${DOC_VERSION} ./gh-pages/${DOC_ALIAS}
+                  cp -R ./packages/documentation/dist-${DOC_ALIAS} ./gh-pages/${DOC_ALIAS}/
                   # Symlink the api docs to avoid duplication
-                  # ln -s $(realpath ./gh-pages/${DOC_VERSION}/api) ./gh-pages/${DOC_ALIAS}/api
+                  ln -s ./${DOC_VERSION}/api ./gh-pages/${DOC_ALIAS}/api
 
                   cp ./scripts/resources/custom404.html ./gh-pages/404.html
             - name: Publish Docs
