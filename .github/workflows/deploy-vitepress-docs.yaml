@@ -2,12 +2,8 @@
 name: Deploy VitePress site to gh-pages
 
 on:
-    # Runs on pushes targeting the `main` branch. Change this to `master` if you're
-    # using the `master` branch as the default branch.
     push:
         branches: [main]
-
-    # Allows you to run this workflow manually from the Actions tab
     workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
@@ -90,7 +86,8 @@ jobs:
                   # Alias route. E.g., next, latest, stable, etc.
                   # For vitepress must be a copy with different config, not a symlink
                   cp -R ./packages/documentation/dist-${DOC_ALIAS} ./gh-pages/${DOC_ALIAS}/
-                  cp -R ./site/api ./gh-pages/${DOC_ALIAS}/api
+                  # Symlink the api docs to avoid duplication
+                  ln -s $(realpath ./gh-pages/${DOC_VERSION}/api) ./gh-pages/${DOC_ALIAS}/api
 
                   cp ./scripts/resources/custom404.html ./gh-pages/404.html
             - name: Publish Docs
