@@ -68,22 +68,20 @@ jobs:
         with:
           node-version: 24.x
 
-      
-      - name: Install monorepo dependencies
-        run: npm ci
-
-      - name: Prune devDependencies (root workspace)
+      - name: Generate npm-shrinkwrap.json (isolated staging)
         run: |
-          echo "🧹 Pruning all workspace devDependencies (root) prior to CLI shrinkwrap"
-          npm prune --production
-          echo "✅ Root workspace now contains only production dependencies"
-
-      - name: Generate npm-shrinkwrap.json using lockfile versions (production only)
-        working-directory: packages/cli
-        run: |
-          echo "🔒 Creating npm-shrinkwrap.json (production graph only) from pruned workspace"
-          npm shrinkwrap
-          echo "✅ npm-shrinkwrap.json generated excluding devDependencies"
+          set -e
+          echo "📦 Isolating @ui5/cli for shrinkwrap"
+          npm ci --omit=dev
+          mkdir cli-publish
+          rsync -a --exclude 'node_modules' packages/cli/ cli-publish/
+          rsync -a node_modules/ cli-publish/node_modules/
+          (cd cli-publish && echo "🧹 Pruning extraneous modules" && npm prune --production)
+          (cd cli-publish && echo "🔒 Running npm shrinkwrap in isolated directory" && npm shrinkwrap)
+          mv cli-publish/npm-shrinkwrap.json packages/cli/
+          echo "✅ Copied npm-shrinkwrap.json back to packages/cli"
+          # Optional sanity check:
+          jq '.dependencies|keys|length' packages/cli/npm-shrinkwrap.json
 
       - name: Publish @ui5/cli
         working-directory: packages/cli
