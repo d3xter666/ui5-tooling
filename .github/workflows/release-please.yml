@@ -21,11 +21,11 @@ jobs:
         with:
          node-version: 24.x
 
-      - name: Run Release Please to update PRs and create releases
-        uses: googleapis/release-please-action@v4
-        id: release
-        with:
-          token: "${{ secrets.RELEASE_PLEASE_TOKEN }}"
+      # - name: Run Release Please to update PRs and create releases
+      #   uses: googleapis/release-please-action@v4
+      #   id: release
+      #   with:
+      #     token: "${{ secrets.RELEASE_PLEASE_TOKEN }}"
 
   publish-packages:
     runs-on: ubuntu-24.04
@@ -75,7 +75,6 @@ jobs:
           echo "📦 Installing production dependencies for CLI"
           npm ci --omit=dev
       - name: Generate npm-shrinkwrap.json (prod only)
-        working-directory: packages/cli
         run: |
           echo "🔒 Creating npm-shrinkwrap.json without devDependencies"
           # Create temporary directory outside workspace for shrinkwrap generation
