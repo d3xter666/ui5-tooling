@@ -2,24 +2,31 @@
 	"$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
 	"include-component-in-tag": false,
 	"group-pull-request-title-pattern": "release: UI5 CLI packages",
+	"sequential-calls": true,
 	"packages": {
 		"packages/logger": {
-			"component": "logger"
+			"component": "logger",
+			"package-name": "@ui5/logger"
 		},
 		"packages/fs": {
-			"component": "fs"
+			"component": "fs",
+			"package-name": "@ui5/fs"
 		},
 		"packages/builder": {
-			"component": "builder"
+			"component": "builder",
+			"package-name": "@ui5/builder"
 		},
 		"packages/server": {
-			"component": "server"
+			"component": "server",
+			"package-name": "@ui5/server"
 		},
 		"packages/project": {
-			"component": "project"
+			"component": "project",
+			"package-name": "@ui5/project"
 		},
 		"packages/cli": {
 			"component": "cli",
+			"package-name": "@ui5/cli",
 			"extra-files": [
 				"npm-shrinkwrap.json"
 			]
