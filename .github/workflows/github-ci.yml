@@ -40,7 +40,7 @@ jobs:
       run: npm run coverage
 
     - name: Generate JSDoc documentation
-      run: npm run jsdoc-generate
+      run: cd packages/documentation && npm ci && npm run jsdoc-generate
 
     - name: Generate merged JSON schema
       run: npm run schema-generate
