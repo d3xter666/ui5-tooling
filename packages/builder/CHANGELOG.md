@@ -5,6 +5,30 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-builder/compare/v4.0.11...HEAD).
 
 <a name="v4.0.11"></a>
+## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/v4.0.11...v4.1.0) (2025-11-06)
+
+
+### Features
+
+* Changelog update ([#42](https://github.com/d3xter666/ui5-tooling/issues/42)) ([bffc946](https://github.com/d3xter666/ui5-tooling/commit/bffc946d9ef1e072a14972c9c4a903c35b70adee))
+
+
+### Bug Fixes
+
+* Builder fix test ([bdc4575](https://github.com/d3xter666/ui5-tooling/commit/bdc4575994f8a4a696051d03cfb75a512f2c0af6))
+* Update changelogs ([#36](https://github.com/d3xter666/ui5-tooling/issues/36)) ([3e13538](https://github.com/d3xter666/ui5-tooling/commit/3e13538f14f2fa79ae2413d7e5451ac8e74b89d0))
+
+
+### Dependencies
+
+* **builder:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([c0a730f](https://github.com/d3xter666/ui5-tooling/commit/c0a730f87f7350dfbae1a6eb08ceb2b9128fdcf5))
+* **builder:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([d5c978b](https://github.com/d3xter666/ui5-tooling/commit/d5c978beac149b7c4a93bb73fb01dbdce73b2216))
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/logger bumped from ^4.0.2 to ^4.1.0
+  * devDependencies
+    * @ui5/project bumped from ^4.0.8 to ^4.0.7
+
 ## [4.2.5](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.2.4...builder-v4.2.5) (2025-10-30)
 
 

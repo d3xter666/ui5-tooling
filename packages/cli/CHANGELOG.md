@@ -5,6 +5,25 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-cli/compare/v4.0.26...HEAD).
 
 <a name="v4.0.26"></a>
+## [4.0.27](https://github.com/d3xter666/ui5-tooling/compare/v4.0.26...v4.0.27) (2025-11-06)
+
+
+### Dependencies
+
+* **cli:** update [@ui5](https://github.com/ui5) dependencies to latest versions ([9c037ad](https://github.com/d3xter666/ui5-tooling/commit/9c037adc97c6372dbf2af2418abcc08fa86b1e6b))
+* **cli:** update [@ui5](https://github.com/ui5) dependencies to latest versions ([977a1f3](https://github.com/d3xter666/ui5-tooling/commit/977a1f339c081b90c8074647f4e8505db56ae3f8))
+* **cli:** update [@ui5](https://github.com/ui5) dependencies to latest versions ([bb6be56](https://github.com/d3xter666/ui5-tooling/commit/bb6be563c4f9cf899a5ef04197bad8a93e294202))
+* **cli:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([a06be23](https://github.com/d3xter666/ui5-tooling/commit/a06be23219e22f9e29f944b319e1a96ad3fae016))
+* **cli:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([962bc2d](https://github.com/d3xter666/ui5-tooling/commit/962bc2de36d70b330f034a14e9057457a2d6b59a))
+* **cli:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([f79081b](https://github.com/d3xter666/ui5-tooling/commit/f79081bb2c6f706fdb70e6ff26a51d7cb997f068))
+* **cli:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([a27131c](https://github.com/d3xter666/ui5-tooling/commit/a27131c15da3493191056d0a993282be78c7a3ab))
+* **cli:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([ca67b84](https://github.com/d3xter666/ui5-tooling/commit/ca67b8437d53491cff04dbae5ea7fbcd9b8321cf))
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/logger bumped from ^4.0.2 to ^4.1.0
+    * @ui5/project bumped from ^4.0.8 to ^4.0.7
+    * @ui5/server bumped from ^4.0.8 to ^4.1.0
+
 ## [4.0.40](https://github.com/d3xter666/ui5-tooling/compare/cli-v4.0.39...cli-v4.0.40) (2025-10-30)
 
 

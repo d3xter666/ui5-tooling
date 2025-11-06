@@ -5,6 +5,47 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-logger/compare/v4.0.2...HEAD).
 
 <a name="v4.0.2"></a>
+## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/v4.0.2...v4.1.0) (2025-11-06)
+
+
+### Features
+
+* A great feature for Logger ([40bfd2a](https://github.com/d3xter666/ui5-tooling/commit/40bfd2a21fa32248a3811d97f9e5ff934c69892f))
+* Another great chain feature ([8a14ea9](https://github.com/d3xter666/ui5-tooling/commit/8a14ea9b72ae48268f1f26db1c31b7083c6a51f9))
+* Another Logger feature ([74d10bd](https://github.com/d3xter666/ui5-tooling/commit/74d10bd8019605299ce7af91c1bd7e1cde7bab98))
+* Feat package release ([6e38ca0](https://github.com/d3xter666/ui5-tooling/commit/6e38ca097a7ffd30dfd00bed87cfb9488e6dc736))
+* License Zzzz ([f98aa1a](https://github.com/d3xter666/ui5-tooling/commit/f98aa1a4739f16be593d387ced20f4a5e0807abd))
+* Logger another BIG feature ([d3ad9c8](https://github.com/d3xter666/ui5-tooling/commit/d3ad9c8eabdde5cee5cea1fbeaaa88b3021c3fe6))
+* Logger feature ([f577851](https://github.com/d3xter666/ui5-tooling/commit/f577851c4993e35338ce6d4521c3d8afc744e178))
+* Logger feature ([d9c49fc](https://github.com/d3xter666/ui5-tooling/commit/d9c49fc0b9e28cd56e5225874085012e3cbf85e6))
+* Logger package release ([8881eb5](https://github.com/d3xter666/ui5-tooling/commit/8881eb5ade29527236993122fbcbadcb1d483221))
+* Some feature ([9c7366e](https://github.com/d3xter666/ui5-tooling/commit/9c7366e784486d1e8d1b91ff3e111358855c0001))
+* Test change in logger! ([f975df2](https://github.com/d3xter666/ui5-tooling/commit/f975df22bcbafa68f127cd26645af05af3fbc228))
+* Try chain releases ([fa8bfba](https://github.com/d3xter666/ui5-tooling/commit/fa8bfba436b3bddff4ba9df65db284f271f630b2))
+
+
+### Bug Fixes
+
+* Aaaa ([c5a77ea](https://github.com/d3xter666/ui5-tooling/commit/c5a77ea2859fc75e9578588890fab1fc82f55704))
+* Align release-please versions ([#25](https://github.com/d3xter666/ui5-tooling/issues/25)) ([28a0cdf](https://github.com/d3xter666/ui5-tooling/commit/28a0cdfd788ec2bb3fbc4bd325101b0e4a3f331e))
+* Another fix ([07fb088](https://github.com/d3xter666/ui5-tooling/commit/07fb08833721c514bba6b03d03b30591362d8e24))
+* Awesome feature ([b216587](https://github.com/d3xter666/ui5-tooling/commit/b216587cf54d2d3e7c53897b7f2191ec077c1e5f))
+* Cleanup ([a402346](https://github.com/d3xter666/ui5-tooling/commit/a4023465382e162f34b1b0ba66c746874d45b33e))
+* Dkhsdf ([2bfb1c7](https://github.com/d3xter666/ui5-tooling/commit/2bfb1c79c24f5adc16dd76e6ed90096fdc493d39))
+* Feat package release ([#22](https://github.com/d3xter666/ui5-tooling/issues/22)) ([a4754c3](https://github.com/d3xter666/ui5-tooling/commit/a4754c3b6f24af681c89c4eecc9a4893082c65ff))
+* Fix License file. Should produce a PR ([88cac28](https://github.com/d3xter666/ui5-tooling/commit/88cac289c0b5842d829fd80378a97c84a9e22e3e))
+* License file ([d773622](https://github.com/d3xter666/ui5-tooling/commit/d773622978b2b9719d10c0a7bbbeda07eb8b6ebc))
+* License file ([954fced](https://github.com/d3xter666/ui5-tooling/commit/954fced3e1305190dfdc2c23f892b3aeb466267a))
+* License fix 2 ([15de28c](https://github.com/d3xter666/ui5-tooling/commit/15de28c97c0e1b5ad42066d3d3823d7e6340d883))
+* License own ([852ee33](https://github.com/d3xter666/ui5-tooling/commit/852ee333a1c8fb340dc4d0d0535b96af9e4a6f70))
+* Logger Zzzz ([209fe58](https://github.com/d3xter666/ui5-tooling/commit/209fe5860242daa61e6451616184db65a18497af))
+* My fix ([b0c344b](https://github.com/d3xter666/ui5-tooling/commit/b0c344ba2f592202fc458885cba865586a58aac6))
+* Try chain release ([63ee1f6](https://github.com/d3xter666/ui5-tooling/commit/63ee1f6d191820caab6d61008f5ceb2a8fb27d21))
+* Typo ([6f07518](https://github.com/d3xter666/ui5-tooling/commit/6f075182d689a1c441ac3a49a98282e9791185b6))
+* Update changelogs ([#36](https://github.com/d3xter666/ui5-tooling/issues/36)) ([3e13538](https://github.com/d3xter666/ui5-tooling/commit/3e13538f14f2fa79ae2413d7e5451ac8e74b89d0))
+* Zzzz ([b5f011a](https://github.com/d3xter666/ui5-tooling/commit/b5f011a0a29207a0e7b0548d87b25d3be244907d))
+* Zzzzkjhsad ([058bf3d](https://github.com/d3xter666/ui5-tooling/commit/058bf3dd67ad9d0afaa92a32f271a5edcadb4b24))
+
 ## [4.10.0](https://github.com/d3xter666/ui5-tooling/compare/logger-v4.9.2...logger-v4.10.0) (2025-10-30)
 
 
