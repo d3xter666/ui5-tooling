@@ -25,12 +25,12 @@ jobs:
         uses: googleapis/release-please-action@v4
         id: release
         with:
-          token: "${{ secrets.GITHUB_TOKEN }}"
+          token: "${{ secrets.RELEASE_PLEASE_TOKEN }}"
 
   publish-packages:
     runs-on: ubuntu-24.04
     needs: release-please
-    if: needs.release-please.outputs.releases_created == 'true'
+    # if: needs.release-please.outputs.releases_created == 'true'
     strategy:
       # Publish packages in dependency order: logger → fs → builder → server → project
       # CLI is handled separately to update shrinkwrap
@@ -49,8 +49,8 @@ jobs:
           node-version: 24.x
 
       - name: Install and publish ${{ matrix.package }}
+        working-directory: packages/${{ matrix.package }}
         run: |
-          cd packages/${{ matrix.package }}
           echo "🚀 Publishing @ui5/${{ matrix.package }}"
           
           # TODO: Uncomment when ready to publish
@@ -74,7 +74,7 @@ jobs:
         working-directory: packages/cli
         run: |
           echo "📦 Installing production dependencies for CLI"
-          npm ci --omit=dev
+          # npm ci --omit=dev
       - name: Generate npm-shrinkwrap.json (prod only)
         working-directory: packages/cli
         run: |
@@ -82,7 +82,8 @@ jobs:
           rm -f npm-shrinkwrap.json
           npm shrinkwrap
           echo "✅ npm-shrinkwrap.json generated"
-      - name: (Dry Run) Publish @ui5/cli
+          cat npm-shrinkwrap.json
+      - name: Publish @ui5/cli
         working-directory: packages/cli
         run: |
           echo "🚀 Publishing @ui5/cli"
