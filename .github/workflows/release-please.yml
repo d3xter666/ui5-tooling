@@ -73,15 +73,16 @@ jobs:
           set -e
           echo "📦 Isolating @ui5/cli for shrinkwrap"
           npm ci --omit=dev
-          mkdir cli-publish
-          rsync -a --exclude 'node_modules' packages/cli/ cli-publish/
-          rsync -a node_modules/ cli-publish/node_modules/
-          (cd cli-publish && echo "🧹 Pruning extraneous modules" && npm prune --production)
-          (cd cli-publish && echo "🔒 Running npm shrinkwrap in isolated directory" && npm shrinkwrap)
-          mv cli-publish/npm-shrinkwrap.json packages/cli/
-          echo "✅ Copied npm-shrinkwrap.json back to packages/cli"
-          # Optional sanity check:
-          jq '.dependencies|keys|length' packages/cli/npm-shrinkwrap.json
+          STAGE=cli-publish
+          rm -rf "$STAGE" && mkdir "$STAGE"
+          echo "↪️ Copying CLI sources"
+          rsync -a --exclude 'node_modules' packages/cli/ "$STAGE"/
+          echo "↪️ Copying resolved production dependencies"
+          rsync -a node_modules/ "$STAGE"/node_modules/
+          echo "🔒 Running npm shrinkwrap in isolated directory (no prune)"
+          (cd "$STAGE" && npm shrinkwrap)
+          mv "$STAGE"/npm-shrinkwrap.json packages/cli/
+          echo "✅ npm-shrinkwrap.json placed into packages/cli"
 
       - name: Publish @ui5/cli
         working-directory: packages/cli
