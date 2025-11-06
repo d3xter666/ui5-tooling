@@ -72,15 +72,25 @@ jobs:
         run: |
           set -e
           echo "📦 Isolating @ui5/cli for shrinkwrap"
+          # 1. Install only production dependencies exactly as pinned in root package-lock.json (no dev deps)
           npm ci --omit=dev
+          # 2. Define an isolated staging directory outside workspaces so npm treats it as a plain project
           STAGE=cli-publish
+          # 3. Ensure a clean staging area
           rm -rf "$STAGE" && mkdir "$STAGE"
           echo "↪️ Copying CLI sources"
+          # 4. Copy CLI package files (excluding node_modules) to staging to create a standalone package context
           rsync -a --exclude 'node_modules' packages/cli/ "$STAGE"/
           echo "↪️ Copying resolved production dependencies"
+          # 5. Copy the already resolved production node_modules so versions match the lockfile
           rsync -a node_modules/ "$STAGE"/node_modules/
-          echo "🔒 Running npm shrinkwrap in isolated directory (no prune)"
+          echo "🧹 Pruning extraneous modules inside staging"
+          # 6. Remove any packages not reachable from CLI's dependency graph to minimize shrinkwrap size
+          (cd "$STAGE" && npm prune --production)
+          echo "🔒 Running npm shrinkwrap in isolated directory (post-prune)"
+          # 7. Generate npm-shrinkwrap.json now that only necessary production deps remain
           (cd "$STAGE" && npm shrinkwrap)
+          # 8. Move shrinkwrap back into the CLI workspace package for publishing
           mv "$STAGE"/npm-shrinkwrap.json packages/cli/
           echo "✅ npm-shrinkwrap.json placed into packages/cli"
 
