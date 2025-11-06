@@ -60,7 +60,6 @@ jobs:
   publish-cli:
     runs-on: ubuntu-24.04
     needs: [release-please, publish-packages]
-    if: needs.release-please.outputs.releases_created == 'true'
     steps:
       - uses: actions/checkout@v5
 
