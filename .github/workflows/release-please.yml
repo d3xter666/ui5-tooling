@@ -72,15 +72,18 @@ jobs:
       - name: Install monorepo dependencies
         run: npm ci
 
-      - name: Generate npm-shrinkwrap.json using lockfile versions
+      - name: Prune devDependencies (root workspace)
+        run: |
+          echo "🧹 Pruning all workspace devDependencies (root) prior to CLI shrinkwrap"
+          npm prune --production
+          echo "✅ Root workspace now contains only production dependencies"
+
+      - name: Generate npm-shrinkwrap.json using lockfile versions (production only)
         working-directory: packages/cli
         run: |
-          echo "🔒 Creating npm-shrinkwrap.json with exact lockfile versions"
-          echo "🧹 Pruning devDependencies from @ui5/cli before shrinkwrap"
-          npm prune --production
-          # Generate shrinkwrap from the hoisted dependencies (already installed by root npm ci)
+          echo "🔒 Creating npm-shrinkwrap.json (production graph only) from pruned workspace"
           npm shrinkwrap
-          echo "✅ npm-shrinkwrap.json generated with monorepo lockfile versions"
+          echo "✅ npm-shrinkwrap.json generated excluding devDependencies"
 
       - name: Publish @ui5/cli
         working-directory: packages/cli
