@@ -5,7 +5,7 @@ import { defineConfig } from "vitepress";
 // markdown
 import MarkdownItImplicitFigures from "markdown-it-implicit-figures";
 
-const defaultConfig = defineConfig({
+export default defineConfig({
 
   // Would be set in CI job via CLI arguments. For local development, it's just root.
   base: "/",
@@ -96,7 +96,6 @@ const defaultConfig = defineConfig({
     }
   }
 });
-export default defaultConfig;
 
 function nav() {
   return [
@@ -280,6 +279,7 @@ function guide() {
       target: "_blank"
 
     },
+
   ];
 }
 
