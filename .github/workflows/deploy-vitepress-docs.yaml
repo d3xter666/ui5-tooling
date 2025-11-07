@@ -57,7 +57,6 @@ jobs:
             - name: Build vitepress build
               working-directory: packages/documentation
               run: |
-                cd packages/documentation
                 # The base output
                 npm run build:vitepress -- --base="/${{ github.event.repository.name }}/${DOC_VERSION}/"
                 npm run build:assets -- ./dist
