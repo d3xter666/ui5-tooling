@@ -21,7 +21,7 @@ concurrency:
 jobs:
     # Build job
     deploy-docs:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         env:
             DOC_VERSION: v5 # The directory in gh-pages where the documentation would be deployed
             DOC_ALIAS: next # Change this to update the alias route. Note: Check the old alias when changing this!
@@ -30,27 +30,23 @@ jobs:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                   fetch-depth: 0
             - name: Setup Node
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
-                  node-version: 20
-                  cache: npm
+                node-version: 22.20.0
+                cache: npm
             - name: Setup Pages
               uses: actions/configure-pages@v4
             - name: Install dependencies
-              run: npm ci
+              run: npm ci --engine-strict # --engine-strict is used to fail-fast if deps require node versions unsupported by the repo
             - name: Install documentation dependencies
               working-directory: packages/documentation
-              run: npm ci
+              run: npm ci --engine-strict # --engine-strict is used to fail-fast if deps require node versions unsupported by the repo
             - name: Fetch gh-pages branch
               run: git fetch origin gh-pages --depth=1
-            # - name: Set /site ownership to current user
-            #   run: |
-            #       mkdir site
-            #       sudo chown -R $(id -u):$(id -g) ./site
             - name: generate CLI doc
               working-directory: packages/documentation
               run: npm run generate-cli-doc
@@ -72,7 +68,7 @@ jobs:
             #       npm run schema-generate
             #       npm run schema-workspace-generate
             - name: Checkout gh-pages
-              uses: actions/checkout@v4
+              uses: actions/checkout@v5
               with:
                   ref: gh-pages
                   path: gh-pages
@@ -93,7 +89,8 @@ jobs:
                   # Symlink the api docs to avoid duplication
                   ln -s ../${DOC_VERSION}/api ./gh-pages/${DOC_ALIAS}/api
 
-                  cp ./packages/documentation/scripts/resources/custom404.html ./gh-pages/404.html
+                  # TODO: Enable when v5 release is done
+                  # cp ./packages/documentation/scripts/resources/custom404.html ./gh-pages/404.html
             - name: Publish Docs
               run: |
                   cd ./gh-pages
