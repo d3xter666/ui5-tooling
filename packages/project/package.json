@@ -1,6 +1,6 @@
 {
 	"name": "@ui5/project",
-	"version": "4.0.6",
+	"version": "4.0.8",
 	"description": "UI5 CLI - Project",
 	"author": {
 		"name": "SAP SE",
@@ -132,7 +132,7 @@
 		"yesno": "^0.4.0"
 	},
 	"peerDependencies": {
-		"@ui5/builder": "^4.1.0"
+		"@ui5/builder": "^4.1.1"
 	},
 	"peerDependenciesMeta": {
 		"@ui5/builder": {
