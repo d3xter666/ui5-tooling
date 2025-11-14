@@ -48,11 +48,12 @@
 		"vue": "^3.4.38"
 	},
 	"devDependencies": {
-		"@ui5/builder": "^4.1.1",
-		"@ui5/fs": "^4.0.3",
-		"@ui5/logger": "^4.0.2",
-		"@ui5/project": "^4.0.8",
-		"@ui5/server": "^4.0.8",
+		"@ui5/builder": "^4",
+		"@ui5/cli": "^4",
+		"@ui5/fs": "^4",
+		"@ui5/logger": "^4",
+		"@ui5/project": "^4",
+		"@ui5/server": "^4",
 		"docdash": "^2.0.2",
 		"jsdoc": "^4.0.4",
 		"open-cli": "^8.0.0",
