@@ -5,6 +5,39 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-cli/compare/v4.0.26...HEAD).
 
 <a name="v4.0.26"></a>
+## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/cli-v4.0.26...cli-v4.1.0) (2025-11-14)
+
+
+### Features
+
+* **cli:** Use specVersion 5.0 in init command ([c1b1432](https://github.com/d3xter666/ui5-tooling/commit/c1b1432e6aeace8f5bd6cb5a8fa42685e1701c9b))
+
+
+### Bug Fixes
+
+* **cli:** Link to "Local vs. Global Installation" docs ([9312283](https://github.com/d3xter666/ui5-tooling/commit/93122834a60d565ce4c37223b6b2f140930bc86c))
+* Prerelases don't have ranges ([b353eba](https://github.com/d3xter666/ui5-tooling/commit/b353eba481dba1b3233c8775a202c73d6e45eb54))
+* Use real versions ([e1de58f](https://github.com/d3xter666/ui5-tooling/commit/e1de58ffb03603d12d6bfdf38e541a3ee11211e5))
+
+
+### Dependencies
+
+* **cli:** Remove npm-shrinkwrap.json ([fe48278](https://github.com/d3xter666/ui5-tooling/commit/fe48278d8f1ee6ef810a627e0492298e52df1e43))
+* **cli:** update [@ui5](https://github.com/ui5) dependencies to latest versions ([2321794](https://github.com/d3xter666/ui5-tooling/commit/2321794cf97cb1d3958a740a385992ca46a4df92))
+* **cli:** update [@ui5](https://github.com/ui5) dependencies to latest versions ([4dd4ce5](https://github.com/d3xter666/ui5-tooling/commit/4dd4ce50c8f4c4f6f7fd0aaa234808f8ee5a5554))
+* **cli:** update [@ui5](https://github.com/ui5) dependencies to latest versions ([b7dd816](https://github.com/d3xter666/ui5-tooling/commit/b7dd816892fead7ff5c16e962c761f45c30c5a4f))
+* **cli:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([adc6c65](https://github.com/d3xter666/ui5-tooling/commit/adc6c650d904d11eaf8d47e54c9fd0a76cc2d27f))
+* **cli:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([22f7e3b](https://github.com/d3xter666/ui5-tooling/commit/22f7e3b40ddb6f81c791b01dc75d59fb4cb5a391))
+* **cli:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([3b7455a](https://github.com/d3xter666/ui5-tooling/commit/3b7455a2a0b61bfc1568e1f8b2cfd6724b45cc4e))
+* **cli:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([c41f40a](https://github.com/d3xter666/ui5-tooling/commit/c41f40ad61e9d495bf0f30e33af517f766c80eec))
+* **cli:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([bdfae1a](https://github.com/d3xter666/ui5-tooling/commit/bdfae1af6a8f54d9a7f7b65fb46e2f17321ed798))
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/builder bumped from ^4.1.1 to ^4.1.0
+    * @ui5/logger bumped from ^4.0.2 to ^4.1.0
+    * @ui5/project bumped from ^4.0.8 to ^4.1.0
+    * @ui5/server bumped from ^4.0.8 to ^4.1.0
+
 ## [4.0.40](https://github.com/d3xter666/ui5-tooling/compare/cli-v4.0.39...cli-v4.0.40) (2025-10-30)
 
 

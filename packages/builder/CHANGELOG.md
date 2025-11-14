@@ -5,6 +5,33 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-builder/compare/v4.0.11...HEAD).
 
 <a name="v4.0.11"></a>
+## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.0.11...builder-v4.1.0) (2025-11-14)
+
+
+### Features
+
+* **builder:** Enhance generateFlexChangeBundle task to add new 'flexBundle' property to the manifest.json ([#1165](https://github.com/d3xter666/ui5-tooling/issues/1165)) ([7ee5914](https://github.com/d3xter666/ui5-tooling/commit/7ee5914f5ee636b24846a8dbd9bc617adb9dbe45))
+* Changelog update ([#42](https://github.com/d3xter666/ui5-tooling/issues/42)) ([8fd62ad](https://github.com/d3xter666/ui5-tooling/commit/8fd62ad3e781a1124f4642f5591181ce406e8e3f))
+
+
+### Bug Fixes
+
+* Builder fix test ([7be1e3a](https://github.com/d3xter666/ui5-tooling/commit/7be1e3a838a55b0dbc75b51170987a262f9b691d))
+* Prerelases don't have ranges ([b353eba](https://github.com/d3xter666/ui5-tooling/commit/b353eba481dba1b3233c8775a202c73d6e45eb54))
+* Update changelogs ([#36](https://github.com/d3xter666/ui5-tooling/issues/36)) ([2e8348c](https://github.com/d3xter666/ui5-tooling/commit/2e8348c1409290c18f848f886cf9a81b3634418a))
+* Use real versions ([e1de58f](https://github.com/d3xter666/ui5-tooling/commit/e1de58ffb03603d12d6bfdf38e541a3ee11211e5))
+
+
+### Dependencies
+
+* **builder:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([e771ed1](https://github.com/d3xter666/ui5-tooling/commit/e771ed11f014f0121ee0bf16246364566675de18))
+* **builder:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([0d1f6f5](https://github.com/d3xter666/ui5-tooling/commit/0d1f6f5f2e323e6f03887c35042e122a6e16688a))
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/logger bumped from ^4.0.2 to ^4.1.0
+  * devDependencies
+    * @ui5/project bumped from ^4.0.8 to ^4.1.0
+
 ## [4.2.5](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.2.4...builder-v4.2.5) (2025-10-30)
 
 

@@ -5,6 +5,33 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-server/compare/v4.0.7...HEAD).
 
 <a name="v4.0.7"></a>
+## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/server-v4.0.7...server-v4.1.0) (2025-11-14)
+
+
+### Features
+
+* A new Server feature ([da9740d](https://github.com/d3xter666/ui5-tooling/commit/da9740d2389cfe1dd86c1b6b1df4e3880287d92b))
+* Docs updates ([108b874](https://github.com/d3xter666/ui5-tooling/commit/108b874d12d886586583b03bb574bddf9a5490fb))
+* Update changelog ([ebb7f99](https://github.com/d3xter666/ui5-tooling/commit/ebb7f998b17689f1747353168191882f30189aa2))
+
+
+### Bug Fixes
+
+* Prerelases don't have ranges ([b353eba](https://github.com/d3xter666/ui5-tooling/commit/b353eba481dba1b3233c8775a202c73d6e45eb54))
+* Use real versions ([e1de58f](https://github.com/d3xter666/ui5-tooling/commit/e1de58ffb03603d12d6bfdf38e541a3ee11211e5))
+
+
+### Dependencies
+
+* **server:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([2e62f80](https://github.com/d3xter666/ui5-tooling/commit/2e62f809bc2c94c3c90bbc3f1919a9f59986ce00))
+* **server:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([34669bf](https://github.com/d3xter666/ui5-tooling/commit/34669bfd8f843697d810ed41f6d3e523b2fd9c81))
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/builder bumped from ^4.1.1 to ^4.1.0
+    * @ui5/logger bumped from ^4.0.2 to ^4.1.0
+  * devDependencies
+    * @ui5/project bumped from ^4.0.8 to ^4.1.0
+
 ## [4.4.4](https://github.com/d3xter666/ui5-tooling/compare/server-v4.4.3...server-v4.4.4) (2025-10-30)
 
 
