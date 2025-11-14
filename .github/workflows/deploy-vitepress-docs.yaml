@@ -44,12 +44,11 @@ jobs:
               run: |
                   # Create isolated directory for documentation
                   mkdir -p /tmp/isolated-docs
-                  cp -r internal/documentation/ /tmp/isolated-docs/
+                  # Copy all files including hidden ones (like .vitepress) directly to isolated-docs
+                  cp -r internal/documentation/. /tmp/isolated-docs/
             - name: Install documentation dependencies from NPM
-              # working-directory: /tmp/isolated-docs
-              run: |
-                cd /tmp/isolated-docs
-                npm ci --engine-strict
+              working-directory: /tmp/isolated-docs
+              run: npm ci --engine-strict
             - name: Fetch gh-pages branch
               run: git fetch origin gh-pages --depth=1
             - name: generate CLI doc
