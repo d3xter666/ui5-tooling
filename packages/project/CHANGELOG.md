@@ -5,6 +5,112 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-project/compare/v4.0.6...HEAD).
 
 <a name="v4.0.6"></a>
+## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/project-v4.0.6...project-v4.1.0) (2025-11-14)
+
+
+### Features
+
+* **project:** Add Specification Version 5.0 ([1452401](https://github.com/d3xter666/ui5-tooling/commit/1452401b2a26bc60a34dae2d16ab82e0d78f404c))
+
+
+### Bug Fixes
+
+* Prerelases don't have ranges ([b353eba](https://github.com/d3xter666/ui5-tooling/commit/b353eba481dba1b3233c8775a202c73d6e45eb54))
+* Use real versions ([e1de58f](https://github.com/d3xter666/ui5-tooling/commit/e1de58ffb03603d12d6bfdf38e541a3ee11211e5))
+
+
+### Dependencies
+
+* **project:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([e778c2e](https://github.com/d3xter666/ui5-tooling/commit/e778c2e7a1f5f316a8df8f3feb68e873e96484f5))
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/logger bumped from ^4.0.2 to ^4.1.0
+  * peerDependencies
+    * @ui5/builder bumped from ^4.1.1 to ^4.1.0
+
+## [4.0.14](https://github.com/d3xter666/ui5-tooling/compare/project-v4.0.13...project-v4.0.14) (2025-10-30)
+
+
+### Dependencies
+
+* **project:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([32174cd](https://github.com/d3xter666/ui5-tooling/commit/32174cd4c35c527c34b7f84558a471543854c5ba))
+
+## [4.0.13](https://github.com/d3xter666/ui5-tooling/compare/project-v4.0.10...project-v4.0.13) (2025-10-28)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/fs bumped from ^4.0.8 to ^4.0.9
+    * @ui5/logger bumped from ^4.2.2 to ^4.2.3
+  * peerDependencies
+    * @ui5/builder bumped from ^4.0.11 to ^4.2.3
+
+## [4.0.12](https://github.com/d3xter666/ui5-tooling/compare/project-v4.0.10...project-v4.0.12) (2025-10-28)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/fs bumped from ^4.0.7 to ^4.0.8
+    * @ui5/logger bumped from ^4.2.1 to ^4.2.2
+  * peerDependencies
+    * @ui5/builder bumped from ^4.0.11 to ^4.2.2
+
+## [4.0.11](https://github.com/d3xter666/ui5-tooling/compare/project-v4.0.10...project-v4.0.11) (2025-10-27)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * peerDependencies
+    * @ui5/builder bumped from ^4.0.11 to ^4.2.1
+
+## [4.0.10](https://github.com/d3xter666/ui5-tooling/compare/project-v4.0.9...project-v4.0.10) (2025-10-27)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/fs bumped from ^4.0.6 to ^4.0.7
+    * @ui5/logger bumped from ^4.0.2 to ^4.2.1
+  * peerDependencies
+    * @ui5/builder bumped from ^4.0.11 to ^4.2.1
+
+## [4.0.9](https://github.com/d3xter666/ui5-tooling/compare/project-v4.0.7...project-v4.0.9) (2025-10-27)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * peerDependencies
+    * @ui5/builder bumped from ^4.0.11 to ^4.2.0
+
+## [4.0.8](https://github.com/d3xter666/ui5-tooling/compare/project-v4.0.7...project-v4.0.8) (2025-10-24)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/fs bumped from ^4.0.5 to ^4.0.6
+  * peerDependencies
+    * @ui5/builder bumped from ^4.0.11 to ^4.2.0
+
+## [4.0.7](https://github.com/d3xter666/ui5-tooling/compare/project-v4.0.6...project-v4.0.7) (2025-10-22)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/fs bumped from ^4.0.2 to ^4.0.5
+  * peerDependencies
+    * @ui5/builder bumped from ^4.0.11 to ^4.0.12
+
 ## [v4.0.6] - 2025-09-12
 
 <a name="v4.0.5"></a>

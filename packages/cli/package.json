@@ -1,6 +1,6 @@
 {
 	"name": "@ui5/cli",
-	"version": "4.0.26",
+	"version": "4.1.0",
 	"description": "UI5 CLI - CLI",
 	"author": {
 		"name": "SAP SE",
@@ -30,7 +30,7 @@
 		"npm": ">= 8"
 	},
 	"scripts": {
-		"test": "npm run lint && npm run coverage && npm run depcheck",
+		"test": "npm run lint && npm run jsdoc-generate && npm run coverage && npm run depcheck",
 		"lint": "eslint ./",
 		"unit": "rimraf test/tmp && ava",
 		"unit-verbose": "rimraf test/tmp && cross-env UI5_LOG_LVL=verbose ava --verbose --serial",
@@ -41,7 +41,7 @@
 		"version": "git-chglog --sort semver --next-tag v$npm_package_version -o CHANGELOG.md v4.0.0.. && git add CHANGELOG.md",
 		"prepublishOnly": "git push --follow-tags",
 		"release-note": "git-chglog --sort semver -c .chglog/release-config.yml v$npm_package_version | node .chglog/consolidate-changelogs.js",
-		"depcheck": "depcheck --ignores @ui5/cli,rimraf,@istanbuljs/esm-loader-hook,@ui5/fs,@ui5/builder"
+		"depcheck": "depcheck --ignores @ui5/cli,rimraf,docdash,@istanbuljs/esm-loader-hook,@ui5/fs,@ui5/builder"
 	},
 	"files": [
 		"CHANGELOG.md",
@@ -104,11 +104,11 @@
 		"directory": "packages/cli"
 	},
 	"dependencies": {
-		"@ui5/builder": "^4.0.11",
-		"@ui5/fs": "^4.0.2",
-		"@ui5/logger": "^4.0.2",
-		"@ui5/project": "^4.0.6",
-		"@ui5/server": "^4.0.7",
+		"@ui5/builder": "^4.1.0",
+		"@ui5/fs": "^4.0.3",
+		"@ui5/logger": "^4.1.0",
+		"@ui5/project": "^4.1.0",
+		"@ui5/server": "^4.1.0",
 		"chalk": "^5.6.2",
 		"data-with-position": "^0.5.0",
 		"import-local": "^3.2.0",
@@ -127,6 +127,7 @@
 		"eslint": "^9.36.0",
 		"esmock": "^2.7.3",
 		"execa": "^9.6.0",
+		"jsdoc": "^4.0.4",
 		"nyc": "^17.1.0",
 		"rimraf": "^6.0.1",
 		"sinon": "^21.0.0",

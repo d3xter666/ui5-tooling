@@ -5,6 +5,137 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-fs/compare/v4.0.2...HEAD).
 
 <a name="v4.0.2"></a>
+## [4.0.3](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.2...fs-v4.0.3) (2025-11-14)
+
+
+### Bug Fixes
+
+* Feat package release ([#22](https://github.com/d3xter666/ui5-tooling/issues/22)) ([5ba0900](https://github.com/d3xter666/ui5-tooling/commit/5ba090031f3a2a441d847e64d86820c037ce74ff))
+* Prerelases don't have ranges ([b353eba](https://github.com/d3xter666/ui5-tooling/commit/b353eba481dba1b3233c8775a202c73d6e45eb54))
+* Use real versions ([e1de58f](https://github.com/d3xter666/ui5-tooling/commit/e1de58ffb03603d12d6bfdf38e541a3ee11211e5))
+
+
+### Dependencies
+
+* bump globby from 14.1.0 to 15.0.0 ([#1152](https://github.com/d3xter666/ui5-tooling/issues/1152)) ([2cb5cd1](https://github.com/d3xter666/ui5-tooling/commit/2cb5cd1380f43086a2cf52ca7c15aa4a6ff09877))
+* **fs:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([2fb5afd](https://github.com/d3xter666/ui5-tooling/commit/2fb5afdd2d1b17b920721634a4ad9f6091cdd38b))
+* **fs:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([1405ab2](https://github.com/d3xter666/ui5-tooling/commit/1405ab2ac2b57ab22209f56afeb1ef0d722f2213))
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/logger bumped from ^4.0.2 to ^4.1.0
+
+## [4.0.12](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.11...fs-v4.0.12) (2025-10-30)
+
+
+### Dependencies
+
+* **fs:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([0073b9f](https://github.com/d3xter666/ui5-tooling/commit/0073b9f6c20fa5e9b186fa680e985aeed44ec1ec))
+
+## [4.0.11](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.10...fs-v4.0.11) (2025-10-30)
+
+
+### Dependencies
+
+* **fs:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([3036cd8](https://github.com/d3xter666/ui5-tooling/commit/3036cd837f69e5bb7c895a4e6b073ab2976d9160))
+
+## [4.0.10](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.9...fs-v4.0.10) (2025-10-28)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/logger bumped from ^4.2.3 to ^4.3.0
+
+## [4.0.9](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.7...fs-v4.0.9) (2025-10-28)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/logger bumped from ^4.2.2 to ^4.2.3
+
+## [4.0.8](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.7...fs-v4.0.8) (2025-10-28)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/logger bumped from ^4.2.1 to ^4.2.2
+
+## [4.0.7](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.6...fs-v4.0.7) (2025-10-27)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/logger bumped from ^4.1.1 to ^4.2.1
+
+## [4.0.6](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.5...fs-v4.0.6) (2025-10-27)
+
+
+### Bug Fixes
+
+* Align release-please versions ([#25](https://github.com/d3xter666/ui5-tooling/issues/25)) ([28a0cdf](https://github.com/d3xter666/ui5-tooling/commit/28a0cdfd788ec2bb3fbc4bd325101b0e4a3f331e))
+* Feat package release ([#22](https://github.com/d3xter666/ui5-tooling/issues/22)) ([a4754c3](https://github.com/d3xter666/ui5-tooling/commit/a4754c3b6f24af681c89c4eecc9a4893082c65ff))
+
+
+### Dependencies
+
+* bump globby from 14.1.0 to 15.0.0 ([#1152](https://github.com/d3xter666/ui5-tooling/issues/1152)) ([2cb5cd1](https://github.com/d3xter666/ui5-tooling/commit/2cb5cd1380f43086a2cf52ca7c15aa4a6ff09877))
+
+## [4.0.5](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.4...fs-v4.0.5) (2025-10-22)
+
+
+### Bug Fixes
+
+* Align release-please versions ([#25](https://github.com/d3xter666/ui5-tooling/issues/25)) ([28a0cdf](https://github.com/d3xter666/ui5-tooling/commit/28a0cdfd788ec2bb3fbc4bd325101b0e4a3f331e))
+* Feat package release ([#22](https://github.com/d3xter666/ui5-tooling/issues/22)) ([a4754c3](https://github.com/d3xter666/ui5-tooling/commit/a4754c3b6f24af681c89c4eecc9a4893082c65ff))
+
+
+### Dependencies
+
+* bump globby from 14.1.0 to 15.0.0 ([#1152](https://github.com/d3xter666/ui5-tooling/issues/1152)) ([2cb5cd1](https://github.com/d3xter666/ui5-tooling/commit/2cb5cd1380f43086a2cf52ca7c15aa4a6ff09877))
+
+## [4.0.4](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.3...fs-v4.0.4) (2025-10-21)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/logger bumped from ^4.0.2 to ^4.1.1
+
+## [4.0.3](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.2...fs-v4.0.3) (2025-10-20)
+
+
+### Bug Fixes
+
+* Align release-please versions ([#25](https://github.com/d3xter666/ui5-tooling/issues/25)) ([28a0cdf](https://github.com/d3xter666/ui5-tooling/commit/28a0cdfd788ec2bb3fbc4bd325101b0e4a3f331e))
+* Feat package release ([#22](https://github.com/d3xter666/ui5-tooling/issues/22)) ([a4754c3](https://github.com/d3xter666/ui5-tooling/commit/a4754c3b6f24af681c89c4eecc9a4893082c65ff))
+
+
+### Dependencies
+
+* bump globby from 14.1.0 to 15.0.0 ([#1152](https://github.com/d3xter666/ui5-tooling/issues/1152)) ([2cb5cd1](https://github.com/d3xter666/ui5-tooling/commit/2cb5cd1380f43086a2cf52ca7c15aa4a6ff09877))
+
+## [4.0.3](https://github.com/d3xter666/ui5-tooling/compare/fs-v4.0.2...fs-v4.0.3) (2025-10-20)
+
+
+### Dependencies
+
+* bump globby from 14.1.0 to 15.0.0 ([#1152](https://github.com/d3xter666/ui5-tooling/issues/1152)) ([2cb5cd1](https://github.com/d3xter666/ui5-tooling/commit/2cb5cd1380f43086a2cf52ca7c15aa4a6ff09877))
+
+## 1.0.0 (2025-10-20)
+
+
+### Dependencies
+
+* bump globby from 14.1.0 to 15.0.0 ([#1152](https://github.com/d3xter666/ui5-tooling/issues/1152)) ([2cb5cd1](https://github.com/d3xter666/ui5-tooling/commit/2cb5cd1380f43086a2cf52ca7c15aa4a6ff09877))
+
 ## [v4.0.2] - 2025-09-11
 ### Bug Fixes
 - Rename project to UI5 CLI [`e8491c3`](https://github.com/SAP/ui5-fs/commit/e8491c39e879560eaa5056b1ee0e2377a4e88f0d)

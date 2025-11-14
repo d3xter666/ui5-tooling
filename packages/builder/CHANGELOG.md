@@ -5,6 +5,128 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-builder/compare/v4.0.11...HEAD).
 
 <a name="v4.0.11"></a>
+## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.0.11...builder-v4.1.0) (2025-11-14)
+
+
+### Features
+
+* **builder:** Enhance generateFlexChangeBundle task to add new 'flexBundle' property to the manifest.json ([#1165](https://github.com/d3xter666/ui5-tooling/issues/1165)) ([7ee5914](https://github.com/d3xter666/ui5-tooling/commit/7ee5914f5ee636b24846a8dbd9bc617adb9dbe45))
+* Changelog update ([#42](https://github.com/d3xter666/ui5-tooling/issues/42)) ([8fd62ad](https://github.com/d3xter666/ui5-tooling/commit/8fd62ad3e781a1124f4642f5591181ce406e8e3f))
+
+
+### Bug Fixes
+
+* Builder fix test ([7be1e3a](https://github.com/d3xter666/ui5-tooling/commit/7be1e3a838a55b0dbc75b51170987a262f9b691d))
+* Prerelases don't have ranges ([b353eba](https://github.com/d3xter666/ui5-tooling/commit/b353eba481dba1b3233c8775a202c73d6e45eb54))
+* Update changelogs ([#36](https://github.com/d3xter666/ui5-tooling/issues/36)) ([2e8348c](https://github.com/d3xter666/ui5-tooling/commit/2e8348c1409290c18f848f886cf9a81b3634418a))
+* Use real versions ([e1de58f](https://github.com/d3xter666/ui5-tooling/commit/e1de58ffb03603d12d6bfdf38e541a3ee11211e5))
+
+
+### Dependencies
+
+* **builder:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([e771ed1](https://github.com/d3xter666/ui5-tooling/commit/e771ed11f014f0121ee0bf16246364566675de18))
+* **builder:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([0d1f6f5](https://github.com/d3xter666/ui5-tooling/commit/0d1f6f5f2e323e6f03887c35042e122a6e16688a))
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/logger bumped from ^4.0.2 to ^4.1.0
+  * devDependencies
+    * @ui5/project bumped from ^4.0.8 to ^4.1.0
+
+## [4.2.5](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.2.4...builder-v4.2.5) (2025-10-30)
+
+
+### Dependencies
+
+* **builder:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([c0a730f](https://github.com/d3xter666/ui5-tooling/commit/c0a730f87f7350dfbae1a6eb08ceb2b9128fdcf5))
+
+## [4.2.4](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.2.3...builder-v4.2.4) (2025-10-30)
+
+
+### Dependencies
+
+* **builder:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([d5c978b](https://github.com/d3xter666/ui5-tooling/commit/d5c978beac149b7c4a93bb73fb01dbdce73b2216))
+
+## [4.2.3](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.2.2...builder-v4.2.3) (2025-10-28)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/fs bumped from ^4.0.8 to ^4.0.9
+    * @ui5/logger bumped from ^4.2.2 to ^4.2.3
+  * devDependencies
+    * @ui5/project bumped from ^4.0.12 to ^4.0.13
+
+## [4.2.2](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.2.0...builder-v4.2.2) (2025-10-28)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/fs bumped from ^4.0.7 to ^4.0.8
+    * @ui5/logger bumped from ^4.2.1 to ^4.2.2
+  * devDependencies
+    * @ui5/project bumped from ^4.0.11 to ^4.0.12
+
+## [4.2.1](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.2.0...builder-v4.2.1) (2025-10-27)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/fs bumped from ^4.0.5 to ^4.0.7
+    * @ui5/logger bumped from ^4.0.2 to ^4.2.1
+  * devDependencies
+    * @ui5/project bumped from ^4.0.7 to ^4.0.11
+
+## [4.2.0](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.1.2...builder-v4.2.0) (2025-10-27)
+
+
+### Features
+
+* Changelog update ([#42](https://github.com/d3xter666/ui5-tooling/issues/42)) ([bffc946](https://github.com/d3xter666/ui5-tooling/commit/bffc946d9ef1e072a14972c9c4a903c35b70adee))
+
+
+### Bug Fixes
+
+* Builder fix test ([bdc4575](https://github.com/d3xter666/ui5-tooling/commit/bdc4575994f8a4a696051d03cfb75a512f2c0af6))
+* Update changelogs ([#36](https://github.com/d3xter666/ui5-tooling/issues/36)) ([3e13538](https://github.com/d3xter666/ui5-tooling/commit/3e13538f14f2fa79ae2413d7e5451ac8e74b89d0))
+
+## [4.1.2](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.1.1...builder-v4.1.2) (2025-10-27)
+
+
+### Bug Fixes
+
+* Builder fix test ([bdc4575](https://github.com/d3xter666/ui5-tooling/commit/bdc4575994f8a4a696051d03cfb75a512f2c0af6))
+
+## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.0.13...builder-v4.1.0) (2025-10-24)
+
+
+### Features
+
+* Changelog update ([#42](https://github.com/d3xter666/ui5-tooling/issues/42)) ([bffc946](https://github.com/d3xter666/ui5-tooling/commit/bffc946d9ef1e072a14972c9c4a903c35b70adee))
+
+## [4.0.13](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.0.12...builder-v4.0.13) (2025-10-24)
+
+
+### Bug Fixes
+
+* Update changelogs ([#36](https://github.com/d3xter666/ui5-tooling/issues/36)) ([3e13538](https://github.com/d3xter666/ui5-tooling/commit/3e13538f14f2fa79ae2413d7e5451ac8e74b89d0))
+
+## [4.0.12](https://github.com/d3xter666/ui5-tooling/compare/builder-v4.0.11...builder-v4.0.12) (2025-10-22)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/fs bumped from ^4.0.2 to ^4.0.5
+  * devDependencies
+    * @ui5/project bumped from ^4.0.6 to ^4.0.7
+
 ## [v4.0.11] - 2025-09-11
 ### Bug Fixes
 - Rename project to UI5 CLI [`2d0cb3a`](https://github.com/SAP/ui5-builder/commit/2d0cb3a222508facec0a4103d048f92c2fd0b41f)
@@ -72,13 +194,13 @@ A list of unreleased changes can be found [here](https://github.com/SAP/ui5-buil
 
 
 <a name="v4.0.0"></a>
-## [v4.0.0] - 2024-07-23
+## [v4.0.0] - 2024-07-23 
 ### Breaking Changes
 - Drop node v21 support [`7b27171`](https://github.com/SAP/ui5-builder/commit/7b2717166686aeef8d19b1f3134ef4f39de25a80)
 - Discontinue bundling of JavaScript modules as string [`7691b08`](https://github.com/SAP/ui5-builder/commit/7691b08c4cd8abc7fe3922ec913f80dca372ba4f)
 - Task API arguments rename ([#995](https://github.com/SAP/ui5-builder/issues/995)) [`d1f87e0`](https://github.com/SAP/ui5-builder/commit/d1f87e0cb8b65005b034ff00b7e0d66f4a5d279e)
 - Require Node.js 20.11.x/>=21.2.0 and npm >=10 [`b76ff75`](https://github.com/SAP/ui5-builder/commit/b76ff7588d65c5b5ff8fb9861a3562680e8c2e74)
-- **Bundling:** Enforce usage of sap.ui.predefine instead function wrappers ([#1021](https://github.com/SAP/ui5-builder/issues/1021)) [`4bda728`](https://github.com/SAP/ui5-builder/commit/4bda7289383e8645556c68976a05db0ab5698a2b)
+- **Bundling:** Enforce usage of sap.ui.predefine instead function wrappers ([#1021](https://github.com/SAP/ui5-builder/issues/1021)) [`4bda728`](https://github.com/SAP/ui5-builder/commit/4bda7289383e8645556c68976a05db0ab5698a2b) 
 
 ### Dependency Updates
 - Bump rimraf from 5.0.8 to 6.0.1 [`2b4f309`](https://github.com/SAP/ui5-builder/commit/2b4f3094107bfa7ace18091731fe2f048b233754)
@@ -91,7 +213,7 @@ A list of unreleased changes can be found [here](https://github.com/SAP/ui5-buil
 - Apply default values to bunde definitions for standard tasks ([#1033](https://github.com/SAP/ui5-builder/issues/1033)) [`4178e1a`](https://github.com/SAP/ui5-builder/commit/4178e1a0315ad16b7774183a18e326f8c52f5f44)
 - **Bundle 'require' section with async flag for specVersion:** 4.0 ([#1042](https://github.com/SAP/ui5-builder/issues/1042)) [`dfa67fe`](https://github.com/SAP/ui5-builder/commit/dfa67feb91b7de0d61c2713eafa639f001484d9b)
 - **bundle/Builder:** Support async require sections and conditional core boot [`e421e2f`](https://github.com/SAP/ui5-builder/commit/e421e2ff7e604d9035b86d666ebaf75d29212332)
-- **manifest.json:** Auto-fill supportedLocales [`b085634`](https://github.com/SAP/ui5-builder/commit/b085634555193acc669ed37e8e4b817b9798698b)
+- **manifest.json:** Auto-fill supportedLocales [`b085634`](https://github.com/SAP/ui5-builder/commit/b085634555193acc669ed37e8e4b817b9798698b) 
 
 ### BREAKING CHANGE
 

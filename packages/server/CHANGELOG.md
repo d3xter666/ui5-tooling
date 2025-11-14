@@ -5,6 +5,146 @@ This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html
 A list of unreleased changes can be found [here](https://github.com/SAP/ui5-server/compare/v4.0.7...HEAD).
 
 <a name="v4.0.7"></a>
+## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/server-v4.0.7...server-v4.1.0) (2025-11-14)
+
+
+### Features
+
+* A new Server feature ([da9740d](https://github.com/d3xter666/ui5-tooling/commit/da9740d2389cfe1dd86c1b6b1df4e3880287d92b))
+* Docs updates ([108b874](https://github.com/d3xter666/ui5-tooling/commit/108b874d12d886586583b03bb574bddf9a5490fb))
+* Update changelog ([ebb7f99](https://github.com/d3xter666/ui5-tooling/commit/ebb7f998b17689f1747353168191882f30189aa2))
+
+
+### Bug Fixes
+
+* Prerelases don't have ranges ([b353eba](https://github.com/d3xter666/ui5-tooling/commit/b353eba481dba1b3233c8775a202c73d6e45eb54))
+* Use real versions ([e1de58f](https://github.com/d3xter666/ui5-tooling/commit/e1de58ffb03603d12d6bfdf38e541a3ee11211e5))
+
+
+### Dependencies
+
+* **server:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([2e62f80](https://github.com/d3xter666/ui5-tooling/commit/2e62f809bc2c94c3c90bbc3f1919a9f59986ce00))
+* **server:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([34669bf](https://github.com/d3xter666/ui5-tooling/commit/34669bfd8f843697d810ed41f6d3e523b2fd9c81))
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/builder bumped from ^4.1.1 to ^4.1.0
+    * @ui5/logger bumped from ^4.0.2 to ^4.1.0
+  * devDependencies
+    * @ui5/project bumped from ^4.0.8 to ^4.1.0
+
+## [4.4.4](https://github.com/d3xter666/ui5-tooling/compare/server-v4.4.3...server-v4.4.4) (2025-10-30)
+
+
+### Dependencies
+
+* **server:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([7e0d42a](https://github.com/d3xter666/ui5-tooling/commit/7e0d42a0cf989705f6cee7c30d59fbfa96d6e89f))
+
+## [4.4.3](https://github.com/d3xter666/ui5-tooling/compare/server-v4.4.2...server-v4.4.3) (2025-10-30)
+
+
+### Dependencies
+
+* **server:** Update [@ui5](https://github.com/ui5) dependencies to latest versions ([eac68a3](https://github.com/d3xter666/ui5-tooling/commit/eac68a3cbd559925ca4d2611b46fca5df0fd865f))
+
+## [4.4.2](https://github.com/d3xter666/ui5-tooling/compare/server-v4.4.0...server-v4.4.2) (2025-10-28)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/builder bumped from ^4.2.2 to ^4.2.3
+    * @ui5/fs bumped from ^4.0.8 to ^4.0.9
+    * @ui5/logger bumped from ^4.2.2 to ^4.2.3
+  * devDependencies
+    * @ui5/project bumped from ^4.0.12 to ^4.0.13
+
+## [4.4.1](https://github.com/d3xter666/ui5-tooling/compare/server-v4.4.0...server-v4.4.1) (2025-10-28)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/builder bumped from ^4.2.1 to ^4.2.2
+    * @ui5/fs bumped from ^4.0.7 to ^4.0.8
+    * @ui5/logger bumped from ^4.2.1 to ^4.2.2
+  * devDependencies
+    * @ui5/project bumped from ^4.0.11 to ^4.0.12
+
+## [4.4.0](https://github.com/d3xter666/ui5-tooling/compare/server-v4.3.0...server-v4.4.0) (2025-10-28)
+
+
+### Features
+
+* A new Server feature ([74c301e](https://github.com/d3xter666/ui5-tooling/commit/74c301ecabed5b5a6dd36a19bc4a71e720e475d1))
+
+## [4.3.1](https://github.com/d3xter666/ui5-tooling/compare/server-v4.3.0...server-v4.3.1) (2025-10-27)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @ui5/project bumped from ^4.0.10 to ^4.0.11
+
+## [4.3.0](https://github.com/d3xter666/ui5-tooling/compare/server-v4.2.0...server-v4.3.0) (2025-10-27)
+
+
+### Features
+
+* Docs updates ([5c5d13e](https://github.com/d3xter666/ui5-tooling/commit/5c5d13eb655344506028451c9e306c63f6bc1153))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/builder bumped from ^4.1.1 to ^4.2.1
+    * @ui5/fs bumped from ^4.0.6 to ^4.0.7
+    * @ui5/logger bumped from ^4.3.0 to ^4.2.1
+  * devDependencies
+    * @ui5/project bumped from ^4.0.9 to ^4.0.10
+
+## [4.2.0](https://github.com/d3xter666/ui5-tooling/compare/server-v4.1.1...server-v4.2.0) (2025-10-27)
+
+
+### Features
+
+* Update changelog ([0fcbe8b](https://github.com/d3xter666/ui5-tooling/commit/0fcbe8b1037250d79f9dd91435c3fd1d33e4ade6))
+
+## [4.1.0](https://github.com/d3xter666/ui5-tooling/compare/server-v4.0.10...server-v4.1.0) (2025-10-27)
+
+
+### Features
+
+* Update changelog ([0fcbe8b](https://github.com/d3xter666/ui5-tooling/commit/0fcbe8b1037250d79f9dd91435c3fd1d33e4ade6))
+
+## [4.0.9](https://github.com/d3xter666/ui5-tooling/compare/server-v4.1.0...server-v4.0.9) (2025-10-26)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/builder bumped from ^4.0.12 to ^4.1.1
+    * @ui5/fs bumped from ^4.0.5 to ^4.0.6
+    * @ui5/logger bumped from ^4.0.2 to ^4.3.0
+  * devDependencies
+    * @ui5/project bumped from ^4.0.7 to ^4.0.9
+
+## [4.0.8](https://github.com/d3xter666/ui5-tooling/compare/server-v4.0.7...server-v4.0.8) (2025-10-22)
+
+
+### Dependencies 
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ui5/builder bumped from ^4.0.11 to ^4.0.12
+    * @ui5/fs bumped from ^4.0.2 to ^4.0.5
+  * devDependencies
+    * @ui5/project bumped from ^4.0.6 to ^4.0.7
+
 ## [v4.0.7] - 2025-09-11
 ### Bug Fixes
 - Rename project to UI5 CLI [`ece7424`](https://github.com/SAP/ui5-server/commit/ece7424419f39eab655027043871048e0476d272)
