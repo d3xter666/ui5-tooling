@@ -44,7 +44,6 @@ jobs:
               run: |
                   # Create isolated directory for documentation
                   mkdir -p /tmp/isolated-docs
-                  # Copy all files including hidden ones (like .vitepress) directly to isolated-docs
                   cp -r internal/documentation/. /tmp/isolated-docs/
             - name: Install documentation dependencies from NPM
               working-directory: /tmp/isolated-docs
